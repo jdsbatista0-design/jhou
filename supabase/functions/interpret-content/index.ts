@@ -24,6 +24,7 @@ serve(async (req) => {
 
     const systemPrompt = `Você é um assistente que interpreta conteúdo recebido (texto, imagem ou áudio transcrito) e sugere como organizar no sistema de gestão pessoal.
 
+IMPORTANTE: A data de HOJE é ${todayStr} (${dayOfWeek}). Use essa referência para interpretar expressões temporais como "amanhã", "próxima semana", "segunda que vem", etc.
 Responda SEMPRE em JSON válido com esta estrutura:
 {
   "summary": "resumo curto do conteúdo",
