@@ -27,7 +27,6 @@ export default function ItemDetail() {
     deadline: '',
     deadlineTime: '',
     person: '',
-    asset: '',
     value: '',
     tags: [] as string[],
   });
