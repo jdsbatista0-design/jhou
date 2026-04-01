@@ -8,7 +8,7 @@ import { CentralProvider } from "@/contexts/CentralContext";
 import BottomNav from "@/components/BottomNav";
 import LockScreen from "@/components/LockScreen";
 import Dashboard from "@/pages/Dashboard";
-import InboxPage from "@/pages/InboxPage";
+
 import ItemsPage from "@/pages/ItemsPage";
 import ItemDetail from "@/pages/ItemDetail";
 import AgendaPage from "@/pages/AgendaPage";
