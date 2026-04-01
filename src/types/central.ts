@@ -3,6 +3,7 @@ export interface InboxEntry {
   content: string;
   type: 'text' | 'photo' | 'audio';
   photoUrl?: string;
+  audioUrl?: string;
   transcription?: string;
   status: 'pending' | 'processed' | 'archived';
   createdAt: string;
@@ -17,6 +18,7 @@ export interface Item {
   area: string;
   priority?: 'baixa' | 'media' | 'alta' | 'urgente';
   deadline?: string;
+  deadlineTime?: string; // HH:mm for agenda integration
   person?: string;
   asset?: string;
   value?: number;
@@ -45,11 +47,16 @@ export interface AgendaEvent {
   createdAt: string;
 }
 
+export interface TagGroup {
+  name: string;
+  tags: string[];
+}
+
 export interface Settings {
   tipos: string[];
   fases: string[];
   areas: string[];
-  tags: string[];
+  tagGroups: TagGroup[];
   agendaTypes: string[];
 }
 
@@ -57,6 +64,16 @@ export const DEFAULT_SETTINGS: Settings = {
   tipos: ['Ação', 'Oportunidade', 'Ideia', 'Pendência', 'Decisão', 'Melhoria', 'Problema'],
   fases: ['Capturado', 'Aprendendo', 'Acompanhando', 'Analisando', 'Andando', 'Aguardando', 'Travado', 'Concluído'],
   areas: ['Izi', 'Mídia', 'Incorporação', 'Stone', 'Pessoal', 'BJ7Mídia', 'Casa', 'Filhas'],
-  tags: ['estratégico', 'urgente', 'receita', 'follow-up'],
+  tagGroups: [
+    { name: 'Contexto', tags: ['estratégico', 'operacional', 'pessoal', 'delegado'] },
+    { name: 'Leitura', tags: ['urgente', 'importante', 'pode esperar', 'informativo'] },
+    { name: 'Natureza', tags: ['receita', 'custo', 'investimento', 'relacionamento'] },
+    { name: 'Resultado', tags: ['follow-up', 'decisão pendente', 'aguardando retorno', 'concluído parcial'] },
+  ],
   agendaTypes: ['Reunião', 'Visita', 'Compromisso', 'Prazo'],
 };
+
+// Helper to get all tags flattened
+export function getAllTags(settings: Settings): string[] {
+  return settings.tagGroups.flatMap(g => g.tags);
+}

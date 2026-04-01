@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCentral } from '@/contexts/CentralContext';
-import { Item } from '@/types/central';
+import { Item, getAllTags } from '@/types/central';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 export default function ItemDetail() {
   const { id } = useParams();
@@ -24,10 +25,11 @@ export default function ItemDetail() {
     area: settings.areas[0],
     priority: '' as string,
     deadline: '',
+    deadlineTime: '',
     person: '',
     asset: '',
     value: '',
-    tags: '',
+    tags: [] as string[],
   });
 
   useEffect(() => {
@@ -40,10 +42,11 @@ export default function ItemDetail() {
         area: existing.area,
         priority: existing.priority || '',
         deadline: existing.deadline ? existing.deadline.split('T')[0] : '',
+        deadlineTime: existing.deadlineTime || '',
         person: existing.person || '',
         asset: existing.asset || '',
         value: existing.value?.toString() || '',
-        tags: existing.tags.join(', '),
+        tags: existing.tags || [],
       });
     }
   }, [existing]);
@@ -61,10 +64,11 @@ export default function ItemDetail() {
       area: form.area,
       priority: (form.priority || undefined) as Item['priority'],
       deadline: form.deadline ? new Date(form.deadline).toISOString() : undefined,
+      deadlineTime: form.deadlineTime || undefined,
       person: form.person || undefined,
       asset: form.asset || undefined,
       value: form.value ? parseFloat(form.value) : undefined,
-      tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      tags: form.tags,
     };
 
     if (isNew) {
@@ -83,6 +87,13 @@ export default function ItemDetail() {
       toast.success('Item removido');
       navigate('/items');
     }
+  };
+
+  const toggleTag = (tag: string) => {
+    setForm(f => ({
+      ...f,
+      tags: f.tags.includes(tag) ? f.tags.filter(t => t !== tag) : [...f.tags, tag],
+    }));
   };
 
   if (!isNew && !existing) {
@@ -147,16 +158,49 @@ export default function ItemDetail() {
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <Input type="date" placeholder="Prazo" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} className="rounded-xl h-9 text-xs" />
-          <Input placeholder="Pessoa" value={form.person} onChange={e => setForm(f => ({ ...f, person: e.target.value }))} className="rounded-xl h-9 text-xs" />
+          <div className="space-y-1">
+            <label className="text-[11px] text-muted-foreground font-medium">Data</label>
+            <Input type="date" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} className="rounded-xl h-9 text-xs" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] text-muted-foreground font-medium">Hora (agenda)</label>
+            <Input type="time" value={form.deadlineTime} onChange={e => setForm(f => ({ ...f, deadlineTime: e.target.value }))} className="rounded-xl h-9 text-xs" />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
+          <Input placeholder="Pessoa" value={form.person} onChange={e => setForm(f => ({ ...f, person: e.target.value }))} className="rounded-xl h-9 text-xs" />
           <Input placeholder="Ativo (imóvel, empresa...)" value={form.asset} onChange={e => setForm(f => ({ ...f, asset: e.target.value }))} className="rounded-xl h-9 text-xs" />
-          <Input type="number" placeholder="Valor R$" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} className="rounded-xl h-9 text-xs" />
         </div>
 
-        <Input placeholder="Tags (separadas por vírgula)" value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} className="rounded-xl h-9 text-xs" />
+        <Input type="number" placeholder="Valor R$" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} className="rounded-xl h-9 text-xs" />
+
+        {/* Tag selection by group */}
+        <div className="space-y-2">
+          <label className="text-[11px] text-muted-foreground font-medium">Tags</label>
+          {settings.tagGroups.map(group => (
+            <div key={group.name} className="space-y-1">
+              <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{group.name}</p>
+              <div className="flex flex-wrap gap-1">
+                {group.tags.map(tag => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    className={cn(
+                      'text-[11px] px-2.5 py-1 rounded-full transition-colors border',
+                      form.tags.includes(tag)
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-muted text-muted-foreground border-border hover:border-primary/50'
+                    )}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="flex gap-2 pt-2">

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { InboxEntry, Item, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
 
 function generateId() {
@@ -8,7 +8,13 @@ function generateId() {
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
     const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : fallback;
+    if (!stored) return fallback;
+    const parsed = JSON.parse(stored);
+    // Migration: old settings with tags[] instead of tagGroups[]
+    if (key === 'central_settings' && parsed.tags && !parsed.tagGroups) {
+      return { ...fallback, ...parsed, tagGroups: (fallback as any).tagGroups } as T;
+    }
+    return parsed;
   } catch {
     return fallback;
   }
@@ -19,30 +25,36 @@ function saveToStorage<T>(key: string, data: T) {
 }
 
 interface CentralContextType {
-  // Inbox
   inbox: InboxEntry[];
-  addInboxEntry: (content: string, type: InboxEntry['type'], photoUrl?: string) => void;
+  addInboxEntry: (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => void;
   archiveInboxEntry: (id: string) => void;
   convertInboxToItem: (id: string, title?: string) => void;
   convertInboxToMemory: (id: string, title?: string) => void;
-  convertInboxToAgenda: (id: string, datetime: string) => void;
-  // Items
   items: Item[];
-  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'tags' | 'linkedAgendaIds'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds'>>) => void;
+  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds'>>) => void;
   updateItem: (id: string, updates: Partial<Item>) => void;
   deleteItem: (id: string) => void;
-  // Memory
   memories: Memory[];
   addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => void;
   deleteMemory: (id: string) => void;
-  // Agenda
+  // Agenda is now derived from items with deadlines + standalone events
   events: AgendaEvent[];
   addEvent: (event: Omit<AgendaEvent, 'id' | 'createdAt'>) => void;
-  updateEvent: (id: string, updates: Partial<AgendaEvent>) => void;
   deleteEvent: (id: string) => void;
-  // Settings
+  // Combined agenda: items with deadlines + standalone events
+  agendaEntries: AgendaEntry[];
   settings: Settings;
   updateSettings: (updates: Partial<Settings>) => void;
+}
+
+export interface AgendaEntry {
+  id: string;
+  title: string;
+  datetime: string;
+  type: string;
+  source: 'item' | 'event';
+  sourceId: string;
+  item?: Item;
 }
 
 const CentralContext = createContext<CentralContextType | null>(null);
@@ -60,12 +72,43 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => saveToStorage('central_events', events), [events]);
   useEffect(() => saveToStorage('central_settings', settings), [settings]);
 
-  const addInboxEntry = useCallback((content: string, type: InboxEntry['type'], photoUrl?: string) => {
+  // Derived agenda: items with deadline + standalone events
+  const agendaEntries = useMemo<AgendaEntry[]>(() => {
+    const fromItems: AgendaEntry[] = items
+      .filter(i => i.deadline && i.fase !== 'Concluído')
+      .map(i => ({
+        id: `item-${i.id}`,
+        title: i.title,
+        datetime: i.deadlineTime
+          ? `${i.deadline!.split('T')[0]}T${i.deadlineTime}`
+          : i.deadline!,
+        type: i.tipo,
+        source: 'item' as const,
+        sourceId: i.id,
+        item: i,
+      }));
+
+    const fromEvents: AgendaEntry[] = events.map(e => ({
+      id: `event-${e.id}`,
+      title: e.title,
+      datetime: e.datetime,
+      type: e.type,
+      source: 'event' as const,
+      sourceId: e.id,
+    }));
+
+    return [...fromItems, ...fromEvents].sort(
+      (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+    );
+  }, [items, events]);
+
+  const addInboxEntry = useCallback((content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => {
     setInbox(prev => [{
       id: generateId(),
       content,
       type,
       photoUrl,
+      audioUrl,
       status: 'pending',
       createdAt: new Date().toISOString(),
     }, ...prev]);
@@ -113,23 +156,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const convertInboxToAgenda = useCallback((id: string, datetime: string) => {
-    setInbox(prev => {
-      const entry = prev.find(e => e.id === id);
-      if (!entry) return prev;
-      const newEvent: AgendaEvent = {
-        id: generateId(),
-        title: entry.content.slice(0, 100),
-        datetime,
-        type: settings.agendaTypes[0],
-        createdAt: new Date().toISOString(),
-      };
-      setEvents(p => [newEvent, ...p]);
-      return prev.map(e => e.id === id ? { ...e, status: 'processed' as const } : e);
-    });
-  }, [settings]);
-
-  const addItem = useCallback((item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'tags' | 'linkedAgendaIds'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds'>>) => {
+  const addItem = useCallback((item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds'>>) => {
     const now = new Date().toISOString();
     setItems(prev => [{
       ...item,
@@ -161,10 +188,6 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     setEvents(prev => [{ ...event, id: generateId(), createdAt: new Date().toISOString() }, ...prev]);
   }, []);
 
-  const updateEvent = useCallback((id: string, updates: Partial<AgendaEvent>) => {
-    setEvents(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
-  }, []);
-
   const deleteEvent = useCallback((id: string) => {
     setEvents(prev => prev.filter(e => e.id !== id));
   }, []);
@@ -175,10 +198,10 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CentralContext.Provider value={{
-      inbox, addInboxEntry, archiveInboxEntry, convertInboxToItem, convertInboxToMemory, convertInboxToAgenda,
+      inbox, addInboxEntry, archiveInboxEntry, convertInboxToItem, convertInboxToMemory,
       items, addItem, updateItem, deleteItem,
       memories, addMemory, deleteMemory,
-      events, addEvent, updateEvent, deleteEvent,
+      events, addEvent, deleteEvent, agendaEntries,
       settings, updateSettings,
     }}>
       {children}

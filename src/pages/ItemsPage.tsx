@@ -13,13 +13,35 @@ export default function ItemsPage() {
   const [search, setSearch] = useState('');
   const [filterFase, setFilterFase] = useState<string | null>(null);
   const [filterArea, setFilterArea] = useState<string | null>(null);
+  const [filterTipo, setFilterTipo] = useState<string | null>(null);
 
   const filtered = items.filter(i => {
-    if (search && !i.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !i.title.toLowerCase().includes(search.toLowerCase()) && !i.description?.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterFase && i.fase !== filterFase) return false;
     if (filterArea && i.area !== filterArea) return false;
+    if (filterTipo && i.tipo !== filterTipo) return false;
     return true;
   });
+
+  const FilterRow = ({ label, options, value, onChange }: { label: string; options: string[]; value: string | null; onChange: (v: string | null) => void }) => (
+    <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+      <button
+        onClick={() => onChange(null)}
+        className={cn('text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors', !value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
+      >
+        {label}
+      </button>
+      {options.map(o => (
+        <button
+          key={o}
+          onClick={() => onChange(value === o ? null : o)}
+          className={cn('text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors', value === o ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
+        >
+          {o}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-4 pb-4">
@@ -32,49 +54,13 @@ export default function ItemsPage() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar items..."
-          className="pl-9 h-9 rounded-xl"
-        />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar items..." className="pl-9 h-9 rounded-xl" />
       </div>
 
-      <div className="space-y-2">
-        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          <button
-            onClick={() => setFilterFase(null)}
-            className={cn('text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors', !filterFase ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
-          >
-            Todas fases
-          </button>
-          {settings.fases.map(f => (
-            <button
-              key={f}
-              onClick={() => setFilterFase(filterFase === f ? null : f)}
-              className={cn('text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors', filterFase === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          <button
-            onClick={() => setFilterArea(null)}
-            className={cn('text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors', !filterArea ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
-          >
-            Todas áreas
-          </button>
-          {settings.areas.map(a => (
-            <button
-              key={a}
-              onClick={() => setFilterArea(filterArea === a ? null : a)}
-              className={cn('text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors', filterArea === a ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
-            >
-              {a}
-            </button>
-          ))}
-        </div>
+      <div className="space-y-1.5">
+        <FilterRow label="Todos tipos" options={settings.tipos} value={filterTipo} onChange={setFilterTipo} />
+        <FilterRow label="Todas fases" options={settings.fases} value={filterFase} onChange={setFilterFase} />
+        <FilterRow label="Todas áreas" options={settings.areas} value={filterArea} onChange={setFilterArea} />
       </div>
 
       <div className="space-y-2">
