@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Archive, ArrowRight, BookMarked, Trash2, Sparkles, Loader2, Check, Pencil, X, Square, CheckSquare } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Archive, ArrowRight, BookMarked, Trash2, Loader2, Check, Pencil, X, Square, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,7 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<AISuggestion | null>(null);
+  const hasTriggeredRef = useRef(false);
 
   const handleInterpret = async () => {
     setLoading(true);
@@ -80,6 +81,14 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
       setLoading(false);
     }
   };
+
+  // Auto-trigger AI analysis for pending entries
+  useEffect(() => {
+    if (entry.status === 'pending' && !aiResult && !loading && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+      handleInterpret();
+    }
+  }, []);
 
   const toggleSelect = (index: number) => {
     setSelectedItems(prev => {
@@ -279,10 +288,10 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
           {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true, locale: ptBR })}
         </span>
         <div className="flex gap-1">
-          {entry.status === 'pending' && !aiResult && (
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Interpretar com IA" onClick={handleInterpret} disabled={loading}>
-              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            </Button>
+          {loading && (
+            <div className="h-7 w-7 flex items-center justify-center text-primary">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            </div>
           )}
           <Button variant="ghost" size="icon" className="h-7 w-7" title="Virar Item" onClick={() => convertInboxToItem(entry.id)}>
             <ArrowRight className="h-3.5 w-3.5" />
