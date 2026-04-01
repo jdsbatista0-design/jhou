@@ -1,11 +1,10 @@
-import { Home, Inbox, List, CalendarDays, Settings, BarChart3 } from 'lucide-react';
+import { Home, List, CalendarDays, Settings, BarChart3 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useCentral } from '@/contexts/CentralContext';
 
 const tabs = [
   { path: '/', icon: Home, label: 'Início' },
-  { path: '/inbox', icon: Inbox, label: 'Inbox' },
   { path: '/items', icon: List, label: 'Items' },
   { path: '/agenda', icon: CalendarDays, label: 'Agenda' },
   { path: '/reports', icon: BarChart3, label: 'Painel' },
@@ -34,7 +33,7 @@ export default function BottomNav() {
             >
               <Icon className="h-4.5 w-4.5" strokeWidth={active ? 2.5 : 2} />
               <span className="text-[9px] font-medium">{label}</span>
-              {label === 'Inbox' && pendingCount > 0 && (
+              {label === 'Início' && pendingCount > 0 && (
                 <span className="absolute -top-0.5 right-0 h-3.5 min-w-3.5 px-0.5 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold">
                   {pendingCount}
                 </span>
