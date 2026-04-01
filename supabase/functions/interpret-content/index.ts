@@ -13,11 +13,18 @@ serve(async (req) => {
 
   try {
     const { type, content, imageBase64, audioBase64 } = await req.json();
+
+    // Current date for temporal references (e.g. "amanhã", "próxima semana")
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const dayNames = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+    const dayOfWeek = dayNames[now.getUTCDay()];
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const systemPrompt = `Você é um assistente que interpreta conteúdo recebido (texto, imagem ou áudio transcrito) e sugere como organizar no sistema de gestão pessoal.
 
+IMPORTANTE: A data de HOJE é ${todayStr} (${dayOfWeek}). Use essa referência para interpretar expressões temporais como "amanhã", "próxima semana", "segunda que vem", etc.
 Responda SEMPRE em JSON válido com esta estrutura:
 {
   "summary": "resumo curto do conteúdo",
