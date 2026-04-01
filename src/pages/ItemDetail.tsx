@@ -168,12 +168,23 @@ export default function ItemDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Input placeholder="Pessoa" value={form.person} onChange={e => setForm(f => ({ ...f, person: e.target.value }))} className="rounded-xl h-9 text-xs" />
-          <Input placeholder="Ativo (imóvel, empresa...)" value={form.asset} onChange={e => setForm(f => ({ ...f, asset: e.target.value }))} className="rounded-xl h-9 text-xs" />
-        </div>
+        <Input placeholder="Pessoa" value={form.person} onChange={e => setForm(f => ({ ...f, person: e.target.value }))} className="rounded-xl h-9 text-xs" />
 
-        <Input type="number" placeholder="Valor R$" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} className="rounded-xl h-9 text-xs" />
+        <div className="space-y-1">
+          <label className="text-[11px] text-muted-foreground font-medium">Valor R$</label>
+          <Input
+            placeholder="0,00"
+            value={form.value}
+            onChange={e => {
+              const raw = e.target.value.replace(/[^\d]/g, '');
+              if (!raw) { setForm(f => ({ ...f, value: '' })); return; }
+              const num = (parseInt(raw) / 100).toFixed(2);
+              const formatted = parseFloat(num).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+              setForm(f => ({ ...f, value: formatted }));
+            }}
+            className="rounded-xl h-9 text-xs"
+          />
+        </div>
 
         {/* Tag selection by group */}
         <div className="space-y-2">
