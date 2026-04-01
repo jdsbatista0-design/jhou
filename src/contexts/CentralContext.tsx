@@ -132,6 +132,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
         id: generateId(),
         title: title || entry.content.slice(0, 100),
         description: entry.content,
+        photoUrl: entry.photoUrl,
         tipo: settings.tipos[0],
         fase: settings.fases[0],
         area: settings.areas[0],
