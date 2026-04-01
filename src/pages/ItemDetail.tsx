@@ -66,8 +66,7 @@ export default function ItemDetail() {
       deadline: form.deadline ? new Date(form.deadline).toISOString() : undefined,
       deadlineTime: form.deadlineTime || undefined,
       person: form.person || undefined,
-      asset: form.asset || undefined,
-      value: form.value ? parseFloat(form.value) : undefined,
+      value: form.value ? parseFloat(form.value.replace(/\./g, '').replace(',', '.')) : undefined,
       tags: form.tags,
     };
 
