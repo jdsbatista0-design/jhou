@@ -9,6 +9,12 @@ export interface InboxEntry {
   createdAt: string;
 }
 
+export interface ItemComment {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface Item {
   id: string;
   title: string;
@@ -25,6 +31,7 @@ export interface Item {
   value?: number;
   tags: string[];
   linkedAgendaIds: string[];
+  comments: ItemComment[];
   createdAt: string;
   updatedAt: string;
 }

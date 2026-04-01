@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { InboxEntry, Item, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
+import { InboxEntry, Item, ItemComment, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
