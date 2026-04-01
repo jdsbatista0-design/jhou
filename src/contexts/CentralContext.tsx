@@ -140,6 +140,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
         area: settings.areas[0],
         tags: [],
         linkedAgendaIds: [],
+        comments: [],
         createdAt: now,
         updatedAt: now,
       };
