@@ -158,6 +158,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
         title: title || entry.content.slice(0, 100),
         content: entry.content,
         tags: [],
+        category: 'geral',
         createdAt: new Date().toISOString(),
       };
       setMemories(p => [newMemory, ...p]);
@@ -196,7 +197,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addMemory = useCallback((memory: Omit<Memory, 'id' | 'createdAt'>) => {
-    setMemories(prev => [{ ...memory, id: generateId(), createdAt: new Date().toISOString() }, ...prev]);
+    setMemories(prev => [{ ...memory, id: generateId(), category: memory.category || 'geral', createdAt: new Date().toISOString() }, ...prev]);
   }, []);
 
   const deleteMemory = useCallback((id: string) => {

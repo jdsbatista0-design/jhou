@@ -36,12 +36,39 @@ export interface Item {
   updatedAt: string;
 }
 
+export type MemoryCategory = 
+  | 'senhas'
+  | 'receitas'
+  | 'viagens'
+  | 'livro'
+  | 'desejos'
+  | 'proposito'
+  | 'rotina'
+  | 'geral';
+
+export const MEMORY_CATEGORIES: { value: MemoryCategory; label: string; icon: string }[] = [
+  { value: 'geral', label: 'Geral', icon: '📝' },
+  { value: 'senhas', label: 'Senhas', icon: '🔐' },
+  { value: 'receitas', label: 'Receitas', icon: '🍳' },
+  { value: 'viagens', label: 'Viagens', icon: '✈️' },
+  { value: 'livro', label: 'Meu Livro', icon: '📖' },
+  { value: 'desejos', label: 'Desejos', icon: '⭐' },
+  { value: 'proposito', label: 'Propósito', icon: '🧭' },
+  { value: 'rotina', label: 'Rotina', icon: '⏰' },
+];
+
 export interface Memory {
   id: string;
   title: string;
   content: string;
   tags: string[];
+  category: MemoryCategory;
   area?: string;
+  // Extra fields for specific categories
+  login?: string;
+  password?: string;
+  url?: string;
+  city?: string;
   createdAt: string;
 }
 
