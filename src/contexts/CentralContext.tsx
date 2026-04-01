@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { InboxEntry, Item, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
+import { InboxEntry, Item, ItemComment, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -32,9 +32,11 @@ interface CentralContextType {
   convertInboxToItem: (id: string, title?: string) => void;
   convertInboxToMemory: (id: string, title?: string) => void;
   items: Item[];
-  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds'>>) => void;
+  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => void;
   updateItem: (id: string, updates: Partial<Item>) => void;
   deleteItem: (id: string) => void;
+  addComment: (itemId: string, text: string) => void;
+  deleteComment: (itemId: string, commentId: string) => void;
   memories: Memory[];
   addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => void;
   deleteMemory: (id: string) => void;
@@ -138,6 +140,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
         area: settings.areas[0],
         tags: [],
         linkedAgendaIds: [],
+        comments: [],
         createdAt: now,
         updatedAt: now,
       };
@@ -162,13 +165,14 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const addItem = useCallback((item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds'>>) => {
+  const addItem = useCallback((item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => {
     const now = new Date().toISOString();
     setItems(prev => [{
       ...item,
       id: generateId(),
       tags: item.tags || [],
       linkedAgendaIds: item.linkedAgendaIds || [],
+      comments: item.comments || [],
       createdAt: now,
       updatedAt: now,
     }, ...prev]);
@@ -180,6 +184,15 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
 
   const deleteItem = useCallback((id: string) => {
     setItems(prev => prev.filter(i => i.id !== id));
+  }, []);
+
+  const addComment = useCallback((itemId: string, text: string) => {
+    const comment: ItemComment = { id: generateId(), text, createdAt: new Date().toISOString() };
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, comments: [...(i.comments || []), comment], updatedAt: new Date().toISOString() } : i));
+  }, []);
+
+  const deleteComment = useCallback((itemId: string, commentId: string) => {
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, comments: (i.comments || []).filter(c => c.id !== commentId) } : i));
   }, []);
 
   const addMemory = useCallback((memory: Omit<Memory, 'id' | 'createdAt'>) => {
@@ -205,7 +218,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   return (
     <CentralContext.Provider value={{
       inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory,
-      items, addItem, updateItem, deleteItem,
+      items, addItem, updateItem, deleteItem, addComment, deleteComment,
       memories, addMemory, deleteMemory,
       events, addEvent, deleteEvent, agendaEntries,
       settings, updateSettings,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Save } from 'lucide-react';
+import { ArrowLeft, Trash2, Save, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,13 +9,17 @@ import { useCentral } from '@/contexts/CentralContext';
 import { Item, getAllTags } from '@/types/central';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { items, settings, addItem, updateItem, deleteItem } = useCentral();
+  const { items, settings, addItem, updateItem, deleteItem, addComment, deleteComment } = useCentral();
   const isNew = id === 'new';
   const existing = !isNew ? items.find(i => i.id === id) : null;
+
+  const [commentText, setCommentText] = useState('');
 
   const [form, setForm] = useState({
     title: '',
@@ -86,6 +90,13 @@ export default function ItemDetail() {
     }
   };
 
+  const handleAddComment = () => {
+    if (!commentText.trim() || !id || isNew) return;
+    addComment(id, commentText.trim());
+    setCommentText('');
+    toast.success('Comentário adicionado');
+  };
+
   const toggleTag = (tag: string) => {
     setForm(f => ({
       ...f,
@@ -101,6 +112,8 @@ export default function ItemDetail() {
       </div>
     );
   }
+
+  const comments = existing?.comments || [];
 
   return (
     <div className="space-y-4 pb-4">
@@ -213,6 +226,45 @@ export default function ItemDetail() {
           ))}
         </div>
       </div>
+
+      {/* Comments / Activity Log */}
+      {!isNew && (
+        <div className="space-y-3 pt-2">
+          <label className="text-xs font-semibold text-foreground">Atualizações</label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="O que foi feito / próximo passo..."
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddComment()}
+              className="rounded-xl h-9 text-xs flex-1"
+            />
+            <Button size="icon" variant="secondary" onClick={handleAddComment} className="rounded-xl h-9 w-9 shrink-0">
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          {comments.length > 0 ? (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {[...comments].reverse().map(c => (
+                <div key={c.id} className="bg-muted/50 border border-border rounded-lg px-3 py-2 group relative">
+                  <p className="text-xs text-foreground whitespace-pre-wrap">{c.text}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {format(new Date(c.createdAt), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                  <button
+                    onClick={() => { if (id) deleteComment(id, c.id); }}
+                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground italic">Nenhuma atualização ainda.</p>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2 pt-2">
         <Button onClick={handleSave} className="flex-1 rounded-xl gap-1">
