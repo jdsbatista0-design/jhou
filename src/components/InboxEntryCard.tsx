@@ -82,6 +82,14 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
     }
   };
 
+  // Auto-trigger AI analysis for pending entries
+  useEffect(() => {
+    if (entry.status === 'pending' && !aiResult && !loading && !hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+      handleInterpret();
+    }
+  }, []);
+
   const toggleSelect = (index: number) => {
     setSelectedItems(prev => {
       const next = new Set(prev);
