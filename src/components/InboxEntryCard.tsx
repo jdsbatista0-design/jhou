@@ -279,12 +279,11 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
           {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true, locale: ptBR })}
         </span>
         <div className="flex gap-1">
-          {entry.status === 'pending' && !aiResult && (
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Interpretar com IA" onClick={handleInterpret} disabled={loading}>
-              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            </Button>
+          {loading && (
+            <div className="h-7 w-7 flex items-center justify-center text-primary">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            </div>
           )}
-          <Button variant="ghost" size="icon" className="h-7 w-7" title="Virar Item" onClick={() => convertInboxToItem(entry.id)}>
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" title="Salvar como Memória" onClick={() => convertInboxToMemory(entry.id)}>
