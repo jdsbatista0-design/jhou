@@ -37,7 +37,7 @@ const App = () => {
               <main className="max-w-lg mx-auto px-4 pt-4 pb-20">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
-                  <Route path="/inbox" element={<InboxPage />} />
+                  
                   <Route path="/items" element={<ItemsPage />} />
                   <Route path="/items/:id" element={<ItemDetail />} />
                   <Route path="/agenda" element={<AgendaPage />} />
