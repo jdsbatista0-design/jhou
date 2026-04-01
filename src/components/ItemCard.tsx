@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { format, isToday, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useCentral } from '@/contexts/CentralContext';
+import { Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgente: 'bg-destructive/15 text-destructive border-destructive/30',
@@ -14,37 +17,62 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 export default function ItemCard({ item }: { item: Item }) {
   const navigate = useNavigate();
+  const { updateItem } = useCentral();
   const deadlineDate = item.deadline ? new Date(item.deadline) : null;
   const isOverdue = deadlineDate && isPast(deadlineDate) && !isToday(deadlineDate) && item.fase !== 'Concluído';
+  const isConcluido = item.fase === 'Concluído';
+
+  const handleToggleConcluido = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newFase = isConcluido ? 'Capturado' : 'Concluído';
+    updateItem(item.id, { fase: newFase });
+    toast.success(isConcluido ? 'Item reaberto' : 'Item concluído ✅');
+  };
 
   return (
     <div
       onClick={() => navigate(`/items/${item.id}`)}
-      className="bg-card border border-border rounded-xl p-3 space-y-2 cursor-pointer hover:border-primary/30 transition-colors active:scale-[0.98]"
+      className={cn(
+        "bg-card border border-border rounded-xl p-3 space-y-2 cursor-pointer hover:border-primary/30 transition-colors active:scale-[0.98]",
+        isConcluido && "opacity-60"
+      )}
     >
       {item.photoUrl && (
         <img src={item.photoUrl} alt="" className="w-full h-28 object-cover rounded-lg" />
       )}
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-medium text-foreground leading-tight flex-1">{item.title}</h3>
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          <button
+            onClick={handleToggleConcluido}
+            className={cn(
+              "mt-0.5 shrink-0 h-4.5 w-4.5 rounded-full border-2 flex items-center justify-center transition-colors",
+              isConcluido
+                ? "bg-primary border-primary text-primary-foreground"
+                : "border-muted-foreground/40 hover:border-primary"
+            )}
+          >
+            {isConcluido && <Check className="h-3 w-3" />}
+          </button>
+          <h3 className={cn("text-sm font-medium text-foreground leading-tight", isConcluido && "line-through")}>{item.title}</h3>
+        </div>
         {item.priority && (
           <Badge variant="outline" className={cn('text-[10px] shrink-0', PRIORITY_COLORS[item.priority])}>
             {item.priority}
           </Badge>
         )}
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5 pl-6">
         <Badge variant="secondary" className="text-[10px]">{item.area}</Badge>
         <Badge variant="outline" className="text-[10px]">{item.fase}</Badge>
         <Badge variant="outline" className="text-[10px]">{item.tipo}</Badge>
       </div>
       {deadlineDate && (
-        <p className={cn('text-[11px]', isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground')}>
+        <p className={cn('text-[11px] pl-6', isOverdue ? 'text-destructive font-medium' : 'text-muted-foreground')}>
           {isOverdue ? '⚠ Vencido: ' : '📅 '}
           {format(deadlineDate, "dd 'de' MMM", { locale: ptBR })}
         </p>
       )}
-      {item.person && <p className="text-[11px] text-muted-foreground">👤 {item.person}</p>}
+      {item.person && <p className="text-[11px] text-muted-foreground pl-6">👤 {item.person}</p>}
     </div>
   );
 }
