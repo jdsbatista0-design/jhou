@@ -186,6 +186,15 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     setItems(prev => prev.filter(i => i.id !== id));
   }, []);
 
+  const addComment = useCallback((itemId: string, text: string) => {
+    const comment: ItemComment = { id: generateId(), text, createdAt: new Date().toISOString() };
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, comments: [...(i.comments || []), comment], updatedAt: new Date().toISOString() } : i));
+  }, []);
+
+  const deleteComment = useCallback((itemId: string, commentId: string) => {
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, comments: (i.comments || []).filter(c => c.id !== commentId) } : i));
+  }, []);
+
   const addMemory = useCallback((memory: Omit<Memory, 'id' | 'createdAt'>) => {
     setMemories(prev => [{ ...memory, id: generateId(), createdAt: new Date().toISOString() }, ...prev]);
   }, []);
