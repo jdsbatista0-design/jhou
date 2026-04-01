@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Archive, ArrowRight, BookMarked, Trash2, Sparkles, Loader2, Check, Pencil, X, Square, CheckSquare } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Archive, ArrowRight, BookMarked, Trash2, Loader2, Check, Pencil, X, Square, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
