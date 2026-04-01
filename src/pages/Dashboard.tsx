@@ -2,13 +2,15 @@ import { useCentral } from '@/contexts/CentralContext';
 import ItemCard from '@/components/ItemCard';
 import VisionSection from '@/components/VisionSection';
 import QuickInput from '@/components/QuickInput';
+import InboxEntryCard from '@/components/InboxEntryCard';
 import { isToday, isThisWeek, differenceInDays, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 
 export default function Dashboard() {
-  const { items, agendaEntries } = useCentral();
+  const { items, agendaEntries, inbox } = useCentral();
   const now = new Date();
+  const pendingInbox = inbox.filter(e => e.status === 'pending');
 
   const todayAgenda = agendaEntries.filter(e => isToday(new Date(e.datetime)));
   const todayItems = items.filter(i => i.deadline && isToday(new Date(i.deadline)) && i.fase !== 'Concluído');
@@ -23,7 +25,6 @@ export default function Dashboard() {
   const urgentes = items.filter(i => i.priority === 'urgente' && i.fase !== 'Concluído');
   const overdue = items.filter(i => i.deadline && new Date(i.deadline) < now && i.fase !== 'Concluído' && !isToday(new Date(i.deadline)));
 
-  // Alertas
   const alertCount = urgentes.length + travado.length + overdue.length;
 
   return (
@@ -37,6 +38,15 @@ export default function Dashboard() {
 
       <QuickInput />
 
+      {/* Inbox pendente */}
+      {pendingInbox.length > 0 && (
+        <VisionSection title="Inbox pendente" icon="📥" count={pendingInbox.length}>
+          {pendingInbox.map(entry => (
+            <InboxEntryCard key={entry.id} entry={entry} />
+          ))}
+        </VisionSection>
+      )}
+
       {/* Alertas */}
       {alertCount > 0 && (
         <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3 space-y-1">
@@ -47,7 +57,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Agenda do dia */}
       {todayAgenda.length > 0 && (
         <VisionSection title="Agenda de hoje" icon="🕐" count={todayAgenda.length}>
           {todayAgenda.map(e => (
@@ -100,7 +109,7 @@ export default function Dashboard() {
         {concluidos.map(i => <ItemCard key={i.id} item={i} />)}
       </VisionSection>
 
-      {items.length === 0 && agendaEntries.length === 0 && (
+      {items.length === 0 && pendingInbox.length === 0 && agendaEntries.length === 0 && (
         <div className="text-center py-12">
           <p className="text-3xl mb-2">📝</p>
           <p className="text-sm text-muted-foreground">Nada por aqui ainda.</p>
