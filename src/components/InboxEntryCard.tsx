@@ -284,6 +284,7 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             </div>
           )}
+          <Button variant="ghost" size="icon" className="h-7 w-7" title="Virar Item" onClick={() => convertInboxToItem(entry.id)}>
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" title="Salvar como Memória" onClick={() => convertInboxToMemory(entry.id)}>
