@@ -119,6 +119,10 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     setInbox(prev => prev.map(e => e.id === id ? { ...e, status: 'archived' as const } : e));
   }, []);
 
+  const deleteInboxEntry = useCallback((id: string) => {
+    setInbox(prev => prev.filter(e => e.id !== id));
+  }, []);
+
   const convertInboxToItem = useCallback((id: string, title?: string) => {
     setInbox(prev => {
       const entry = prev.find(e => e.id === id);
