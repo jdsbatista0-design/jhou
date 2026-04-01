@@ -6,6 +6,8 @@ export interface InboxEntry {
   audioUrl?: string;
   transcription?: string;
   status: 'pending' | 'processed' | 'archived';
+  source?: 'app' | 'whatsapp';
+  whatsappFrom?: string;
   createdAt: string;
 }
 

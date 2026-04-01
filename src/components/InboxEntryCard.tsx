@@ -156,6 +156,12 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
 
   return (
     <div className="bg-card border border-border rounded-xl p-3 space-y-2">
+      {entry.source === 'whatsapp' && (
+        <div className="flex items-center gap-1.5 text-[10px] text-green-600 font-medium">
+          <span>📱 WhatsApp</span>
+          {entry.whatsappFrom && <span className="text-muted-foreground">• {entry.whatsappFrom}</span>}
+        </div>
+      )}
       {entry.type === 'photo' && entry.photoUrl && (
         <img src={entry.photoUrl} alt="" className="w-full h-32 object-cover rounded-lg" />
       )}
