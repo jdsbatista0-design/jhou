@@ -45,13 +45,13 @@ export default function ItemCard({ item }: { item: Item }) {
           <button
             onClick={handleToggleConcluido}
             className={cn(
-              "mt-0.5 shrink-0 h-4.5 w-4.5 rounded-full border-2 flex items-center justify-center transition-colors",
+              "mt-0.5 shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all",
               isConcluido
                 ? "bg-primary border-primary text-primary-foreground"
-                : "border-muted-foreground/40 hover:border-primary"
+                : "border-muted-foreground/30 hover:border-primary hover:bg-primary/5"
             )}
           >
-            {isConcluido && <Check className="h-3 w-3" />}
+            {isConcluido && <Check className="h-3 w-3" strokeWidth={3} />}
           </button>
           <h3 className={cn("text-sm font-medium text-foreground leading-tight", isConcluido && "line-through")}>{item.title}</h3>
         </div>
