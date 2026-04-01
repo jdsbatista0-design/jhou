@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -5,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CentralProvider } from "@/contexts/CentralContext";
 import BottomNav from "@/components/BottomNav";
+import LockScreen from "@/components/LockScreen";
 import Dashboard from "@/pages/Dashboard";
 import InboxPage from "@/pages/InboxPage";
 import ItemsPage from "@/pages/ItemsPage";
@@ -17,33 +19,41 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <CentralProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <div className="min-h-screen bg-background">
-            <main className="max-w-lg mx-auto px-4 pt-4 pb-20">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/inbox" element={<InboxPage />} />
-                <Route path="/items" element={<ItemsPage />} />
-                <Route path="/items/:id" element={<ItemDetail />} />
-                <Route path="/agenda" element={<AgendaPage />} />
-                <Route path="/memory" element={<MemoryPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/reports" element={<ReportsPage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-            <BottomNav />
-          </div>
-        </BrowserRouter>
-      </CentralProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('central_unlocked') === '1');
+
+  if (!unlocked) {
+    return <LockScreen onUnlock={() => setUnlocked(true)} />;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <CentralProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <div className="min-h-screen bg-background">
+              <main className="max-w-lg mx-auto px-4 pt-4 pb-20">
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/inbox" element={<InboxPage />} />
+                  <Route path="/items" element={<ItemsPage />} />
+                  <Route path="/items/:id" element={<ItemDetail />} />
+                  <Route path="/agenda" element={<AgendaPage />} />
+                  <Route path="/memory" element={<MemoryPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </main>
+              <BottomNav />
+            </div>
+          </BrowserRouter>
+        </CentralProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
