@@ -32,9 +32,11 @@ interface CentralContextType {
   convertInboxToItem: (id: string, title?: string) => void;
   convertInboxToMemory: (id: string, title?: string) => void;
   items: Item[];
-  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds'>>) => void;
+  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => void;
   updateItem: (id: string, updates: Partial<Item>) => void;
   deleteItem: (id: string) => void;
+  addComment: (itemId: string, text: string) => void;
+  deleteComment: (itemId: string, commentId: string) => void;
   memories: Memory[];
   addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => void;
   deleteMemory: (id: string) => void;
