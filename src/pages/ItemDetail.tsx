@@ -112,6 +112,9 @@ export default function ItemDetail() {
       </div>
 
       <div className="space-y-3">
+        {existing?.photoUrl && (
+          <img src={existing.photoUrl} alt="" className="w-full h-40 object-cover rounded-xl" />
+        )}
         <Input placeholder="Título *" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl" />
         <Textarea placeholder="Descrição (opcional)" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="rounded-xl min-h-[60px]" />
 

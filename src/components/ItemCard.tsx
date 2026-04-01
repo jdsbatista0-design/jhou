@@ -22,6 +22,9 @@ export default function ItemCard({ item }: { item: Item }) {
       onClick={() => navigate(`/items/${item.id}`)}
       className="bg-card border border-border rounded-xl p-3 space-y-2 cursor-pointer hover:border-primary/30 transition-colors active:scale-[0.98]"
     >
+      {item.photoUrl && (
+        <img src={item.photoUrl} alt="" className="w-full h-28 object-cover rounded-lg" />
+      )}
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-medium text-foreground leading-tight flex-1">{item.title}</h3>
         {item.priority && (
