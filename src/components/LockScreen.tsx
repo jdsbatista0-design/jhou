@@ -88,7 +88,7 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 
         <div
           className={cn(
-            'flex gap-3 justify-center transition-transform',
+            'flex gap-3 justify-center transition-transform relative',
             shake && 'animate-shake'
           )}
         >
