@@ -13,6 +13,12 @@ serve(async (req) => {
 
   try {
     const { type, content, imageBase64, audioBase64 } = await req.json();
+
+    // Current date for temporal references (e.g. "amanhã", "próxima semana")
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const dayNames = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+    const dayOfWeek = dayNames[now.getUTCDay()];
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
