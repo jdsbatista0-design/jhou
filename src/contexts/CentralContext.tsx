@@ -197,7 +197,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addMemory = useCallback((memory: Omit<Memory, 'id' | 'createdAt'>) => {
-    setMemories(prev => [{ ...memory, id: generateId(), createdAt: new Date().toISOString() }, ...prev]);
+    setMemories(prev => [{ ...memory, id: generateId(), category: memory.category || 'geral', createdAt: new Date().toISOString() }, ...prev]);
   }, []);
 
   const deleteMemory = useCallback((id: string) => {
