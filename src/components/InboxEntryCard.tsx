@@ -1,4 +1,4 @@
-import { Archive, ArrowRight, BookMarked, CalendarPlus } from 'lucide-react';
+import { Archive, ArrowRight, BookMarked, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCentral } from '@/contexts/CentralContext';
 import { InboxEntry } from '@/types/central';
@@ -6,12 +6,15 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
-  const { archiveInboxEntry, convertInboxToItem, convertInboxToMemory } = useCentral();
+  const { archiveInboxEntry, convertInboxToItem, convertInboxToMemory, deleteInboxEntry } = useCentral();
 
   return (
     <div className="bg-card border border-border rounded-xl p-3 space-y-2">
       {entry.type === 'photo' && entry.photoUrl && (
         <img src={entry.photoUrl} alt="" className="w-full h-32 object-cover rounded-lg" />
+      )}
+      {entry.type === 'audio' && entry.audioUrl && (
+        <audio src={entry.audioUrl} controls className="w-full h-8" />
       )}
       <p className="text-sm text-foreground leading-relaxed">{entry.content}</p>
       <div className="flex items-center justify-between">
@@ -27,6 +30,9 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" title="Arquivar" onClick={() => archiveInboxEntry(entry.id)}>
             <Archive className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Excluir" onClick={() => deleteInboxEntry(entry.id)}>
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>

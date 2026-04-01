@@ -28,6 +28,7 @@ interface CentralContextType {
   inbox: InboxEntry[];
   addInboxEntry: (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => void;
   archiveInboxEntry: (id: string) => void;
+  deleteInboxEntry: (id: string) => void;
   convertInboxToItem: (id: string, title?: string) => void;
   convertInboxToMemory: (id: string, title?: string) => void;
   items: Item[];
@@ -118,6 +119,10 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     setInbox(prev => prev.map(e => e.id === id ? { ...e, status: 'archived' as const } : e));
   }, []);
 
+  const deleteInboxEntry = useCallback((id: string) => {
+    setInbox(prev => prev.filter(e => e.id !== id));
+  }, []);
+
   const convertInboxToItem = useCallback((id: string, title?: string) => {
     setInbox(prev => {
       const entry = prev.find(e => e.id === id);
@@ -198,7 +203,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CentralContext.Provider value={{
-      inbox, addInboxEntry, archiveInboxEntry, convertInboxToItem, convertInboxToMemory,
+      inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory,
       items, addItem, updateItem, deleteItem,
       memories, addMemory, deleteMemory,
       events, addEvent, deleteEvent, agendaEntries,
