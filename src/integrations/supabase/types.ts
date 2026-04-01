@@ -14,7 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      inbox_entries: {
+        Row: {
+          audio_url: string | null
+          content: string
+          created_at: string
+          id: string
+          photo_url: string | null
+          source: string
+          status: string
+          type: string
+          whatsapp_from: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          photo_url?: string | null
+          source?: string
+          status?: string
+          type?: string
+          whatsapp_from?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          photo_url?: string | null
+          source?: string
+          status?: string
+          type?: string
+          whatsapp_from?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
