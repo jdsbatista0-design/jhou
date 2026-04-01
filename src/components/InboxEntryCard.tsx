@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Archive, ArrowRight, BookMarked, Trash2, Sparkles, Loader2, Check, Pencil, X } from 'lucide-react';
+import { Archive, ArrowRight, BookMarked, Trash2, Sparkles, Loader2, Check, Pencil, X, Square, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,7 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
   const [loading, setLoading] = useState(false);
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   const [createdItems, setCreatedItems] = useState<Set<number>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<AISuggestion | null>(null);
 
@@ -68,13 +69,25 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
         return;
       }
 
-      setAiResult(data as AIResult);
+      const result = data as AIResult;
+      setAiResult(result);
+      // Select all by default
+      setSelectedItems(new Set(result.suggestions.map((_, i) => i)));
     } catch (e) {
       toast.error('Erro ao conectar com IA');
       console.error(e);
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleSelect = (index: number) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
   };
 
   const startEditing = (suggestion: AISuggestion, index: number) => {
@@ -112,30 +125,25 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
       tags: suggestion.tags || [],
     });
     setCreatedItems(prev => new Set(prev).add(index));
-    toast.success(`Item "${suggestion.title}" criado`);
+  };
 
-    // Auto-archive if all suggestions created
-    if (aiResult) {
-      const allCreated = aiResult.suggestions.every((_, i) => i === index || createdItems.has(i));
-      if (allCreated) {
-        archiveInboxEntry(entry.id);
+  const handleCreateSelected = () => {
+    if (!aiResult) return;
+    let count = 0;
+    aiResult.suggestions.forEach((s, i) => {
+      if (selectedItems.has(i) && !createdItems.has(i)) {
+        createFromSuggestion(s, i);
+        count++;
       }
+    });
+    if (count > 0) {
+      toast.success(`${count} item(ns) criado(s)`);
+      archiveInboxEntry(entry.id);
     }
   };
 
-  const handleCreateItem = (suggestion: AISuggestion, index: number) => {
-    createFromSuggestion(suggestion, index);
-  };
-
-  const handleCreateAll = () => {
-    if (!aiResult) return;
-    aiResult.suggestions.forEach((s, i) => {
-      if (!createdItems.has(i)) {
-        createFromSuggestion(s, i);
-      }
-    });
-    archiveInboxEntry(entry.id);
-  };
+  const pendingSuggestions = aiResult ? aiResult.suggestions.filter((_, i) => !createdItems.has(i)) : [];
+  const selectedCount = aiResult ? aiResult.suggestions.filter((_, i) => selectedItems.has(i) && !createdItems.has(i)).length : 0;
 
   return (
     <div className="bg-card border border-border rounded-xl p-3 space-y-2">
@@ -152,9 +160,11 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
         <div className="space-y-2 border-t border-border pt-2">
           <p className="text-[11px] text-primary font-medium">✨ {aiResult.summary}</p>
           {aiResult.suggestions.map((s, i) => (
-            <div key={i} className={cn('bg-muted/50 rounded-lg p-2.5 space-y-1.5', createdItems.has(i) && 'opacity-50')}>
+            <div key={i} className={cn('rounded-lg p-2.5 space-y-1.5 transition-colors',
+              createdItems.has(i) ? 'bg-muted/30 opacity-50' :
+              selectedItems.has(i) ? 'bg-primary/5 border border-primary/20' : 'bg-muted/50 border border-transparent'
+            )}>
               {editingIndex === i && editForm ? (
-                // Editable form
                 <div className="space-y-2">
                   <Input
                     value={editForm.title}
@@ -201,25 +211,12 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-1.5">
-                    <Input
-                      type="date"
-                      value={editForm.deadline || ''}
-                      onChange={e => setEditForm({ ...editForm, deadline: e.target.value })}
-                      className="rounded-lg h-7 text-[10px]"
-                    />
-                    <Input
-                      type="time"
-                      value={editForm.deadlineTime || ''}
-                      onChange={e => setEditForm({ ...editForm, deadlineTime: e.target.value })}
-                      className="rounded-lg h-7 text-[10px]"
-                    />
+                    <Input type="date" value={editForm.deadline || ''} onChange={e => setEditForm({ ...editForm, deadline: e.target.value })} className="rounded-lg h-7 text-[10px]" />
+                    <Input type="time" value={editForm.deadlineTime || ''} onChange={e => setEditForm({ ...editForm, deadlineTime: e.target.value })} className="rounded-lg h-7 text-[10px]" />
                   </div>
                   <div className="flex gap-1.5">
-                    <Button size="sm" className="h-6 text-[10px] px-3 rounded-full flex-1" onClick={() => { saveEdit(i); createFromSuggestion(editForm, i); }}>
-                      Salvar e Criar
-                    </Button>
-                    <Button size="sm" variant="secondary" className="h-6 text-[10px] px-3 rounded-full" onClick={() => saveEdit(i)}>
-                      Salvar
+                    <Button size="sm" variant="secondary" className="h-6 text-[10px] px-3 rounded-full flex-1" onClick={() => saveEdit(i)}>
+                      Salvar edição
                     </Button>
                     <Button size="sm" variant="ghost" className="h-6 w-6 p-0 rounded-full" onClick={cancelEditing}>
                       <X className="h-3 w-3" />
@@ -227,56 +224,51 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
                   </div>
                 </div>
               ) : (
-                // Display mode
                 <>
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-xs font-medium text-foreground flex-1">{s.title}</p>
-                    <div className="flex gap-1 shrink-0">
-                      {!createdItems.has(i) && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 rounded-full"
-                          onClick={() => startEditing(s, i)}
-                          title="Editar"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
+                  <div className="flex items-start gap-2">
+                    {!createdItems.has(i) && (
+                      <button onClick={() => toggleSelect(i)} className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors">
+                        {selectedItems.has(i) ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
+                      </button>
+                    )}
+                    {createdItems.has(i) && <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground">{s.title}</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        <Badge variant="secondary" className="text-[9px]">{s.tipo}</Badge>
+                        <Badge variant="outline" className="text-[9px]">{s.fase}</Badge>
+                        <Badge variant="secondary" className="text-[9px]">{s.area}</Badge>
+                        {s.priority && <Badge variant="outline" className="text-[9px]">{s.priority}</Badge>}
+                        {s.person && <Badge variant="outline" className="text-[9px]">👤 {s.person}</Badge>}
+                        {s.deadline && <Badge variant="outline" className="text-[9px]">📅 {s.deadline}</Badge>}
+                      </div>
+                      {s.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {s.tags.map(t => (
+                            <span key={t} className="text-[9px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">{t}</span>
+                          ))}
+                        </div>
                       )}
-                      <Button
-                        size="sm"
-                        variant={createdItems.has(i) ? 'ghost' : 'default'}
-                        className="h-6 text-[10px] px-2 rounded-full"
-                        disabled={createdItems.has(i)}
-                        onClick={() => handleCreateItem(s, i)}
-                      >
-                        {createdItems.has(i) ? <><Check className="h-3 w-3 mr-1" /> Criado</> : 'Criar'}
+                      {s.description && <p className="text-[10px] text-muted-foreground mt-1">{s.description}</p>}
+                    </div>
+                    {!createdItems.has(i) && (
+                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 rounded-full shrink-0" onClick={() => startEditing(s, i)} title="Editar">
+                        <Pencil className="h-3 w-3" />
                       </Button>
-                    </div>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    <Badge variant="secondary" className="text-[9px]">{s.tipo}</Badge>
-                    <Badge variant="outline" className="text-[9px]">{s.fase}</Badge>
-                    <Badge variant="secondary" className="text-[9px]">{s.area}</Badge>
-                    {s.priority && <Badge variant="outline" className="text-[9px]">{s.priority}</Badge>}
-                    {s.person && <Badge variant="outline" className="text-[9px]">👤 {s.person}</Badge>}
-                    {s.deadline && <Badge variant="outline" className="text-[9px]">📅 {s.deadline}</Badge>}
-                  </div>
-                  {s.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {s.tags.map(t => (
-                        <span key={t} className="text-[9px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">{t}</span>
-                      ))}
-                    </div>
-                  )}
-                  {s.description && <p className="text-[10px] text-muted-foreground">{s.description}</p>}
                 </>
               )}
             </div>
           ))}
-          {aiResult.suggestions.length > 1 && !aiResult.suggestions.every((_, i) => createdItems.has(i)) && (
-            <Button size="sm" className="w-full rounded-xl text-xs h-8" onClick={handleCreateAll}>
-              Criar todos e arquivar
+          {pendingSuggestions.length > 0 && (
+            <Button
+              size="sm"
+              className="w-full rounded-xl text-xs h-8"
+              onClick={handleCreateSelected}
+              disabled={selectedCount === 0}
+            >
+              Criar {selectedCount} selecionado(s) e arquivar
             </Button>
           )}
         </div>
@@ -288,14 +280,7 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
         </span>
         <div className="flex gap-1">
           {entry.status === 'pending' && !aiResult && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-primary"
-              title="Interpretar com IA"
-              onClick={handleInterpret}
-              disabled={loading}
-            >
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Interpretar com IA" onClick={handleInterpret} disabled={loading}>
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             </Button>
           )}
