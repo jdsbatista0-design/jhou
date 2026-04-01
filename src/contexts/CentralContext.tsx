@@ -203,7 +203,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CentralContext.Provider value={{
-      inbox, addInboxEntry, archiveInboxEntry, convertInboxToItem, convertInboxToMemory,
+      inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory,
       items, addItem, updateItem, deleteItem,
       memories, addMemory, deleteMemory,
       events, addEvent, deleteEvent, agendaEntries,
