@@ -13,6 +13,7 @@ export interface Item {
   id: string;
   title: string;
   description?: string;
+  photoUrl?: string;
   tipo: string;
   fase: string;
   area: string;

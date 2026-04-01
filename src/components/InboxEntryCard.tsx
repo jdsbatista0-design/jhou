@@ -77,6 +77,7 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
     addItem({
       title: suggestion.title,
       description: suggestion.description,
+      photoUrl: entry.type === 'photo' ? entry.photoUrl : undefined,
       tipo: suggestion.tipo || 'Ação',
       fase: suggestion.fase || 'Capturado',
       area: suggestion.area || 'Pessoal',
