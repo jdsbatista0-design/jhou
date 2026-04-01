@@ -268,7 +268,7 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
               onClick={handleCreateSelected}
               disabled={selectedCount === 0}
             >
-              Criar {selectedCount} selecionado(s) e arquivar
+              Criar {selectedCount} selecionado(s)
             </Button>
           )}
         </div>
