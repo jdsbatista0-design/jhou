@@ -38,6 +38,7 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<AISuggestion | null>(null);
+  const hasTriggeredRef = useRef(false);
 
   const handleInterpret = async () => {
     setLoading(true);
