@@ -165,13 +165,14 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const addItem = useCallback((item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds'>>) => {
+  const addItem = useCallback((item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => {
     const now = new Date().toISOString();
     setItems(prev => [{
       ...item,
       id: generateId(),
       tags: item.tags || [],
       linkedAgendaIds: item.linkedAgendaIds || [],
+      comments: item.comments || [],
       createdAt: now,
       updatedAt: now,
     }, ...prev]);
