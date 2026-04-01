@@ -28,6 +28,7 @@ interface CentralContextType {
   inbox: InboxEntry[];
   addInboxEntry: (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => void;
   archiveInboxEntry: (id: string) => void;
+  deleteInboxEntry: (id: string) => void;
   convertInboxToItem: (id: string, title?: string) => void;
   convertInboxToMemory: (id: string, title?: string) => void;
   items: Item[];
