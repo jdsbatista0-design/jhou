@@ -88,27 +88,36 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 
         <div
           className={cn(
-            'flex gap-3 justify-center transition-transform',
+            'flex gap-3 justify-center transition-transform relative',
             shake && 'animate-shake'
           )}
         >
           {pin.map((digit, i) => (
-            <input
+            <div
               key={i}
-              ref={el => { inputsRef.current[i] = el; }}
-              type="password"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={e => handleChange(i, e.target.value)}
-              onKeyDown={e => handleKeyDown(i, e)}
-              onPaste={i === 0 ? handlePaste : undefined}
               className={cn(
-                'w-11 h-14 text-center text-xl font-bold rounded-xl border-2 bg-card text-foreground outline-none transition-colors',
+                'w-11 h-14 flex items-center justify-center rounded-xl border-2 bg-card transition-colors cursor-text',
                 error ? 'border-destructive' : digit ? 'border-primary' : 'border-border',
-                'focus:border-primary focus:ring-1 focus:ring-primary/30'
+                'focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/30'
               )}
-            />
+              onClick={() => inputsRef.current[i]?.focus()}
+            >
+              {digit ? (
+                <div className="w-3 h-3 rounded-full bg-foreground" />
+              ) : null}
+              <input
+                ref={el => { inputsRef.current[i] = el; }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={e => handleChange(i, e.target.value)}
+                onKeyDown={e => handleKeyDown(i, e)}
+                onPaste={i === 0 ? handlePaste : undefined}
+                className="absolute opacity-0 w-0 h-0"
+                autoComplete="off"
+              />
+            </div>
           ))}
         </div>
 
