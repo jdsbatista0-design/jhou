@@ -43,8 +43,7 @@ export default function ItemDetail() {
         deadline: existing.deadline ? existing.deadline.split('T')[0] : '',
         deadlineTime: existing.deadlineTime || '',
         person: existing.person || '',
-        asset: existing.asset || '',
-        value: existing.value?.toString() || '',
+        value: existing.value ? existing.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '',
         tags: existing.tags || [],
       });
     }
