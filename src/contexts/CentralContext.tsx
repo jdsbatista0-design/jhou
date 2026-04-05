@@ -2,10 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { InboxEntry, Item, ItemComment, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
 import { supabase } from '@/integrations/supabase/client';
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
     const stored = localStorage.getItem(key);
@@ -76,48 +72,156 @@ function dbRowToInboxEntry(row: any): InboxEntry {
   };
 }
 
+function dbRowToItem(row: any, comments: ItemComment[]): Item {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description || undefined,
+    photoUrl: row.photo_url || undefined,
+    tipo: row.tipo,
+    fase: row.fase,
+    area: row.area,
+    priority: row.priority || undefined,
+    deadline: row.deadline || undefined,
+    deadlineTime: row.deadline_time || undefined,
+    person: row.person || undefined,
+    asset: row.asset || undefined,
+    value: row.value != null ? Number(row.value) : undefined,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    linkedAgendaIds: Array.isArray(row.linked_agenda_ids) ? row.linked_agenda_ids : [],
+    comments,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function dbRowToMemory(row: any): Memory {
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    category: row.category || 'geral',
+    area: row.area || undefined,
+    login: row.login || undefined,
+    password: row.password || undefined,
+    url: row.url || undefined,
+    city: row.city || undefined,
+    createdAt: row.created_at,
+  };
+}
+
+function dbRowToEvent(row: any): AgendaEvent {
+  return {
+    id: row.id,
+    title: row.title,
+    datetime: row.datetime,
+    duration: row.duration || undefined,
+    type: row.type,
+    linkedItemId: row.linked_item_id || undefined,
+    createdAt: row.created_at,
+  };
+}
+
 export function CentralProvider({ children }: { children: React.ReactNode }) {
   const [inbox, setInbox] = useState<InboxEntry[]>([]);
-  const [items, setItems] = useState<Item[]>(() => loadFromStorage('central_items', []));
-  const [memories, setMemories] = useState<Memory[]>(() => loadFromStorage('central_memories', []));
-  const [events, setEvents] = useState<AgendaEvent[]>(() => loadFromStorage('central_events', []));
+  const [items, setItems] = useState<Item[]>([]);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [settings, setSettings] = useState<Settings>(() => loadFromStorage('central_settings', DEFAULT_SETTINGS));
 
-  // Load inbox from database
+  // ---- INBOX (already DB-backed) ----
   const refreshInbox = useCallback(async () => {
     const { data, error } = await supabase
       .from('inbox_entries')
       .select('*')
       .order('created_at', { ascending: false });
-
     if (!error && data) {
       setInbox(data.map(dbRowToInboxEntry));
     }
   }, []);
 
-  // Initial load + realtime subscription
+  // ---- ITEMS ----
+  const refreshItems = useCallback(async () => {
+    const { data: itemRows, error } = await supabase
+      .from('items')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error || !itemRows) return;
+
+    const { data: commentRows } = await supabase
+      .from('item_comments')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    const commentsByItem: Record<string, ItemComment[]> = {};
+    (commentRows || []).forEach((c: any) => {
+      if (!commentsByItem[c.item_id]) commentsByItem[c.item_id] = [];
+      commentsByItem[c.item_id].push({ id: c.id, text: c.text, createdAt: c.created_at });
+    });
+
+    setItems(itemRows.map((r: any) => dbRowToItem(r, commentsByItem[r.id] || [])));
+  }, []);
+
+  // ---- MEMORIES ----
+  const refreshMemories = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('memories')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      setMemories(data.map(dbRowToMemory));
+    }
+  }, []);
+
+  // ---- EVENTS ----
+  const refreshEvents = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .order('datetime', { ascending: true });
+    if (!error && data) {
+      setEvents(data.map(dbRowToEvent));
+    }
+  }, []);
+
+  // Initial load + realtime
   useEffect(() => {
     refreshInbox();
+    refreshItems();
+    refreshMemories();
+    refreshEvents();
 
-    const channel = supabase
-      .channel('inbox_entries_changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'inbox_entries' },
-        () => {
-          refreshInbox();
-        }
-      )
+    const inboxCh = supabase.channel('inbox_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' }, () => refreshInbox())
+      .subscribe();
+
+    const itemsCh = supabase.channel('items_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => refreshItems())
+      .subscribe();
+
+    const commentsCh = supabase.channel('comments_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'item_comments' }, () => refreshItems())
+      .subscribe();
+
+    const memoriesCh = supabase.channel('memories_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'memories' }, () => refreshMemories())
+      .subscribe();
+
+    const eventsCh = supabase.channel('events_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => refreshEvents())
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(inboxCh);
+      supabase.removeChannel(itemsCh);
+      supabase.removeChannel(commentsCh);
+      supabase.removeChannel(memoriesCh);
+      supabase.removeChannel(eventsCh);
     };
-  }, [refreshInbox]);
+  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents]);
 
-  useEffect(() => saveToStorage('central_items', items), [items]);
-  useEffect(() => saveToStorage('central_memories', memories), [memories]);
-  useEffect(() => saveToStorage('central_events', events), [events]);
+  // Settings still localStorage (personal preferences)
   useEffect(() => saveToStorage('central_settings', settings), [settings]);
 
   const agendaEntries = useMemo<AgendaEntry[]>(() => {
@@ -149,116 +253,135 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     );
   }, [items, events]);
 
+  // ---- INBOX ACTIONS ----
   const addInboxEntry = useCallback(async (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => {
-    const entry: any = {
-      content,
-      type,
-      status: 'pending',
-      source: 'app',
-    };
+    const entry: any = { content, type, status: 'pending', source: 'app' };
     if (photoUrl) entry.photo_url = photoUrl;
     if (audioUrl) entry.audio_url = audioUrl;
-
-    const { error } = await supabase.from('inbox_entries').insert(entry);
-    if (!error) {
-      await refreshInbox();
-    }
-  }, [refreshInbox]);
+    await supabase.from('inbox_entries').insert(entry);
+  }, []);
 
   const archiveInboxEntry = useCallback(async (id: string) => {
     await supabase.from('inbox_entries').update({ status: 'archived' }).eq('id', id);
-    setInbox(prev => prev.map(e => e.id === id ? { ...e, status: 'archived' as const } : e));
   }, []);
 
   const deleteInboxEntry = useCallback(async (id: string) => {
     await supabase.from('inbox_entries').delete().eq('id', id);
-    setInbox(prev => prev.filter(e => e.id !== id));
   }, []);
 
-  const convertInboxToItem = useCallback((id: string, title?: string) => {
+  // ---- CONVERT INBOX ----
+  const convertInboxToItem = useCallback(async (id: string, title?: string) => {
     const entry = inbox.find(e => e.id === id);
     if (!entry) return;
-    const now = new Date().toISOString();
-    const newItem: Item = {
-      id: generateId(),
+    const { error } = await supabase.from('items').insert({
       title: title || entry.content.slice(0, 100),
       description: entry.content,
-      photoUrl: entry.photoUrl,
+      photo_url: entry.photoUrl || null,
       tipo: settings.tipos[0],
       fase: settings.fases[0],
       area: settings.areas[0],
-      tags: [],
-      linkedAgendaIds: [],
-      comments: [],
-      createdAt: now,
-      updatedAt: now,
-    };
-    setItems(p => [newItem, ...p]);
-    // Mark as processed in DB
-    supabase.from('inbox_entries').update({ status: 'processed' }).eq('id', id).then();
-    setInbox(prev => prev.map(e => e.id === id ? { ...e, status: 'processed' as const } : e));
+    });
+    if (!error) {
+      await supabase.from('inbox_entries').update({ status: 'processed' }).eq('id', id);
+    }
   }, [inbox, settings]);
 
-  const convertInboxToMemory = useCallback((id: string, title?: string) => {
+  const convertInboxToMemory = useCallback(async (id: string, title?: string) => {
     const entry = inbox.find(e => e.id === id);
     if (!entry) return;
-    const newMemory: Memory = {
-      id: generateId(),
+    const { error } = await supabase.from('memories').insert({
       title: title || entry.content.slice(0, 100),
       content: entry.content,
-      tags: [],
       category: 'geral',
-      createdAt: new Date().toISOString(),
-    };
-    setMemories(p => [newMemory, ...p]);
-    supabase.from('inbox_entries').update({ status: 'processed' }).eq('id', id).then();
-    setInbox(prev => prev.map(e => e.id === id ? { ...e, status: 'processed' as const } : e));
+    });
+    if (!error) {
+      await supabase.from('inbox_entries').update({ status: 'processed' }).eq('id', id);
+    }
   }, [inbox]);
 
-  const addItem = useCallback((item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => {
-    const now = new Date().toISOString();
-    setItems(prev => [{
-      ...item,
-      id: generateId(),
+  // ---- ITEM ACTIONS ----
+  const addItem = useCallback(async (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => {
+    await supabase.from('items').insert({
+      title: item.title,
+      description: item.description || null,
+      photo_url: item.photoUrl || null,
+      tipo: item.tipo,
+      fase: item.fase,
+      area: item.area,
+      priority: item.priority || null,
+      deadline: item.deadline || null,
+      deadline_time: item.deadlineTime || null,
+      person: item.person || null,
+      asset: item.asset || null,
+      value: item.value ?? null,
       tags: item.tags || [],
-      linkedAgendaIds: item.linkedAgendaIds || [],
-      comments: item.comments || [],
-      createdAt: now,
-      updatedAt: now,
-    }, ...prev]);
+      linked_agenda_ids: item.linkedAgendaIds || [],
+    });
   }, []);
 
-  const updateItem = useCallback((id: string, updates: Partial<Item>) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates, updatedAt: new Date().toISOString() } : i));
+  const updateItem = useCallback(async (id: string, updates: Partial<Item>) => {
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.photoUrl !== undefined) dbUpdates.photo_url = updates.photoUrl;
+    if (updates.tipo !== undefined) dbUpdates.tipo = updates.tipo;
+    if (updates.fase !== undefined) dbUpdates.fase = updates.fase;
+    if (updates.area !== undefined) dbUpdates.area = updates.area;
+    if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+    if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
+    if (updates.deadlineTime !== undefined) dbUpdates.deadline_time = updates.deadlineTime;
+    if (updates.person !== undefined) dbUpdates.person = updates.person;
+    if (updates.asset !== undefined) dbUpdates.asset = updates.asset;
+    if (updates.value !== undefined) dbUpdates.value = updates.value;
+    if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+    if (updates.linkedAgendaIds !== undefined) dbUpdates.linked_agenda_ids = updates.linkedAgendaIds;
+    await supabase.from('items').update(dbUpdates).eq('id', id);
   }, []);
 
-  const deleteItem = useCallback((id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id));
+  const deleteItem = useCallback(async (id: string) => {
+    await supabase.from('items').delete().eq('id', id);
   }, []);
 
-  const addComment = useCallback((itemId: string, text: string) => {
-    const comment: ItemComment = { id: generateId(), text, createdAt: new Date().toISOString() };
-    setItems(prev => prev.map(i => i.id === itemId ? { ...i, comments: [...(i.comments || []), comment], updatedAt: new Date().toISOString() } : i));
+  const addComment = useCallback(async (itemId: string, text: string) => {
+    await supabase.from('item_comments').insert({ item_id: itemId, text });
   }, []);
 
-  const deleteComment = useCallback((itemId: string, commentId: string) => {
-    setItems(prev => prev.map(i => i.id === itemId ? { ...i, comments: (i.comments || []).filter(c => c.id !== commentId) } : i));
+  const deleteComment = useCallback(async (itemId: string, commentId: string) => {
+    await supabase.from('item_comments').delete().eq('id', commentId);
   }, []);
 
-  const addMemory = useCallback((memory: Omit<Memory, 'id' | 'createdAt'>) => {
-    setMemories(prev => [{ ...memory, id: generateId(), category: memory.category || 'geral', createdAt: new Date().toISOString() }, ...prev]);
+  // ---- MEMORY ACTIONS ----
+  const addMemory = useCallback(async (memory: Omit<Memory, 'id' | 'createdAt'>) => {
+    await supabase.from('memories').insert({
+      title: memory.title,
+      content: memory.content,
+      tags: memory.tags || [],
+      category: memory.category || 'geral',
+      area: memory.area || null,
+      login: memory.login || null,
+      password: memory.password || null,
+      url: memory.url || null,
+      city: memory.city || null,
+    });
   }, []);
 
-  const deleteMemory = useCallback((id: string) => {
-    setMemories(prev => prev.filter(m => m.id !== id));
+  const deleteMemory = useCallback(async (id: string) => {
+    await supabase.from('memories').delete().eq('id', id);
   }, []);
 
-  const addEvent = useCallback((event: Omit<AgendaEvent, 'id' | 'createdAt'>) => {
-    setEvents(prev => [{ ...event, id: generateId(), createdAt: new Date().toISOString() }, ...prev]);
+  // ---- EVENT ACTIONS ----
+  const addEvent = useCallback(async (event: Omit<AgendaEvent, 'id' | 'createdAt'>) => {
+    await supabase.from('events').insert({
+      title: event.title,
+      datetime: event.datetime,
+      duration: event.duration ?? null,
+      type: event.type,
+      linked_item_id: event.linkedItemId || null,
+    });
   }, []);
 
-  const deleteEvent = useCallback((id: string) => {
-    setEvents(prev => prev.filter(e => e.id !== id));
+  const deleteEvent = useCallback(async (id: string) => {
+    await supabase.from('events').delete().eq('id', id);
   }, []);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {
