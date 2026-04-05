@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      events: {
+        Row: {
+          created_at: string
+          datetime: string
+          duration: number | null
+          id: string
+          linked_item_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          datetime: string
+          duration?: number | null
+          id?: string
+          linked_item_id?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          datetime?: string
+          duration?: number | null
+          id?: string
+          linked_item_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_linked_item_id_fkey"
+            columns: ["linked_item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbox_entries: {
         Row: {
           audio_url: string | null
@@ -47,6 +85,137 @@ export type Database = {
           status?: string
           type?: string
           whatsapp_from?: string | null
+        }
+        Relationships: []
+      }
+      item_comments: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_comments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      items: {
+        Row: {
+          area: string
+          asset: string | null
+          created_at: string
+          deadline: string | null
+          deadline_time: string | null
+          description: string | null
+          fase: string
+          id: string
+          linked_agenda_ids: Json
+          person: string | null
+          photo_url: string | null
+          priority: string | null
+          tags: Json
+          tipo: string
+          title: string
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          area?: string
+          asset?: string | null
+          created_at?: string
+          deadline?: string | null
+          deadline_time?: string | null
+          description?: string | null
+          fase?: string
+          id?: string
+          linked_agenda_ids?: Json
+          person?: string | null
+          photo_url?: string | null
+          priority?: string | null
+          tags?: Json
+          tipo?: string
+          title: string
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          area?: string
+          asset?: string | null
+          created_at?: string
+          deadline?: string | null
+          deadline_time?: string | null
+          description?: string | null
+          fase?: string
+          id?: string
+          linked_agenda_ids?: Json
+          person?: string | null
+          photo_url?: string | null
+          priority?: string | null
+          tags?: Json
+          tipo?: string
+          title?: string
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: []
+      }
+      memories: {
+        Row: {
+          area: string | null
+          category: string
+          city: string | null
+          content: string
+          created_at: string
+          id: string
+          login: string | null
+          password: string | null
+          tags: Json
+          title: string
+          url: string | null
+        }
+        Insert: {
+          area?: string | null
+          category?: string
+          city?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          login?: string | null
+          password?: string | null
+          tags?: Json
+          title: string
+          url?: string | null
+        }
+        Update: {
+          area?: string | null
+          category?: string
+          city?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          login?: string | null
+          password?: string | null
+          tags?: Json
+          title?: string
+          url?: string | null
         }
         Relationships: []
       }
