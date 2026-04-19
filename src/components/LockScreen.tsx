@@ -1,10 +1,10 @@
-import { forwardRef, useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 const PIN_HASH = '0507';
 const PIN_LENGTH = 4;
 
-const LockScreen = forwardRef<HTMLDivElement, { onUnlock: () => void }>(({ onUnlock }, ref) => {
+export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const [pin, setPin] = useState<string[]>(Array(PIN_LENGTH).fill(''));
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
