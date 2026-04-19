@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
-const PIN_HASH = '050723';
+const PIN_HASH = '0507';
+const PIN_LENGTH = 4;
 
 export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
-  const [pin, setPin] = useState<string[]>(['', '', '', '', '', '']);
+  const [pin, setPin] = useState<string[]>(Array(PIN_LENGTH).fill(''));
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
@@ -12,6 +13,16 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   useEffect(() => {
     inputsRef.current[0]?.focus();
   }, []);
+
+  const reset = () => {
+    setShake(true);
+    setError(true);
+    setTimeout(() => {
+      setShake(false);
+      setPin(Array(PIN_LENGTH).fill(''));
+      inputsRef.current[0]?.focus();
+    }, 600);
+  };
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -21,24 +32,17 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     setPin(newPin);
     setError(false);
 
-    if (digit && index < 5) {
+    if (digit && index < PIN_LENGTH - 1) {
       inputsRef.current[index + 1]?.focus();
     }
 
-    // Check when all filled
-    if (digit && index === 5) {
+    if (digit && index === PIN_LENGTH - 1) {
       const entered = newPin.join('');
       if (entered === PIN_HASH) {
         sessionStorage.setItem('central_unlocked', '1');
         onUnlock();
       } else {
-        setShake(true);
-        setError(true);
-        setTimeout(() => {
-          setShake(false);
-          setPin(['', '', '', '', '', '']);
-          inputsRef.current[0]?.focus();
-        }, 600);
+        reset();
       }
     }
   };
@@ -51,26 +55,20 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, PIN_LENGTH);
     if (!pasted) return;
     const newPin = [...pin];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < PIN_LENGTH; i++) {
       newPin[i] = pasted[i] || '';
     }
     setPin(newPin);
 
-    if (pasted.length === 6) {
+    if (pasted.length === PIN_LENGTH) {
       if (pasted === PIN_HASH) {
         sessionStorage.setItem('central_unlocked', '1');
         onUnlock();
       } else {
-        setShake(true);
-        setError(true);
-        setTimeout(() => {
-          setShake(false);
-          setPin(['', '', '', '', '', '']);
-          inputsRef.current[0]?.focus();
-        }, 600);
+        reset();
       }
     } else {
       inputsRef.current[pasted.length]?.focus();
@@ -96,7 +94,7 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
             <div
               key={i}
               className={cn(
-                'w-11 h-14 flex items-center justify-center rounded-xl border-2 bg-card transition-colors cursor-text',
+                'w-12 h-14 flex items-center justify-center rounded-xl border-2 bg-card transition-colors cursor-text',
                 error ? 'border-destructive' : digit ? 'border-primary' : 'border-border',
                 'focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/30'
               )}
@@ -107,7 +105,7 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
               ) : null}
               <input
                 ref={el => { inputsRef.current[i] = el; }}
-                type="text"
+                type="password"
                 inputMode="numeric"
                 maxLength={1}
                 value={digit}
