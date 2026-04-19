@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Mic, Camera, Square, Send, X } from 'lucide-react';
+import { Plus, Mic, Camera, Square, Send, X, Type } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { useCentral } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
-type Mode = 'text' | 'audio';
+type Mode = 'menu' | 'text' | 'audio';
 
 export default function CaptureFAB() {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>('text');
+  const [mode, setMode] = useState<Mode>('menu');
   const [text, setText] = useState('');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -22,15 +22,13 @@ export default function CaptureFAB() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const longPressed = useRef(false);
 
   const { addInboxEntry } = useCentral();
 
-  // Auto-focus textarea when sheet opens in text mode
+  // Auto-focus textarea
   useEffect(() => {
     if (open && mode === 'text') {
-      const t = setTimeout(() => textareaRef.current?.focus(), 150);
+      const t = setTimeout(() => textareaRef.current?.focus(), 200);
       return () => clearTimeout(t);
     }
   }, [open, mode]);
@@ -40,6 +38,17 @@ export default function CaptureFAB() {
     setPhotoPreview(null);
     setAudioUrl(null);
     setRecordingTime(0);
+  };
+
+  const closeAll = () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    reset();
+    setMode('menu');
+    setOpen(false);
   };
 
   const submit = () => {
@@ -53,9 +62,8 @@ export default function CaptureFAB() {
     } else {
       addInboxEntry(trimmed, 'text');
     }
-    reset();
-    setOpen(false);
     toast({ title: 'Capturado ✓', description: 'IA vai organizar em segundos' });
+    closeAll();
   };
 
   const startRecording = async () => {
@@ -79,9 +87,13 @@ export default function CaptureFAB() {
       setIsRecording(true);
       setRecordingTime(0);
       timerRef.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
-    } catch {
-      toast({ title: 'Microfone bloqueado', description: 'Permita o acesso ao microfone' });
-      setMode('text');
+    } catch (err) {
+      console.error('Mic error:', err);
+      toast({
+        title: 'Microfone bloqueado',
+        description: 'Permita o acesso ao microfone nas configurações do navegador',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -93,45 +105,31 @@ export default function CaptureFAB() {
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting same file
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
       setPhotoPreview(reader.result as string);
-      setOpen(true);
       setMode('text');
+      setOpen(true);
     };
     reader.readAsDataURL(file);
   };
 
-  // Long-press FAB → instant audio mode
-  const handlePressStart = () => {
-    longPressed.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressed.current = true;
-      setMode('audio');
-      setOpen(true);
-      startRecording();
-    }, 350);
+  const openMenu = () => {
+    setMode('menu');
+    setOpen(true);
   };
 
-  const handlePressEnd = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    if (!longPressed.current) {
-      // Short tap → open text mode
-      setMode('text');
-      setOpen(true);
-    }
+  const pickAudio = () => {
+    setMode('audio');
+    // start recording immediately
+    setTimeout(() => startRecording(), 100);
   };
 
-  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  const pickText = () => setMode('text');
 
-  const handleSheetChange = (v: boolean) => {
-    setOpen(v);
-    if (!v) {
-      if (isRecording) stopRecording();
-      reset();
-    }
-  };
+  const pickPhoto = () => fileRef.current?.click();
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -140,123 +138,180 @@ export default function CaptureFAB() {
     }
   };
 
+  const formatTime = (s: number) =>
+    `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+
+  const handleSheetChange = (v: boolean) => {
+    if (!v) closeAll();
+    else setOpen(true);
+  };
+
   return (
     <>
-      {/* Direct camera input (hidden) */}
-      <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handlePhoto}
+      />
 
-      {/* FAB cluster */}
-      <div className="fixed z-40 bottom-20 right-4 flex flex-col items-end gap-2">
-        {/* Quick camera shortcut */}
-        <button
-          onClick={() => fileRef.current?.click()}
-          aria-label="Foto rápida"
-          className="h-11 w-11 rounded-full bg-card border border-border text-foreground shadow-md flex items-center justify-center active:scale-95 transition-transform"
-        >
-          <Camera className="h-4 w-4" />
-        </button>
-
-        {/* Main FAB: tap = text, long-press = audio */}
-        <button
-          onMouseDown={handlePressStart}
-          onMouseUp={handlePressEnd}
-          onMouseLeave={() => longPressTimer.current && clearTimeout(longPressTimer.current)}
-          onTouchStart={handlePressStart}
-          onTouchEnd={handlePressEnd}
-          onContextMenu={e => e.preventDefault()}
-          aria-label="Capturar (toque: texto, segure: áudio)"
-          className={cn(
-            'h-14 w-14 rounded-full',
-            'bg-primary text-primary-foreground shadow-lg shadow-primary/30',
-            'flex items-center justify-center',
-            'hover:scale-105 active:scale-95 transition-transform',
-            'ring-4 ring-primary/10'
-          )}
-        >
-          <Plus className="h-6 w-6" strokeWidth={2.5} />
-        </button>
-      </div>
+      {/* Single FAB */}
+      <button
+        onClick={openMenu}
+        aria-label="Capturar"
+        className={cn(
+          'fixed z-40 bottom-20 right-4 h-14 w-14 rounded-full',
+          'bg-primary text-primary-foreground shadow-lg shadow-primary/40',
+          'flex items-center justify-center',
+          'active:scale-95 transition-transform',
+          'ring-4 ring-primary/10'
+        )}
+      >
+        <Plus className="h-6 w-6" strokeWidth={2.5} />
+      </button>
 
       <Sheet open={open} onOpenChange={handleSheetChange}>
-        <SheetContent side="bottom" className="rounded-t-2xl border-t pb-6 max-h-[80vh]">
-          <SheetHeader className="text-left mb-3">
+        <SheetContent side="bottom" className="rounded-t-2xl border-t pb-8 max-h-[85vh]">
+          <SheetHeader className="text-left mb-4">
             <SheetTitle className="text-base flex items-center gap-2">
-              <span>{mode === 'audio' ? '🎙️' : '⚡'}</span>
-              {mode === 'audio' ? 'Gravando áudio' : 'Captura rápida'}
+              {mode === 'audio' && <><span>🎙️</span> Áudio</>}
+              {mode === 'text' && <><span>⚡</span> Captura rápida</>}
+              {mode === 'menu' && <><span>✨</span> O que você quer capturar?</>}
             </SheetTitle>
           </SheetHeader>
 
-          {/* Audio mode: big record UI */}
-          {mode === 'audio' ? (
-            <div className="flex flex-col items-center gap-4 py-4">
+          {/* MENU: 3 grandes botões */}
+          {mode === 'menu' && (
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={pickText}
+                className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-card border border-border hover:border-primary active:scale-95 transition-all"
+              >
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Type className="h-5 w-5 text-primary" />
+                </div>
+                <span className="text-xs font-medium text-foreground">Texto</span>
+              </button>
+
+              <button
+                onClick={pickAudio}
+                className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-card border border-border hover:border-primary active:scale-95 transition-all"
+              >
+                <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <Mic className="h-5 w-5 text-destructive" />
+                </div>
+                <span className="text-xs font-medium text-foreground">Áudio</span>
+              </button>
+
+              <button
+                onClick={pickPhoto}
+                className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-card border border-border hover:border-primary active:scale-95 transition-all"
+              >
+                <div className="h-12 w-12 rounded-full bg-accent flex items-center justify-center">
+                  <Camera className="h-5 w-5 text-accent-foreground" />
+                </div>
+                <span className="text-xs font-medium text-foreground">Foto</span>
+              </button>
+            </div>
+          )}
+
+          {/* AUDIO mode */}
+          {mode === 'audio' && (
+            <div className="flex flex-col items-center gap-5 py-6">
               {isRecording ? (
                 <>
                   <div className="relative">
                     <div className="absolute inset-0 rounded-full bg-destructive/20 animate-ping" />
                     <button
                       onClick={stopRecording}
-                      className="relative h-24 w-24 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg"
+                      className="relative h-28 w-28 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-xl active:scale-95 transition-transform"
                     >
-                      <Square className="h-8 w-8" fill="currentColor" />
+                      <Square className="h-9 w-9" fill="currentColor" />
                     </button>
                   </div>
-                  <p className="text-sm font-medium text-destructive">{formatTime(recordingTime)}</p>
+                  <p className="text-2xl font-bold tabular-nums text-destructive">
+                    {formatTime(recordingTime)}
+                  </p>
                   <p className="text-xs text-muted-foreground">Toque para parar</p>
                 </>
               ) : audioUrl ? (
-                <div className="w-full space-y-3">
-                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
-                    <audio src={audioUrl} controls className="h-9 flex-1" />
-                    <button onClick={() => { setAudioUrl(null); startRecording(); }} className="text-xs text-muted-foreground hover:text-foreground px-2">
-                      Refazer
-                    </button>
+                <div className="w-full space-y-4">
+                  <div className="bg-muted rounded-xl px-3 py-3">
+                    <audio src={audioUrl} controls className="w-full h-10" />
                   </div>
-                  <Button onClick={submit} className="w-full h-11">
-                    <Send className="h-4 w-4 mr-2" /> Enviar
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setAudioUrl(null);
+                        startRecording();
+                      }}
+                      className="flex-1 h-11"
+                    >
+                      Refazer
+                    </Button>
+                    <Button onClick={submit} className="flex-1 h-11">
+                      <Send className="h-4 w-4 mr-2" /> Enviar
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <Button onClick={startRecording} className="h-12">
-                  <Mic className="h-4 w-4 mr-2" /> Iniciar gravação
-                </Button>
+                <>
+                  <button
+                    onClick={startRecording}
+                    className="h-28 w-28 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-xl active:scale-95 transition-transform"
+                  >
+                    <Mic className="h-10 w-10" />
+                  </button>
+                  <p className="text-xs text-muted-foreground">Toque para gravar</p>
+                </>
               )}
             </div>
-          ) : (
-            // Text mode
-            <div className="bg-card border border-border rounded-2xl p-2">
+          )}
+
+          {/* TEXT mode */}
+          {mode === 'text' && (
+            <div className="space-y-3">
               {photoPreview && (
-                <div className="relative mb-2 inline-block">
-                  <img src={photoPreview} alt="Preview" className="h-20 rounded-lg object-cover" />
-                  <button onClick={() => setPhotoPreview(null)} className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5">
+                <div className="relative inline-block">
+                  <img
+                    src={photoPreview}
+                    alt="Preview"
+                    className="h-24 rounded-xl object-cover"
+                  />
+                  <button
+                    onClick={() => setPhotoPreview(null)}
+                    className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-1 shadow-md"
+                  >
                     <X className="h-3 w-3" />
                   </button>
                 </div>
               )}
-              <div className="flex items-end gap-1.5">
+              <div className="bg-card border border-border rounded-2xl p-3">
                 <textarea
                   ref={textareaRef}
                   value={text}
                   onChange={e => setText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="O que está na sua cabeça?"
-                  rows={2}
-                  className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[44px] max-h-[160px] py-2 px-1"
+                  placeholder="Ex: Reunião com João amanhã às 14h sobre projeto X"
+                  rows={3}
+                  className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[72px] max-h-[200px]"
                 />
-                <Button
-                  size="icon"
-                  className="h-9 w-9 rounded-full shrink-0"
-                  onClick={submit}
-                  disabled={!text.trim() && !photoPreview}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
               </div>
+              <Button
+                onClick={submit}
+                className="w-full h-11"
+                disabled={!text.trim() && !photoPreview}
+              >
+                <Send className="h-4 w-4 mr-2" /> Enviar para IA
+              </Button>
+              <p className="text-[10px] text-muted-foreground text-center">
+                A IA vai detectar tipo, área, data e prioridade
+              </p>
             </div>
           )}
-
-          <p className="text-[10px] text-muted-foreground text-center mt-3">
-            {mode === 'audio' ? 'Áudio será transcrito pela IA' : 'Toque rápido = texto · Segure o + = áudio · Câmera ao lado'}
-          </p>
         </SheetContent>
       </Sheet>
     </>
