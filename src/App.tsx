@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CentralProvider } from "@/contexts/CentralContext";
 import BottomNav from "@/components/BottomNav";
+import CaptureFAB from "@/components/CaptureFAB";
 import LockScreen from "@/components/LockScreen";
 import Dashboard from "@/pages/Dashboard";
 
@@ -45,8 +46,9 @@ const App = () => {
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/reports" element={<ReportsPage />} />
                   <Route path="*" element={<NotFound />} />
-                </Routes>
+              </Routes>
               </main>
+              <CaptureFAB />
               <BottomNav />
             </div>
           </BrowserRouter>
