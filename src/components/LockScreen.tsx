@@ -76,7 +76,7 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   };
 
   return (
-    <div ref={ref} className="min-h-screen bg-background flex flex-col items-center justify-center px-6">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6">
       <div className="space-y-8 text-center">
         <div>
           <div className="text-4xl mb-3">🔒</div>
@@ -125,8 +125,5 @@ export default function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       </div>
     </div>
   );
-});
+}
 
-LockScreen.displayName = 'LockScreen';
-
-export default LockScreen;
