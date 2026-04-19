@@ -244,8 +244,8 @@ export default function DashboardStories() {
 
         {/* Final story: visão completa */}
         <div data-story-card className="snap-start shrink-0 w-[88vw] max-w-[440px]">
-          <div className="rounded-2xl bg-gradient-to-br from-violet-500/15 to-violet-500/5 ring-1 ring-violet-500/30 p-4 min-h-[300px] flex flex-col items-center justify-center text-center">
-            <Sparkles className="h-8 w-8 text-violet-500 mb-2" />
+          <div className="rounded-2xl bg-gradient-to-br from-accent to-muted ring-1 ring-border p-4 min-h-[300px] flex flex-col items-center justify-center text-center">
+            <Sparkles className="h-8 w-8 text-primary mb-2" />
             <p className="text-sm font-bold text-foreground">Quer ver tudo?</p>
             <p className="text-xs text-muted-foreground mt-1 mb-4">Acesse a gestão completa no Painel.</p>
             <button
