@@ -31,8 +31,8 @@ Responda SEMPRE em JSON válido com esta estrutura:
   "suggestions": [
     {
       "title": "título do item sugerido",
-      "tipo": "um de: Ação, Oportunidade, Ideia, Pendência, Decisão, Melhoria, Problema",
-      "fase": "um de: Capturado, Aprendendo, Acompanhando, Analisando, Andando, Aguardando, Travado",
+      "tipo": "um de: Inbox, Ação, Nota",
+      "fase": "um de: Inbox, Em andamento, Aguardando, Travado, Concluído",
       "area": "área sugerida (ex: Pessoal, Izi, Mídia, Incorporação, Stone, Casa, Filhas, BJ7Mídia)",
       "priority": "baixa, media, alta ou urgente (opcional)",
       "person": "pessoa mencionada se houver (opcional)",
@@ -48,8 +48,8 @@ Regras:
 - Extraia TODOS os itens possíveis do conteúdo
 - Se mencionar reunião/compromisso com data, inclua deadline e deadlineTime
 - Se mencionar pessoa, preencha person
-- Sugira tags relevantes dos grupos: estratégico, operacional, pessoal, delegado, urgente, importante, receita, follow-up, decisão pendente
-- Se for só informação/referência sem ação, coloque tipo "Ideia" e fase "Capturado"
+- Sugira apenas tags destes grupos: Contexto (estratégico, operacional, pessoal, delegado) e Status (urgente, importante, aguardando retorno)
+- Se for só informação/referência sem ação, coloque tipo "Nota" e fase "Inbox"
 - Responda SOMENTE o JSON, sem explicações`;
 
     const userContent: any[] = [];

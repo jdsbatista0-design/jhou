@@ -62,7 +62,7 @@ export default function CaptureFAB() {
     } else {
       addInboxEntry(trimmed, 'text');
     }
-    toast({ title: 'Capturado ✓', description: 'IA vai organizar em segundos' });
+    toast({ title: 'Salvo no Inbox ✓', description: 'Processar depois' });
     closeAll();
   };
 
@@ -305,10 +305,10 @@ export default function CaptureFAB() {
                 className="w-full h-11"
                 disabled={!text.trim() && !photoPreview}
               >
-                <Send className="h-4 w-4 mr-2" /> Enviar para IA
+                <Send className="h-4 w-4 mr-2" /> Salvar no Inbox
               </Button>
               <p className="text-[10px] text-muted-foreground text-center">
-                A IA vai detectar tipo, área, data e prioridade
+                Sem classificação agora. Processar depois.
               </p>
             </div>
           )}

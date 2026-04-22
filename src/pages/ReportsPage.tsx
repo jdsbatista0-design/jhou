@@ -38,7 +38,7 @@ export default function ReportsPage() {
   const doneRecent = done.filter(i => differenceInDays(now, new Date(i.updatedAt)) <= 7);
 
   // === ONDE DEVO AGIR AGORA ===
-  const urgentes = active.filter(i => i.priority === 'urgente');
+  const urgentes = active.filter(i => i.tags.includes('urgente'));
   const travados = active.filter(i => i.fase === 'Travado');
   const overdue = active.filter(i => i.deadline && new Date(i.deadline) < now);
   const aguardandoLongo = active
@@ -51,7 +51,7 @@ export default function ReportsPage() {
   const oportunidades = active.filter(i => i.tipo === 'Oportunidade');
   const comValor = active.filter(i => i.value && i.value > 0);
   const totalRevenue = comValor.reduce((s, i) => s + (i.value || 0), 0);
-  const oppsSemAndamento = oportunidades.filter(i => ['Capturado', 'Aguardando'].includes(i.fase));
+  const oppsSemAndamento = oportunidades.filter(i => ['Inbox', 'Aguardando'].includes(i.fase));
   const byAreaRevenue: Record<string, number> = {};
   comValor.forEach(i => { byAreaRevenue[i.area] = (byAreaRevenue[i.area] || 0) + (i.value || 0); });
 
@@ -79,11 +79,11 @@ export default function ReportsPage() {
     .sort((a, b) => b[1].days - a[1].days);
 
   const pendenciasVelhas = active
-    .filter(i => i.tipo === 'Pendência' && differenceInDays(now, new Date(i.updatedAt)) >= 5)
+    .filter(i => i.tags.includes('aguardando retorno') && differenceInDays(now, new Date(i.updatedAt)) >= 5)
     .sort((a, b) => differenceInDays(now, new Date(a.updatedAt)) - differenceInDays(now, new Date(b.updatedAt)));
 
-  // === DECISÕES TOMADAS ===
-  const decisoes = done.filter(i => i.tipo === 'Decisão');
+  // === NOTAS CONCLUÍDAS ===
+  const notasConcluidas = done.filter(i => i.tipo === 'Nota');
 
   const actionCount = urgentes.length + travados.length + overdue.length;
 
@@ -187,7 +187,7 @@ export default function ReportsPage() {
         )}
         {pendenciasVelhas.length > 0 && (
           <div className="bg-card border border-border rounded-xl p-3 space-y-1">
-            <p className="text-[11px] text-muted-foreground font-medium">📌 Pendências envelhecendo</p>
+            <p className="text-[11px] text-muted-foreground font-medium">📌 Follow-ups pendentes</p>
             {pendenciasVelhas.slice(0, 5).map(i => (
               <p key={i.id} className="text-xs text-foreground cursor-pointer hover:text-primary" onClick={() => navigate(`/items/${i.id}`)}>
                 · {i.title} — {differenceInDays(now, new Date(i.updatedAt))}d
@@ -202,10 +202,10 @@ export default function ReportsPage() {
         {doneRecent.map(i => (
           <ReportItem key={i.id} title={i.title} sub={`${i.area} · ${i.tipo} · ${format(new Date(i.updatedAt), 'dd/MM', { locale: ptBR })}`} onClick={() => navigate(`/items/${i.id}`)} />
         ))}
-        {decisoes.length > 0 && (
+        {notasConcluidas.length > 0 && (
           <div className="bg-card border border-border rounded-xl p-3 space-y-1">
-            <p className="text-[11px] text-muted-foreground font-medium">🎯 Decisões tomadas</p>
-            {decisoes.slice(0, 5).map(i => (
+            <p className="text-[11px] text-muted-foreground font-medium">📝 Notas concluídas</p>
+            {notasConcluidas.slice(0, 5).map(i => (
               <p key={i.id} className="text-xs text-foreground">· {i.title}</p>
             ))}
           </div>

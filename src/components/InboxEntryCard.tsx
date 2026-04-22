@@ -125,7 +125,7 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
       description: suggestion.description,
       photoUrl: entry.type === 'photo' ? entry.photoUrl : undefined,
       tipo: suggestion.tipo || 'Ação',
-      fase: suggestion.fase || 'Capturado',
+      fase: suggestion.fase || 'Inbox',
       area: suggestion.area || 'Pessoal',
       priority: (suggestion.priority as any) || undefined,
       person: suggestion.person || undefined,
@@ -215,7 +215,6 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
                         <SelectItem value="baixa">Baixa</SelectItem>
                         <SelectItem value="media">Média</SelectItem>
                         <SelectItem value="alta">Alta</SelectItem>
-                        <SelectItem value="urgente">Urgente</SelectItem>
                       </SelectContent>
                     </Select>
                     <Input

@@ -7,8 +7,14 @@ function loadFromStorage<T>(key: string, fallback: T): T {
     const stored = localStorage.getItem(key);
     if (!stored) return fallback;
     const parsed = JSON.parse(stored);
-    if (key === 'central_settings' && parsed.tags && !parsed.tagGroups) {
-      return { ...fallback, ...parsed, tagGroups: (fallback as any).tagGroups } as T;
+    if (key === 'central_settings') {
+      return {
+        ...fallback,
+        ...parsed,
+        tipos: (fallback as any).tipos,
+        fases: (fallback as any).fases,
+        tagGroups: (fallback as any).tagGroups,
+      } as T;
     }
     return parsed;
   } catch {
@@ -277,8 +283,8 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       title: title || entry.content.slice(0, 100),
       description: entry.content,
       photo_url: entry.photoUrl || null,
-      tipo: settings.tipos[0],
-      fase: settings.fases[0],
+      tipo: 'Inbox',
+      fase: 'Inbox',
       area: settings.areas[0],
     });
     if (!error) {
