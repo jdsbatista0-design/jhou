@@ -11,6 +11,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { getDatePart } from '@/lib/dates';
 
 interface AISuggestion {
   title: string;
@@ -129,7 +130,7 @@ export default function InboxEntryCard({ entry }: { entry: InboxEntry }) {
       area: suggestion.area || 'Pessoal',
       priority: (suggestion.priority as any) || undefined,
       person: suggestion.person || undefined,
-      deadline: suggestion.deadline ? new Date(suggestion.deadline).toISOString() : undefined,
+      deadline: getDatePart(suggestion.deadline),
       deadlineTime: suggestion.deadlineTime || undefined,
       tags: suggestion.tags || [],
     });
