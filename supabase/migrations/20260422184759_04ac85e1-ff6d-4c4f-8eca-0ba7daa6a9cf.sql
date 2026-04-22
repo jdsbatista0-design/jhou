@@ -1,0 +1,2 @@
+ALTER TABLE public.items ALTER COLUMN tipo SET DEFAULT 'Inbox';
+ALTER TABLE public.items ALTER COLUMN fase SET DEFAULT 'Inbox';
