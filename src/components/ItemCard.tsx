@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { useCentral } from '@/contexts/CentralContext';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { parseLocalDateTime } from '@/lib/dates';
 
 const PRIORITY_COLORS: Record<string, string> = {
   alta: 'bg-orange-500/15 text-orange-700 border-orange-500/30',
@@ -17,7 +18,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 export default function ItemCard({ item }: { item: Item }) {
   const navigate = useNavigate();
   const { updateItem } = useCentral();
-  const deadlineDate = item.deadline ? new Date(item.deadline) : null;
+  const deadlineDate = parseLocalDateTime(item.deadline);
   const isOverdue = deadlineDate && isPast(deadlineDate) && !isToday(deadlineDate) && item.fase !== 'Concluído';
   const isConcluido = item.fase === 'Concluído';
 

@@ -10,24 +10,26 @@ import { format, isToday, isTomorrow, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { parseLocalDateTime } from '@/lib/dates';
 
 export default function AgendaPage() {
   const { agendaEntries, addEvent, deleteEvent, settings } = useCentral();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: '', datetime: '', type: settings.agendaTypes[0] });
+  const entryDate = (entry: AgendaEntry) => parseLocalDateTime(entry.datetime) || new Date(entry.datetime);
 
-  const today = agendaEntries.filter(e => isToday(new Date(e.datetime)));
-  const tomorrow = agendaEntries.filter(e => isTomorrow(new Date(e.datetime)));
+  const today = agendaEntries.filter(e => isToday(entryDate(e)));
+  const tomorrow = agendaEntries.filter(e => isTomorrow(entryDate(e)));
   const week = agendaEntries.filter(e =>
-    isThisWeek(new Date(e.datetime), { weekStartsOn: 1 }) &&
-    !isToday(new Date(e.datetime)) &&
-    !isTomorrow(new Date(e.datetime))
+    isThisWeek(entryDate(e), { weekStartsOn: 1 }) &&
+    !isToday(entryDate(e)) &&
+    !isTomorrow(entryDate(e))
   );
   const later = agendaEntries.filter(e =>
-    !isToday(new Date(e.datetime)) &&
-    !isTomorrow(new Date(e.datetime)) &&
-    !isThisWeek(new Date(e.datetime), { weekStartsOn: 1 })
+    !isToday(entryDate(e)) &&
+    !isTomorrow(entryDate(e)) &&
+    !isThisWeek(entryDate(e), { weekStartsOn: 1 })
   );
 
   const handleAdd = () => {
@@ -51,7 +53,7 @@ export default function AgendaPage() {
       <div className="space-y-1 flex-1">
         <p className="text-sm font-medium text-foreground">{entry.title}</p>
         <p className="text-[11px] text-muted-foreground">
-          {format(new Date(entry.datetime), "HH:mm · EEEE, dd/MM", { locale: ptBR })} · {entry.type}
+          {format(entryDate(entry), "HH:mm · EEEE, dd/MM", { locale: ptBR })} · {entry.type}
         </p>
         {entry.item && (
           <div className="flex gap-1 mt-1">

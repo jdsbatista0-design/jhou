@@ -8,6 +8,7 @@ import { Badge } from './ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Inbox, AlarmClock, Flame, Ban, CalendarDays, Rocket, Sparkles } from 'lucide-react';
+import { parseLocalDateTime } from '@/lib/dates';
 
 interface StoryDef {
   key: string;
@@ -25,13 +26,23 @@ export default function DashboardStories() {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const now = new Date();
+  const safeDate = (value?: string) => parseLocalDateTime(value) || (value ? new Date(value) : null);
 
   const pendingInbox = inbox.filter(e => e.status === 'pending');
-  const todayAgenda = agendaEntries.filter(e => isToday(new Date(e.datetime)));
-  const todayItems = items.filter(i => i.deadline && isToday(new Date(i.deadline)) && i.fase !== 'Concluído');
+  const todayAgenda = agendaEntries.filter(e => {
+    const date = safeDate(e.datetime);
+    return date ? isToday(date) : false;
+  });
+  const todayItems = items.filter(i => {
+    const date = safeDate(i.deadline);
+    return date ? isToday(date) && i.fase !== 'Concluído' : false;
+  });
   const urgentes = items.filter(i => i.tags.includes('urgente') && i.fase !== 'Concluído');
   const travado = items.filter(i => i.fase === 'Travado');
-  const overdue = items.filter(i => i.deadline && isPast(new Date(i.deadline)) && !isToday(new Date(i.deadline)) && i.fase !== 'Concluído');
+  const overdue = items.filter(i => {
+    const date = safeDate(i.deadline);
+    return date ? isPast(date) && !isToday(date) && i.fase !== 'Concluído' : false;
+  });
   const andando = items.filter(i => i.fase === 'Em andamento');
 
   // Build story list — only include those with content (else empty placeholder still useful?)
@@ -54,7 +65,7 @@ export default function DashboardStories() {
                     <p className="text-sm font-medium text-foreground">{e.title}</p>
                     <Badge variant="outline" className="text-[9px] shrink-0">{e.type}</Badge>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">🕐 {format(new Date(e.datetime), 'HH:mm')}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">🕐 {format(safeDate(e.datetime) || new Date(e.datetime), 'HH:mm')}</p>
                 </div>
               ))}
             </div>

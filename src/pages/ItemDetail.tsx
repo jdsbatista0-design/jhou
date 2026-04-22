@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getDatePart } from '@/lib/dates';
 
 export default function ItemDetail() {
   const { id } = useParams();
@@ -44,7 +45,7 @@ export default function ItemDetail() {
         fase: existing.fase,
         area: existing.area,
         priority: existing.priority || '',
-        deadline: existing.deadline ? existing.deadline.split('T')[0] : '',
+        deadline: getDatePart(existing.deadline),
         deadlineTime: existing.deadlineTime || '',
         person: existing.person || '',
         value: existing.value ? existing.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '',
@@ -65,7 +66,7 @@ export default function ItemDetail() {
       fase: form.fase,
       area: form.area,
       priority: (form.priority || undefined) as Item['priority'],
-      deadline: form.deadline ? new Date(form.deadline).toISOString() : undefined,
+      deadline: form.deadline || undefined,
       deadlineTime: form.deadlineTime || undefined,
       person: form.person || undefined,
       value: form.value ? parseFloat(form.value.replace(/\./g, '').replace(',', '.')) : undefined,
