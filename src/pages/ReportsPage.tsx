@@ -202,10 +202,10 @@ export default function ReportsPage() {
         {doneRecent.map(i => (
           <ReportItem key={i.id} title={i.title} sub={`${i.area} · ${i.tipo} · ${format(new Date(i.updatedAt), 'dd/MM', { locale: ptBR })}`} onClick={() => navigate(`/items/${i.id}`)} />
         ))}
-        {decisoes.length > 0 && (
+        {notasConcluidas.length > 0 && (
           <div className="bg-card border border-border rounded-xl p-3 space-y-1">
-            <p className="text-[11px] text-muted-foreground font-medium">🎯 Decisões tomadas</p>
-            {decisoes.slice(0, 5).map(i => (
+            <p className="text-[11px] text-muted-foreground font-medium">📝 Notas concluídas</p>
+            {notasConcluidas.slice(0, 5).map(i => (
               <p key={i.id} className="text-xs text-foreground">· {i.title}</p>
             ))}
           </div>
