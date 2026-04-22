@@ -187,7 +187,7 @@ export default function ReportsPage() {
         )}
         {pendenciasVelhas.length > 0 && (
           <div className="bg-card border border-border rounded-xl p-3 space-y-1">
-            <p className="text-[11px] text-muted-foreground font-medium">📌 Pendências envelhecendo</p>
+            <p className="text-[11px] text-muted-foreground font-medium">📌 Follow-ups pendentes</p>
             {pendenciasVelhas.slice(0, 5).map(i => (
               <p key={i.id} className="text-xs text-foreground cursor-pointer hover:text-primary" onClick={() => navigate(`/items/${i.id}`)}>
                 · {i.title} — {differenceInDays(now, new Date(i.updatedAt))}d

@@ -16,9 +16,6 @@ function loadFromStorage<T>(key: string, fallback: T): T {
         tagGroups: (fallback as any).tagGroups,
       } as T;
     }
-    if (key === 'central_settings' && parsed.tags && !parsed.tagGroups) {
-      return { ...fallback, ...parsed, tagGroups: (fallback as any).tagGroups } as T;
-    }
     return parsed;
   } catch {
     return fallback;

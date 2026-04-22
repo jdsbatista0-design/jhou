@@ -108,8 +108,8 @@ export default function DashboardStories() {
       ),
     },
     {
-      key: 'andando',
-      label: 'Andando',
+      key: 'em-andamento',
+      label: 'Em andamento',
       icon: <Rocket className="h-4 w-4" />,
       count: andando.length,
       accent: 'from-blue-500/20 to-blue-500/5 ring-blue-500/30',
