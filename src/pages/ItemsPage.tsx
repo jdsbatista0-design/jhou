@@ -14,8 +14,10 @@ export default function ItemsPage() {
   const [filterFase, setFilterFase] = useState<string | null>(null);
   const [filterArea, setFilterArea] = useState<string | null>(null);
   const [filterTipo, setFilterTipo] = useState<string | null>(null);
+  const visibleFases = settings.fases.filter(fase => fase !== 'Concluído');
 
   const filtered = items.filter(i => {
+    if (i.fase === 'Concluído') return false;
     if (search && !i.title.toLowerCase().includes(search.toLowerCase()) && !i.description?.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterFase && i.fase !== filterFase) return false;
     if (filterArea && i.area !== filterArea) return false;
@@ -59,7 +61,7 @@ export default function ItemsPage() {
 
       <div className="space-y-1.5">
         <FilterRow label="Todos tipos" options={settings.tipos} value={filterTipo} onChange={setFilterTipo} />
-        <FilterRow label="Todas fases" options={settings.fases} value={filterFase} onChange={setFilterFase} />
+        <FilterRow label="Todas fases" options={visibleFases} value={filterFase} onChange={setFilterFase} />
         <FilterRow label="Todas áreas" options={settings.areas} value={filterArea} onChange={setFilterArea} />
       </div>
 
