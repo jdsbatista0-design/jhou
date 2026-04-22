@@ -38,7 +38,7 @@ export default function ReportsPage() {
   const doneRecent = done.filter(i => differenceInDays(now, new Date(i.updatedAt)) <= 7);
 
   // === ONDE DEVO AGIR AGORA ===
-  const urgentes = active.filter(i => i.priority === 'urgente');
+  const urgentes = active.filter(i => i.tags.includes('urgente'));
   const travados = active.filter(i => i.fase === 'Travado');
   const overdue = active.filter(i => i.deadline && new Date(i.deadline) < now);
   const aguardandoLongo = active
@@ -51,7 +51,7 @@ export default function ReportsPage() {
   const oportunidades = active.filter(i => i.tipo === 'Oportunidade');
   const comValor = active.filter(i => i.value && i.value > 0);
   const totalRevenue = comValor.reduce((s, i) => s + (i.value || 0), 0);
-  const oppsSemAndamento = oportunidades.filter(i => ['Capturado', 'Aguardando'].includes(i.fase));
+  const oppsSemAndamento = oportunidades.filter(i => ['Inbox', 'Aguardando'].includes(i.fase));
   const byAreaRevenue: Record<string, number> = {};
   comValor.forEach(i => { byAreaRevenue[i.area] = (byAreaRevenue[i.area] || 0) + (i.value || 0); });
 
@@ -79,11 +79,11 @@ export default function ReportsPage() {
     .sort((a, b) => b[1].days - a[1].days);
 
   const pendenciasVelhas = active
-    .filter(i => i.tipo === 'Pendência' && differenceInDays(now, new Date(i.updatedAt)) >= 5)
+    .filter(i => i.tags.includes('aguardando retorno') && differenceInDays(now, new Date(i.updatedAt)) >= 5)
     .sort((a, b) => differenceInDays(now, new Date(a.updatedAt)) - differenceInDays(now, new Date(b.updatedAt)));
 
-  // === DECISÕES TOMADAS ===
-  const decisoes = done.filter(i => i.tipo === 'Decisão');
+  // === NOTAS CONCLUÍDAS ===
+  const notasConcluidas = done.filter(i => i.tipo === 'Nota');
 
   const actionCount = urgentes.length + travados.length + overdue.length;
 
