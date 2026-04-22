@@ -25,7 +25,7 @@ export interface Item {
   tipo: string;
   fase: string;
   area: string;
-  priority?: 'baixa' | 'media' | 'alta' | 'urgente';
+  priority?: 'baixa' | 'media' | 'alta';
   deadline?: string;
   deadlineTime?: string; // HH:mm for agenda integration
   person?: string;
@@ -98,14 +98,12 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  tipos: ['Ação', 'Oportunidade', 'Ideia', 'Pendência', 'Decisão', 'Melhoria', 'Problema'],
-  fases: ['Capturado', 'Aprendendo', 'Acompanhando', 'Analisando', 'Andando', 'Aguardando', 'Travado', 'Concluído'],
+  tipos: ['Inbox', 'Ação', 'Nota'],
+  fases: ['Inbox', 'Em andamento', 'Aguardando', 'Travado', 'Concluído'],
   areas: ['Izi', 'Mídia', 'Incorporação', 'Stone', 'Pessoal', 'BJ7Mídia', 'Casa', 'Filhas'],
   tagGroups: [
     { name: 'Contexto', tags: ['estratégico', 'operacional', 'pessoal', 'delegado'] },
-    { name: 'Leitura', tags: ['urgente', 'importante', 'pode esperar', 'informativo'] },
-    { name: 'Natureza', tags: ['receita', 'custo', 'investimento', 'relacionamento'] },
-    { name: 'Resultado', tags: ['follow-up', 'decisão pendente', 'aguardando retorno', 'concluído parcial'] },
+    { name: 'Status', tags: ['urgente', 'importante', 'aguardando retorno'] },
   ],
   agendaTypes: ['Reunião', 'Visita', 'Compromisso', 'Prazo'],
 };
