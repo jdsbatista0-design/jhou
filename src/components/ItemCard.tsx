@@ -72,6 +72,14 @@ export default function ItemCard({ item }: { item: Item }) {
         </p>
       )}
       {item.person && <p className="text-[11px] text-muted-foreground pl-6">👤 {item.person}</p>}
+      {isConcluido && (
+        <button
+          onClick={handleToggleConcluido}
+          className="ml-6 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+        >
+          Reabrir
+        </button>
+      )}
     </div>
   );
 }
