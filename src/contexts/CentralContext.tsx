@@ -26,6 +26,19 @@ function saveToStorage<T>(key: string, data: T) {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
+function normalizeSettings(value: unknown): Settings {
+  const parsed = (value && typeof value === 'object' ? value : {}) as Partial<Settings>;
+  return {
+    ...DEFAULT_SETTINGS,
+    ...parsed,
+    tipos: Array.isArray(parsed.tipos) ? parsed.tipos : DEFAULT_SETTINGS.tipos,
+    fases: Array.isArray(parsed.fases) ? parsed.fases : DEFAULT_SETTINGS.fases,
+    areas: Array.isArray(parsed.areas) ? parsed.areas : DEFAULT_SETTINGS.areas,
+    tagGroups: Array.isArray(parsed.tagGroups) ? parsed.tagGroups : DEFAULT_SETTINGS.tagGroups,
+    agendaTypes: Array.isArray(parsed.agendaTypes) ? parsed.agendaTypes : DEFAULT_SETTINGS.agendaTypes,
+  };
+}
+
 interface CentralContextType {
   inbox: InboxEntry[];
   addInboxEntry: (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => void;
@@ -191,12 +204,25 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const refreshSettings = useCallback(async () => {
+    const { data, error } = await (supabase as any)
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'central_settings')
+      .maybeSingle();
+
+    if (!error && data?.value) {
+      setSettings(normalizeSettings(data.value));
+    }
+  }, []);
+
   // Initial load + realtime
   useEffect(() => {
     refreshInbox();
     refreshItems();
     refreshMemories();
     refreshEvents();
+    refreshSettings();
 
     const inboxCh = supabase.channel('inbox_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' }, () => refreshInbox())
@@ -218,14 +244,19 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => refreshEvents())
       .subscribe();
 
+    const settingsCh = supabase.channel('settings_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => refreshSettings())
+      .subscribe();
+
     return () => {
       supabase.removeChannel(inboxCh);
       supabase.removeChannel(itemsCh);
       supabase.removeChannel(commentsCh);
       supabase.removeChannel(memoriesCh);
       supabase.removeChannel(eventsCh);
+      supabase.removeChannel(settingsCh);
     };
-  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents]);
+  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshSettings]);
 
   // Settings still localStorage (personal preferences)
   useEffect(() => saveToStorage('central_settings', settings), [settings]);
@@ -391,7 +422,16 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {
-    setSettings(prev => ({ ...prev, ...updates }));
+    setSettings(prev => {
+      const next = normalizeSettings({ ...prev, ...updates });
+      (supabase as any)
+        .from('app_settings')
+        .upsert({ key: 'central_settings', value: next })
+        .then(({ error }: { error: unknown }) => {
+          if (error) console.error('Erro ao sincronizar configurações', error);
+        });
+      return next;
+    });
   }, []);
 
   return (
