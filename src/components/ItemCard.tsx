@@ -25,7 +25,7 @@ export default function ItemCard({ item }: { item: Item }) {
     e.stopPropagation();
     const newFase = isConcluido ? 'Inbox' : 'Concluído';
     updateItem(item.id, { fase: newFase });
-    toast.success(isConcluido ? 'Item reaberto' : 'Item concluído ✅');
+    toast.success(isConcluido ? 'Item reaberto' : 'Item arquivado ✅');
   };
 
   return (
