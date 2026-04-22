@@ -29,10 +29,10 @@ export default function DashboardStories() {
   const pendingInbox = inbox.filter(e => e.status === 'pending');
   const todayAgenda = agendaEntries.filter(e => isToday(new Date(e.datetime)));
   const todayItems = items.filter(i => i.deadline && isToday(new Date(i.deadline)) && i.fase !== 'Concluído');
-  const urgentes = items.filter(i => i.priority === 'urgente' && i.fase !== 'Concluído');
+  const urgentes = items.filter(i => i.tags.includes('urgente') && i.fase !== 'Concluído');
   const travado = items.filter(i => i.fase === 'Travado');
   const overdue = items.filter(i => i.deadline && isPast(new Date(i.deadline)) && !isToday(new Date(i.deadline)) && i.fase !== 'Concluído');
-  const andando = items.filter(i => i.fase === 'Andando');
+  const andando = items.filter(i => i.fase === 'Em andamento');
 
   // Build story list — only include those with content (else empty placeholder still useful?)
   const stories: StoryDef[] = [

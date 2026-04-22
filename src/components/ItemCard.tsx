@@ -9,7 +9,6 @@ import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgente: 'bg-destructive/15 text-destructive border-destructive/30',
   alta: 'bg-orange-500/15 text-orange-700 border-orange-500/30',
   media: 'bg-yellow-500/15 text-yellow-700 border-yellow-500/30',
   baixa: 'bg-muted text-muted-foreground border-border',
@@ -24,7 +23,7 @@ export default function ItemCard({ item }: { item: Item }) {
 
   const handleToggleConcluido = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const newFase = isConcluido ? 'Capturado' : 'Concluído';
+    const newFase = isConcluido ? 'Inbox' : 'Concluído';
     updateItem(item.id, { fase: newFase });
     toast.success(isConcluido ? 'Item reaberto' : 'Item concluído ✅');
   };
