@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { InboxEntry, Item, ItemComment, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
 import { supabase } from '@/integrations/supabase/client';
+import { parseLocalDateTime } from '@/lib/dates';
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
@@ -285,9 +286,11 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       sourceId: e.id,
     }));
 
-    return [...fromItems, ...fromEvents].sort(
-      (a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
-    );
+    return [...fromItems, ...fromEvents].sort((a, b) => {
+      const aDate = parseLocalDateTime(a.datetime) || new Date(a.datetime);
+      const bDate = parseLocalDateTime(b.datetime) || new Date(b.datetime);
+      return aDate.getTime() - bDate.getTime();
+    });
   }, [items, events]);
 
   // ---- INBOX ACTIONS ----
