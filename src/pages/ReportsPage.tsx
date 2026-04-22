@@ -4,6 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import VisionSection from '@/components/VisionSection';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { parseLocalDateTime } from '@/lib/dates';
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
   return (
@@ -31,6 +32,7 @@ export default function ReportsPage() {
   const { items } = useCentral();
   const navigate = useNavigate();
   const now = new Date();
+  const deadlineDate = (value?: string) => parseLocalDateTime(value);
 
   const active = items.filter(i => i.fase !== 'Concluído');
   const done = items.filter(i => i.fase === 'Concluído');
@@ -40,7 +42,10 @@ export default function ReportsPage() {
   // === ONDE DEVO AGIR AGORA ===
   const urgentes = active.filter(i => i.tags.includes('urgente'));
   const travados = active.filter(i => i.fase === 'Travado');
-  const overdue = active.filter(i => i.deadline && new Date(i.deadline) < now);
+  const overdue = active.filter(i => {
+    const date = deadlineDate(i.deadline);
+    return date ? date < now : false;
+  });
   const aguardandoLongo = active
     .filter(i => i.fase === 'Aguardando')
     .map(i => ({ ...i, days: differenceInDays(now, new Date(i.updatedAt)) }))
@@ -108,7 +113,7 @@ export default function ReportsPage() {
           <ReportItem key={i.id} title={i.title} sub={`🚫 Travado · ${i.area} · ${differenceInDays(now, new Date(i.updatedAt))}d`} urgent onClick={() => navigate(`/items/${i.id}`)} />
         ))}
         {overdue.map(i => (
-          <ReportItem key={i.id} title={i.title} sub={`⚠️ Vencido · ${i.area} · ${format(new Date(i.deadline!), 'dd/MM', { locale: ptBR })}`} urgent onClick={() => navigate(`/items/${i.id}`)} />
+          <ReportItem key={i.id} title={i.title} sub={`⚠️ Vencido · ${i.area} · ${format(deadlineDate(i.deadline) || new Date(i.deadline!), 'dd/MM', { locale: ptBR })}`} urgent onClick={() => navigate(`/items/${i.id}`)} />
         ))}
       </VisionSection>
 
