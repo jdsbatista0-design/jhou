@@ -40,7 +40,7 @@ async function deriveKey(pin: string, saltB64: string): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const baseKey = await crypto.subtle.importKey(
     'raw',
-    enc.encode(pin),
+    enc.encode(pin) as BufferSource,
     { name: 'PBKDF2' },
     false,
     ['deriveKey'],
@@ -48,7 +48,7 @@ async function deriveKey(pin: string, saltB64: string): Promise<CryptoKey> {
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: base64ToBuf(saltB64),
+      salt: base64ToBuf(saltB64) as BufferSource,
       iterations: ITERATIONS,
       hash: 'SHA-256',
     },
@@ -76,11 +76,11 @@ export async function encryptString(plain: string): Promise<string> {
   const key = await getKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: iv as BufferSource },
     key,
-    new TextEncoder().encode(plain),
+    new TextEncoder().encode(plain) as BufferSource,
   );
-  return `${PREFIX}${bufToBase64(iv.buffer)}:${bufToBase64(ct)}`;
+  return `${PREFIX}${bufToBase64(iv.buffer as ArrayBuffer)}:${bufToBase64(ct)}`;
 }
 
 export async function decryptString(value: string | null | undefined): Promise<string | null> {
@@ -92,9 +92,9 @@ export async function decryptString(value: string | null | undefined): Promise<s
     if (!ivB64 || !ctB64) return value;
     const key = await getKey();
     const pt = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: base64ToBuf(ivB64) },
+      { name: 'AES-GCM', iv: base64ToBuf(ivB64) as BufferSource },
       key,
-      base64ToBuf(ctB64),
+      base64ToBuf(ctB64) as BufferSource,
     );
     return new TextDecoder().decode(pt);
   } catch (e) {
