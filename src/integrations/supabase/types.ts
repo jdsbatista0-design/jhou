@@ -76,6 +76,75 @@ export type Database = {
           },
         ]
       }
+      gcal_state: {
+        Row: {
+          calendar_id: string | null
+          created_at: string
+          last_pull_at: string | null
+          last_push_at: string | null
+          sync_token: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calendar_id?: string | null
+          created_at?: string
+          last_pull_at?: string | null
+          last_push_at?: string | null
+          sync_token?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calendar_id?: string | null
+          created_at?: string
+          last_pull_at?: string | null
+          last_push_at?: string | null
+          sync_token?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      gcal_sync: {
+        Row: {
+          created_at: string
+          deleted: boolean
+          google_calendar_id: string
+          google_event_id: string
+          id: string
+          item_id: string | null
+          last_local_updated_at: string | null
+          last_remote_updated_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted?: boolean
+          google_calendar_id: string
+          google_event_id: string
+          id?: string
+          item_id?: string | null
+          last_local_updated_at?: string | null
+          last_remote_updated_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted?: boolean
+          google_calendar_id?: string
+          google_event_id?: string
+          id?: string
+          item_id?: string | null
+          last_local_updated_at?: string | null
+          last_remote_updated_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       inbox_entries: {
         Row: {
           audio_url: string | null
