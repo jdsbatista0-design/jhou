@@ -194,8 +194,8 @@ async function pushItem(
   if (itemErr) throw itemErr;
   if (!item) return { ok: true, skipped: "item não encontrado" };
 
-  // Sem deadline ou concluído -> deletar do Google se existia
-  if (!item.deadline || item.fase === "Concluído") {
+  // Sem deadline válido ou concluído -> deletar do Google se existia
+  if (!isValidDateString(item.deadline) || item.fase === "Concluído") {
     if (mapping?.google_event_id) {
       const r = await gfetch(
         `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(mapping.google_event_id)}`,
@@ -207,7 +207,7 @@ async function pushItem(
       }
       await supa.from("gcal_sync").update({ deleted: true }).eq("id", mapping.id);
     }
-    return { ok: true, removed_from_calendar: true };
+    return { ok: true, removed_from_calendar: true, reason: !isValidDateString(item.deadline) ? "sem_data_valida" : "concluido" };
   }
 
   const body = buildEventBody(item);
