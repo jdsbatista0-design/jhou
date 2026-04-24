@@ -251,10 +251,43 @@ async function pushItem(
   }
 
   // INSERT novo
-  const r = await gfetch(
+  let r = await gfetch(
     `/calendars/${encodeURIComponent(calendarId)}/events`,
     { method: "POST", body: JSON.stringify(body) },
   );
+  // Se o calendário sumiu do Google (404), recria e tenta UMA vez de novo
+  if (r.status === 404) {
+    const errBody = await r.text().catch(() => "");
+    console.warn("calendário 404 no INSERT, recriando…", errBody);
+    await supa
+      .from("gcal_state")
+      .update({ calendar_id: null, sync_token: null })
+      .eq("user_id", userId);
+    const newCalId = await ensureCalendar(supa, userId, true);
+    r = await gfetch(
+      `/calendars/${encodeURIComponent(newCalId)}/events`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+    if (!r.ok) throw new Error(`Insert event falhou após recriar calendário [${r.status}]: ${await r.text()}`);
+    const ev = await r.json();
+    await supa.from("gcal_sync").upsert(
+      {
+        user_id: userId,
+        item_id: itemId,
+        google_event_id: ev.id,
+        google_calendar_id: newCalId,
+        deleted: false,
+        last_local_updated_at: item.updated_at,
+        last_remote_updated_at: ev.updated,
+      },
+      { onConflict: "user_id,google_event_id" },
+    );
+    await supa
+      .from("gcal_state")
+      .update({ last_push_at: new Date().toISOString() })
+      .eq("user_id", userId);
+    return { ok: true, inserted: true, recreated_calendar: true, eventId: ev.id };
+  }
   if (!r.ok) throw new Error(`Insert event falhou [${r.status}]: ${await r.text()}`);
   const ev = await r.json();
   await supa.from("gcal_sync").upsert(
