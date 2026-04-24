@@ -30,7 +30,8 @@ interface Props {
 export function TransactionDialog({ open, onClose, scope, companyId, editTransaction }: Props) {
   const {
     accounts, cards, categories, people, companies, recurrences,
-    addTransaction, updateTransaction,
+    addTransaction, updateTransaction, deleteTransaction, deleteTransactionAndFuture,
+    addRecurrence, updateRecurrence, deleteRecurrence,
     addTransferBetweenAccounts, addInterCompanyTransfer,
   } = useFinance();
 
