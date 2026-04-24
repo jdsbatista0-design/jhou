@@ -18,6 +18,7 @@ import AgendaPage from "@/pages/AgendaPage";
 import MemoryPage from "@/pages/MemoryPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ReportsPage from "@/pages/ReportsPage";
+import FinancePage from "@/pages/FinancePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,6 +82,7 @@ const App = () => {
                   <Route path="/memory" element={<MemoryPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/financas" element={<FinancePage />} />
                   <Route path="*" element={<NotFound />} />
               </Routes>
               </main>
