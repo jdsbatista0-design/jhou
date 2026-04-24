@@ -161,16 +161,79 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
       reset(); onClose(); return;
     }
 
+    // Recurrence: only allowed for plain income/expense (no transfers, no inter)
+    const canRepeat = !isTransfer && !isInter && (kind === 'income' || kind === 'expense');
+    let recurrenceId: string | undefined;
+    if (canRepeat && repeats) {
+      const dayOfMonth = parseInt(occurredOn.slice(-2), 10);
+      const newRecId = await addRecurrence({
+        scope,
+        companyId: scope === 'pj' ? (companyId || undefined) : undefined,
+        accountId: accountId !== 'none' ? accountId : undefined,
+        cardId: cardId !== 'none' ? cardId : undefined,
+        categoryId: categoryId !== 'none' ? categoryId : undefined,
+        description: description.trim(),
+        amount: amt,
+        kind: kind as 'income' | 'expense',
+        frequency: repFrequency,
+        dayOfMonth: repFrequency === 'monthly' ? dayOfMonth : undefined,
+        startOn: occurredOn,
+        endOn: repHasEnd && repEndOn ? repEndOn : undefined,
+      });
+      recurrenceId = newRecId || undefined;
+    }
+
     await addTransaction({
       scope, companyId: scope === 'pj' ? (companyId || undefined) : undefined,
       accountId: accountId !== 'none' ? accountId : undefined,
       cardId: cardId !== 'none' ? cardId : undefined,
       categoryId: categoryId !== 'none' ? categoryId : undefined,
       personId: personId !== 'none' ? personId : undefined,
+      recurrenceId,
       kind, amount: amt, description: description.trim(), occurredOn, status,
       notes: notes.trim() || undefined,
+      source: recurrenceId ? 'recurrence' : 'manual',
     });
-    toast.success('Lançamento registrado');
+
+    if (recurrenceId) {
+      // Mark this first occurrence as already generated so the auto-generator
+      // doesn't try to recreate it next time.
+      await updateRecurrence(recurrenceId, { lastGeneratedOn: occurredOn });
+      toast.success('Lançamento e recorrência criados');
+    } else {
+      toast.success('Lançamento registrado');
+    }
+    reset(); onClose();
+  };
+
+  const handlePauseRecurrence = async () => {
+    if (!editRecurrence) return;
+    await updateRecurrence(editRecurrence.id, { active: !editRecurrence.active });
+    toast.success(editRecurrence.active ? 'Recorrência pausada' : 'Recorrência reativada');
+  };
+
+  const handleEndRecurrence = async () => {
+    if (!editRecurrence) return;
+    const today = new Date().toISOString().slice(0, 10);
+    await updateRecurrence(editRecurrence.id, { endOn: today, active: false });
+    toast.success('Recorrência encerrada');
+  };
+
+  const handleDeleteOnlyThis = async () => {
+    if (!editTransaction) return;
+    await deleteTransaction(editTransaction.id);
+    toast.success('Lançamento excluído');
+    reset(); onClose();
+  };
+
+  const handleDeleteThisAndFuture = async () => {
+    if (!editTransaction) return;
+    await deleteTransactionAndFuture(editTransaction.id);
+    if (editRecurrence) {
+      await updateRecurrence(editRecurrence.id, { active: false });
+    }
+    toast.success('Esta e as futuras foram excluídas');
+    setConfirmDeleteFuture(false);
     reset(); onClose();
   };
 
