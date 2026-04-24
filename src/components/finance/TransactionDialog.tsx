@@ -432,14 +432,96 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
                 <Label className="text-xs">Observação</Label>
                 <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Opcional" className="rounded-xl text-sm min-h-[60px]" />
               </div>
+
+              {/* Recurrence block — only when creating a plain income/expense */}
+              {!isEdit && (kind === 'income' || kind === 'expense') && (
+                <div className="rounded-xl border border-border bg-muted/30 p-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="rep-toggle" className="text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                      <Repeat className="h-3.5 w-3.5 text-primary" /> Se repete todo mês
+                    </Label>
+                    <Switch id="rep-toggle" checked={repeats} onCheckedChange={setRepeats} />
+                  </div>
+                  {repeats && (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Frequência</Label>
+                          <Select value={repFrequency} onValueChange={v => setRepFrequency(v as RecurrenceFreq)}>
+                            <SelectTrigger className="rounded-xl h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="monthly">Mensal</SelectItem>
+                              <SelectItem value="weekly">Semanal</SelectItem>
+                              <SelectItem value="yearly">Anual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Termina em</Label>
+                          <Select
+                            value={repHasEnd ? 'date' : 'never'}
+                            onValueChange={v => { setRepHasEnd(v === 'date'); if (v !== 'date') setRepEndOn(''); }}
+                          >
+                            <SelectTrigger className="rounded-xl h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="never">Sem fim</SelectItem>
+                              <SelectItem value="date">Escolher data</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      {repHasEnd && (
+                        <Input
+                          type="date" value={repEndOn} onChange={e => setRepEndOn(e.target.value)}
+                          min={occurredOn}
+                          className="rounded-xl h-8 text-xs"
+                        />
+                      )}
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        Próximas ocorrências serão criadas como <b>Previsto</b>{' '}
+                        {repFrequency === 'monthly' ? `todo dia ${parseInt(occurredOn.slice(-2), 10)}` :
+                         repFrequency === 'weekly' ? 'a cada 7 dias' : 'todo ano'} até {repHasEnd && repEndOn ? new Date(repEndOn + 'T00:00:00').toLocaleDateString('pt-BR') : 'você encerrar'}.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2">
+          {isEdit && (
+            <Button
+              variant="outline"
+              onClick={handleDeleteOnlyThis}
+              className="rounded-xl text-destructive hover:text-destructive mr-auto"
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Excluir
+            </Button>
+          )}
           <Button variant="outline" onClick={() => { reset(); onClose(); }} className="rounded-xl">Cancelar</Button>
           <Button onClick={handleSave} className="rounded-xl">{isEdit ? 'Salvar alterações' : 'Salvar'}</Button>
         </DialogFooter>
+
+        <AlertDialog open={confirmDeleteFuture} onOpenChange={setConfirmDeleteFuture}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir esta e as futuras ocorrências?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Todas as ocorrências da recorrência <b>{editRecurrence?.description}</b> a partir de{' '}
+                <b>{editTransaction && new Date(editTransaction.occurredOn + 'T00:00:00').toLocaleDateString('pt-BR')}</b>{' '}
+                serão removidas e a regra será pausada. Ocorrências anteriores não são afetadas.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteThisAndFuture} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Excluir todas a partir desta
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
