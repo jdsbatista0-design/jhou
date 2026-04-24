@@ -6,7 +6,7 @@ import InboxEntryCard from './InboxEntryCard';
 import { Badge } from './ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Inbox, AlarmClock, Flame, Ban, Rocket, Sparkles, Check, GripVertical, ArrowUpDown, Search } from 'lucide-react';
+import { Inbox, AlarmClock, Flame, Ban, Rocket, Sparkles, Check, GripVertical, Search, SlidersHorizontal, Archive, X } from 'lucide-react';
 import { parseLocalDateTime } from '@/lib/dates';
 import { toast } from 'sonner';
 import { Item } from '@/types/central';
@@ -24,7 +24,7 @@ interface StoryDef {
   render: () => React.ReactNode;
 }
 
-const STORY_KEYS = ['agora', 'urgentes', 'inbox', 'em-andamento', 'travado'] as const;
+const STORY_KEYS = ['agora', 'urgentes', 'inbox', 'em-andamento', 'travado', 'concluidos'] as const;
 const ORDER_STORAGE_KEY = 'central_dashboard_story_order';
 
 const PRIORITY_RANK: Record<string, number> = { alta: 0, media: 1, baixa: 2 };
@@ -60,6 +60,7 @@ export default function DashboardStories() {
   const [storyOrder, setStoryOrder] = useState<string[]>(loadStoryOrder);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   useEffect(() => {
     localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(storyOrder));
   }, [storyOrder]);
@@ -144,6 +145,7 @@ export default function DashboardStories() {
     return date ? isPast(date) && !isToday(date) && i.fase !== 'Concluído' : false;
   })), [filteredItemsAll, sortKey]);
   const andando = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Em andamento')), [filteredItemsAll, sortKey]);
+  const concluidos = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Concluído')), [filteredItemsAll, sortKey]);
 
   const storyMap: Record<string, StoryDef> = {
     agora: {
@@ -278,6 +280,19 @@ export default function DashboardStories() {
         </div>
       ),
     },
+    concluidos: {
+      key: 'concluidos',
+      label: 'Concluídos',
+      icon: <Archive className="h-4 w-4" />,
+      count: concluidos.length,
+      accent: 'from-emerald-500/20 to-emerald-500/5 ring-emerald-500/30',
+      empty: { emoji: '🗂️', text: 'Nada arquivado ainda.' },
+      render: () => (
+        <div className="space-y-2">
+          {concluidos.map(i => <ItemCard key={i.id} item={i} />)}
+        </div>
+      ),
+    },
   };
 
   const stories: StoryDef[] = storyOrder.map(k => storyMap[k]).filter(Boolean);
@@ -372,48 +387,124 @@ export default function DashboardStories() {
     </div>
   );
 
+  const periodLabels: Record<string, string> = {
+    hoje: 'Hoje',
+    semana: 'Esta semana',
+    mes: 'Este mês',
+    vencidos: '⚠ Vencidos',
+  };
+  const activeChips: { label: string; clear: () => void }[] = [
+    ...(filterPeriod ? [{ label: periodLabels[filterPeriod], clear: () => setFilterPeriod(null) }] : []),
+    ...(filterTipo ? [{ label: filterTipo, clear: () => setFilterTipo(null) }] : []),
+    ...(filterArea ? [{ label: filterArea, clear: () => setFilterArea(null) }] : []),
+  ];
+  const filtersActive = activeChips.length > 0 || sortKey !== 'data-asc';
+  const clearAll = () => {
+    setFilterPeriod(null);
+    setFilterTipo(null);
+    setFilterArea(null);
+    setSortKey('data-asc');
+  };
+
   return (
     <div className="space-y-3">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Buscar..."
-          className="w-full bg-muted/60 text-sm rounded-xl pl-9 pr-3 h-9 outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
-        />
+      {/* Search + Filters toggle */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar..."
+            className="w-full bg-muted/60 text-sm rounded-xl pl-9 pr-3 h-9 outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+          />
+        </div>
+        <button
+          onClick={() => setShowFilters(v => !v)}
+          className={cn(
+            'shrink-0 h-9 px-3 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors',
+            showFilters || filtersActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          )}
+          aria-label="Filtros"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Filtros
+          {activeChips.length > 0 && (
+            <span className="min-w-4 h-4 px-1 rounded-full bg-background text-foreground text-[9px] font-bold flex items-center justify-center">
+              {activeChips.length}
+            </span>
+          )}
+        </button>
       </div>
 
-      {/* Filters */}
-      <div className="space-y-1.5">
-        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          {([
-            { key: null, label: 'Qualquer data' },
-            { key: 'hoje', label: 'Hoje' },
-            { key: 'semana', label: 'Esta semana' },
-            { key: 'mes', label: 'Este mês' },
-            { key: 'vencidos', label: '⚠ Vencidos' },
-          ] as { key: PeriodFilter | null; label: string }[]).map(p => (
+      {/* Active filter chips (always visible when active) */}
+      {activeChips.length > 0 && !showFilters && (
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+          {activeChips.map((c, idx) => (
             <button
-              key={p.label}
-              onClick={() => setFilterPeriod(p.key)}
-              className={cn('text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors', filterPeriod === p.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
+              key={idx}
+              onClick={c.clear}
+              className="shrink-0 flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-primary/15 text-primary border border-primary/20"
             >
-              {p.label}
+              {c.label}
+              <X className="h-3 w-3" />
             </button>
           ))}
+          <button onClick={clearAll} className="shrink-0 text-[11px] px-2.5 py-1 rounded-full text-muted-foreground hover:text-foreground">
+            Limpar
+          </button>
         </div>
-        <FilterRow label="Todos tipos" options={settings.tipos} value={filterTipo} onChange={setFilterTipo} />
-        <FilterRow label="Todas áreas" options={settings.areas} value={filterArea} onChange={setFilterArea} />
-        {/* Sort */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar items-center">
-          <ArrowUpDown className="h-3 w-3 text-muted-foreground shrink-0" />
-          <SortChip value="data-asc" label="Data ↑" />
-          <SortChip value="data-desc" label="Data ↓" />
-          <SortChip value="prioridade" label="Prioridade" />
+      )}
+
+      {/* Collapsible filter panel */}
+      {showFilters && (
+        <div className="rounded-xl bg-muted/40 border border-border p-2.5 space-y-2">
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 px-0.5">Período</p>
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+              {([
+                { key: null, label: 'Qualquer' },
+                { key: 'hoje', label: 'Hoje' },
+                { key: 'semana', label: 'Esta semana' },
+                { key: 'mes', label: 'Este mês' },
+                { key: 'vencidos', label: '⚠ Vencidos' },
+              ] as { key: PeriodFilter | null; label: string }[]).map(p => (
+                <button
+                  key={p.label}
+                  onClick={() => setFilterPeriod(p.key)}
+                  className={cn('text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors', filterPeriod === p.key ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground')}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 px-0.5">Tipo</p>
+            <FilterRow label="Todos" options={settings.tipos} value={filterTipo} onChange={setFilterTipo} />
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 px-0.5">Área</p>
+            <FilterRow label="Todas" options={settings.areas} value={filterArea} onChange={setFilterArea} />
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 px-0.5">Ordenar por</p>
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar items-center">
+              <SortChip value="data-asc" label="Data ↑" />
+              <SortChip value="data-desc" label="Data ↓" />
+              <SortChip value="prioridade" label="Prioridade" />
+            </div>
+          </div>
+          {filtersActive && (
+            <button
+              onClick={clearAll}
+              className="w-full text-[11px] py-1.5 rounded-lg bg-background text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Limpar filtros
+            </button>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Tabs (chips) with reorder */}
       <div className="flex items-center gap-1.5">
