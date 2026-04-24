@@ -76,6 +76,442 @@ export type Database = {
           },
         ]
       }
+      fin_accounts: {
+        Row: {
+          archived: boolean
+          bank: string | null
+          color: string
+          company_id: string | null
+          created_at: string
+          id: string
+          initial_balance: number
+          name: string
+          scope: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          bank?: string | null
+          color?: string
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          name: string
+          scope: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          bank?: string | null
+          color?: string
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          name?: string
+          scope?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "fin_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_cards: {
+        Row: {
+          account_id: string | null
+          archived: boolean
+          brand: string | null
+          closing_day: number | null
+          color: string
+          company_id: string | null
+          created_at: string
+          due_day: number | null
+          id: string
+          limit_amount: number
+          name: string
+          scope: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          archived?: boolean
+          brand?: string | null
+          closing_day?: number | null
+          color?: string
+          company_id?: string | null
+          created_at?: string
+          due_day?: number | null
+          id?: string
+          limit_amount?: number
+          name: string
+          scope: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          account_id?: string | null
+          archived?: boolean
+          brand?: string | null
+          closing_day?: number | null
+          color?: string
+          company_id?: string | null
+          created_at?: string
+          due_day?: number | null
+          id?: string
+          limit_amount?: number
+          name?: string
+          scope?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_cards_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_cards_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "fin_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_categories: {
+        Row: {
+          archived: boolean
+          color: string
+          created_at: string
+          icon: string | null
+          id: string
+          kind: string
+          name: string
+          scope: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          kind?: string
+          name: string
+          scope: string
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          color?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          scope?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fin_companies: {
+        Row: {
+          archived: boolean
+          cnpj: string | null
+          color: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          cnpj?: string | null
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          cnpj?: string | null
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      fin_people: {
+        Row: {
+          archived: boolean
+          company_id: string | null
+          created_at: string
+          document: string | null
+          id: string
+          name: string
+          note: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          company_id?: string | null
+          created_at?: string
+          document?: string | null
+          id?: string
+          name: string
+          note?: string | null
+          role?: string
+          user_id?: string
+        }
+        Update: {
+          archived?: boolean
+          company_id?: string | null
+          created_at?: string
+          document?: string | null
+          id?: string
+          name?: string
+          note?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_people_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "fin_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_recurrences: {
+        Row: {
+          account_id: string | null
+          active: boolean
+          amount: number
+          card_id: string | null
+          category_id: string | null
+          company_id: string | null
+          created_at: string
+          day_of_month: number | null
+          description: string
+          end_on: string | null
+          frequency: string
+          id: string
+          kind: string
+          last_generated_on: string | null
+          scope: string
+          start_on: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          active?: boolean
+          amount: number
+          card_id?: string | null
+          category_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          day_of_month?: number | null
+          description: string
+          end_on?: string | null
+          frequency?: string
+          id?: string
+          kind: string
+          last_generated_on?: string | null
+          scope: string
+          start_on: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          account_id?: string | null
+          active?: boolean
+          amount?: number
+          card_id?: string | null
+          category_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          day_of_month?: number | null
+          description?: string
+          end_on?: string | null
+          frequency?: string
+          id?: string
+          kind?: string
+          last_generated_on?: string | null
+          scope?: string
+          start_on?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_recurrences_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_recurrences_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "fin_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_recurrences_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_recurrences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "fin_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_transactions: {
+        Row: {
+          account_id: string | null
+          amount: number
+          attachment_url: string | null
+          card_id: string | null
+          category_id: string | null
+          company_id: string | null
+          created_at: string
+          description: string
+          id: string
+          kind: string
+          notes: string | null
+          occurred_on: string
+          person_id: string | null
+          recurrence_id: string | null
+          scope: string
+          source: string
+          status: string
+          transfer_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          attachment_url?: string | null
+          card_id?: string | null
+          category_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          kind: string
+          notes?: string | null
+          occurred_on?: string
+          person_id?: string | null
+          recurrence_id?: string | null
+          scope: string
+          source?: string
+          status?: string
+          transfer_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          attachment_url?: string | null
+          card_id?: string | null
+          category_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          kind?: string
+          notes?: string | null
+          occurred_on?: string
+          person_id?: string | null
+          recurrence_id?: string | null
+          scope?: string
+          source?: string
+          status?: string
+          transfer_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "fin_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "fin_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "fin_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_recurrence_id_fkey"
+            columns: ["recurrence_id"]
+            isOneToOne: false
+            referencedRelation: "fin_recurrences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gcal_state: {
         Row: {
           calendar_id: string | null
