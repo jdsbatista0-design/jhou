@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -9,23 +9,34 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { FinScope, TX_KIND_LABELS, TxKind } from '@/types/finance';
+import { FinScope, FinTransaction, TX_KIND_LABELS, TxKind } from '@/types/finance';
+import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
+import { Repeat } from 'lucide-react';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   scope: FinScope;
   companyId: string | null;
+  /** When provided the dialog edits the given transaction instead of creating one */
+  editTransaction?: FinTransaction | null;
 }
 
-export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
+export function TransactionDialog({ open, onClose, scope, companyId, editTransaction }: Props) {
   const {
-    accounts, cards, categories, people, companies,
-    addTransaction, addTransferBetweenAccounts, addInterCompanyTransfer,
+    accounts, cards, categories, people, companies, recurrences,
+    addTransaction, updateTransaction,
+    addTransferBetweenAccounts, addInterCompanyTransfer,
   } = useFinance();
 
+  const isEdit = !!editTransaction;
+  const editRecurrence = editTransaction?.recurrenceId
+    ? recurrences.find(r => r.id === editTransaction.recurrenceId)
+    : null;
+  const isTransferEdit = isEdit && !!editTransaction?.transferId;
+
   const [kind, setKind] = useState<TxKind>('expense');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(''); // masked BRL string
   const [description, setDescription] = useState('');
   const [occurredOn, setOccurredOn] = useState(() => new Date().toISOString().slice(0, 10));
   const [accountId, setAccountId] = useState<string>('none');
@@ -34,7 +45,7 @@ export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
   const [personId, setPersonId] = useState<string>('none');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'confirmed' | 'pending'>('confirmed');
-  // Transfer-specific
+  // Transfer-specific (only for create)
   const [fromAccountId, setFromAccountId] = useState<string>('');
   const [toAccountId, setToAccountId] = useState<string>('');
   const [toCompanyId, setToCompanyId] = useState<string>('');
@@ -42,6 +53,28 @@ export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
 
   const isTransfer = kind === 'transfer';
   const isInter = kind === 'inter_company';
+
+  // Hydrate state when editing
+  useEffect(() => {
+    if (!open) return;
+    if (editTransaction) {
+      setKind(editTransaction.kind);
+      // For transfer rows we stored signed amount (out=positive, in=negative). Always edit absolute value.
+      setAmount(numberToBRLInput(Math.abs(editTransaction.amount)));
+      // Strip "(saída)/(entrada)" suffix from transfer descriptions
+      setDescription(editTransaction.description.replace(/\s*\((saída|entrada)\)\s*$/i, ''));
+      setOccurredOn(editTransaction.occurredOn);
+      setAccountId(editTransaction.accountId || 'none');
+      setCardId(editTransaction.cardId || 'none');
+      setCategoryId(editTransaction.categoryId || 'none');
+      setPersonId(editTransaction.personId || 'none');
+      setNotes(editTransaction.notes || '');
+      setStatus(editTransaction.status === 'pending' ? 'pending' : 'confirmed');
+    } else {
+      reset();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editTransaction?.id]);
 
   const availableAccounts = useMemo(() => accounts.filter(a => !a.archived && a.scope === scope &&
     (scope === 'pf' || (companyId && companyId !== 'all' ? a.companyId === companyId : true))), [accounts, scope, companyId]);
@@ -64,9 +97,30 @@ export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
   };
 
   const handleSave = async () => {
-    const amt = parseFloat(amount.replace(',', '.'));
+    const amt = parseBRLInput(amount);
     if (!amt || amt <= 0) { toast.error('Valor inválido'); return; }
     if (!description.trim()) { toast.error('Informe a descrição'); return; }
+
+    if (isEdit && editTransaction) {
+      // Edition path — update only safe fields. Transfer rows keep their structure.
+      const signedAmount = isTransferEdit && editTransaction.amount < 0 ? -amt : amt;
+      await updateTransaction(editTransaction.id, {
+        amount: signedAmount,
+        description: isTransferEdit
+          ? `${description.trim()} (${editTransaction.amount < 0 ? 'entrada' : 'saída'})`
+          : description.trim(),
+        occurredOn,
+        status,
+        categoryId: categoryId !== 'none' ? categoryId : undefined,
+        personId: personId !== 'none' ? personId : undefined,
+        accountId: accountId !== 'none' ? accountId : undefined,
+        cardId: cardId !== 'none' ? cardId : undefined,
+        notes: notes.trim() || undefined,
+        kind,
+      });
+      toast.success('Lançamento atualizado');
+      reset(); onClose(); return;
+    }
 
     if (isTransfer) {
       if (!fromAccountId || !toAccountId || fromAccountId === toAccountId) {
@@ -113,17 +167,33 @@ export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
     : ['expense', 'income', 'transfer', 'card_payment', 'employee_payment', 'supplier_payment',
        'employee_loan', 'bank_loan', 'tax', 'receivable', 'inter_company'];
 
+  // In edit mode, disable kind change for transfer rows (would need to rebuild both sides)
+  const kindDisabled = isEdit && isTransferEdit;
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { reset(); onClose(); } }}>
       <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Novo lançamento</DialogTitle>
+          <DialogTitle>{isEdit ? 'Editar lançamento' : 'Novo lançamento'}</DialogTitle>
         </DialogHeader>
+
+        {isEdit && editRecurrence && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
+            <Repeat className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-semibold">Lançamento recorrente</div>
+              <div className="opacity-90">
+                Este lançamento foi gerado pela recorrência <b>{editRecurrence.description}</b>.
+                As alterações aqui afetam apenas <b>esta ocorrência</b> — a regra continua igual.
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3">
           <div>
             <Label className="text-xs">Tipo</Label>
-            <Select value={kind} onValueChange={v => setKind(v as TxKind)}>
+            <Select value={kind} onValueChange={v => setKind(v as TxKind)} disabled={kindDisabled}>
               <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {allowedKinds.map(k => <SelectItem key={k} value={k}>{TX_KIND_LABELS[k]}</SelectItem>)}
@@ -133,8 +203,17 @@ export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
 
           <div className="flex gap-2">
             <div className="flex-1">
-              <Label className="text-xs">Valor (R$)</Label>
-              <Input value={amount} onChange={e => setAmount(e.target.value)} inputMode="decimal" placeholder="0,00" className="rounded-xl h-9 text-sm" />
+              <Label className="text-xs">Valor</Label>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">R$</span>
+                <Input
+                  value={amount}
+                  onChange={e => setAmount(maskBRLInput(e.target.value))}
+                  inputMode="numeric"
+                  placeholder="0,00"
+                  className="rounded-xl h-9 text-sm pl-9 text-right font-medium"
+                />
+              </div>
             </div>
             <div className="flex-1">
               <Label className="text-xs">Data</Label>
@@ -147,7 +226,7 @@ export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
             <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex.: mercado, aluguel, salário João" className="rounded-xl h-9 text-sm" />
           </div>
 
-          {isTransfer && (
+          {!isEdit && isTransfer && (
             <>
               <div>
                 <Label className="text-xs">De (conta)</Label>
@@ -166,7 +245,7 @@ export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
             </>
           )}
 
-          {isInter && (
+          {!isEdit && isInter && (
             <>
               <div>
                 <Label className="text-xs">De (conta da empresa atual)</Label>
@@ -194,7 +273,7 @@ export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
             </>
           )}
 
-          {!isTransfer && !isInter && (
+          {(isEdit || (!isTransfer && !isInter)) && (
             <>
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -264,7 +343,7 @@ export function TransactionDialog({ open, onClose, scope, companyId }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={() => { reset(); onClose(); }} className="rounded-xl">Cancelar</Button>
-          <Button onClick={handleSave} className="rounded-xl">Salvar</Button>
+          <Button onClick={handleSave} className="rounded-xl">{isEdit ? 'Salvar alterações' : 'Salvar'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

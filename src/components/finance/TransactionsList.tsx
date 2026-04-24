@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
-import { FinScope, TX_KIND_LABELS, formatBRL } from '@/types/finance';
-import { Trash2, ArrowDown, ArrowUp, ArrowLeftRight, Check, Clock, Search } from 'lucide-react';
+import { FinScope, FinTransaction, TX_KIND_LABELS, formatBRL } from '@/types/finance';
+import { Trash2, ArrowDown, ArrowUp, ArrowLeftRight, Check, Clock, Search, Repeat, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+import { TransactionDialog } from './TransactionDialog';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
@@ -17,10 +17,11 @@ const INCOMING_KINDS = new Set(['income', 'receivable', 'bank_loan']);
 const TRANSFER_KINDS = new Set(['transfer', 'inter_company']);
 
 export function TransactionsList({ scope, companyId }: Props) {
-  const { transactions, accounts, cards, categories, people, companies, deleteTransaction, updateTransaction } = useFinance();
+  const { transactions, accounts, cards, categories, people, companies, recurrences, deleteTransaction, updateTransaction } = useFinance();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'pending'>('all');
   const [filterKind, setFilterKind] = useState<'all' | 'incoming' | 'outgoing' | 'transfer'>('all');
+  const [editing, setEditing] = useState<FinTransaction | null>(null);
 
   const visible = useMemo(() => {
     return transactions
@@ -103,8 +104,13 @@ export function TransactionsList({ scope, companyId }: Props) {
               const Icon = transfer ? ArrowLeftRight : incoming ? ArrowDown : ArrowUp;
               const color = transfer ? '#64748b' : incoming ? '#10b981' : '#ef4444';
               const sign = transfer ? '' : incoming ? '+' : '−';
+              const isRecurring = !!t.recurrenceId;
               return (
-                <div key={t.id} className="rounded-xl border border-border bg-card p-2.5 flex items-center gap-2.5">
+                <div
+                  key={t.id}
+                  onClick={() => setEditing(t)}
+                  className="rounded-xl border border-border bg-card p-2.5 flex items-center gap-2.5 cursor-pointer hover:border-primary/40 hover:bg-accent/30 transition-colors"
+                >
                   <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: color + '22' }}>
                     <Icon className="h-3.5 w-3.5" style={{ color }} />
                   </div>
@@ -113,6 +119,7 @@ export function TransactionsList({ scope, companyId }: Props) {
                       <span className="text-sm font-medium text-foreground truncate flex-1">
                         {transfer ? t.description.replace(/\s*\(saída\)\s*$/, '') : t.description}
                       </span>
+                      {isRecurring && <Repeat className="h-3 w-3 text-primary shrink-0" />}
                       {t.status === 'pending' && <Clock className="h-3 w-3 text-amber-500 shrink-0" />}
                     </div>
                     <div className="text-[10px] text-muted-foreground truncate">
@@ -132,18 +139,25 @@ export function TransactionsList({ scope, companyId }: Props) {
                   </div>
                   {t.status === 'pending' && (
                     <button
-                      onClick={() => { updateTransaction(t.id, { status: 'confirmed' }); toast.success('Confirmado'); }}
+                      onClick={(e) => { e.stopPropagation(); updateTransaction(t.id, { status: 'confirmed' }); toast.success('Confirmado'); }}
                       className="p-1.5 text-muted-foreground hover:text-emerald-500"
                       title="Confirmar pagamento"
                     >
                       <Check className="h-3.5 w-3.5" />
                     </button>
                   )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditing(t); }}
+                    className="p-1.5 text-muted-foreground hover:text-primary"
+                    title="Editar"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <button className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button onClick={(e) => e.stopPropagation()} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                       <AlertDialogHeader>
                         <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -162,6 +176,14 @@ export function TransactionsList({ scope, companyId }: Props) {
           </div>
         );
       })}
+
+      <TransactionDialog
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        scope={scope}
+        companyId={companyId}
+        editTransaction={editing}
+      />
     </div>
   );
 }
