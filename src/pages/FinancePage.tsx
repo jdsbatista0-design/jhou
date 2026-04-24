@@ -162,6 +162,7 @@ function FinanceInner() {
       <div className="pt-1">
         {section === 'overview' && <FinanceOverview scope={scope} companyId={effectiveCompanyId} />}
         {section === 'transactions' && <TransactionsList scope={scope} companyId={effectiveCompanyId} />}
+        {section === 'recurrences' && <RecurrencesManager scope={scope} companyId={effectiveCompanyId} />}
         {section === 'accounts' && <AccountsManager scope={scope} companyId={effectiveCompanyId} />}
         {section === 'cards' && <CardsManager scope={scope} companyId={effectiveCompanyId} />}
         {section === 'categories' && <CategoriesManager scope={scope} />}
