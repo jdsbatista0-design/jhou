@@ -353,7 +353,12 @@ export default function DashboardStories() {
     const el = scrollerRef.current;
     if (!el) return;
     const card = el.querySelectorAll<HTMLElement>('[data-story-card]')[i];
-    if (card) el.scrollTo({ left: card.offsetLeft - 16, behavior: 'smooth' });
+    if (!card) return;
+    // Centraliza o card no viewport do scroller (funciona em mobile e desktop)
+    const target = card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2;
+    const max = el.scrollWidth - el.clientWidth;
+    el.scrollTo({ left: Math.max(0, Math.min(target, max)), behavior: 'smooth' });
+    setActiveIdx(i);
   };
 
   const handleDragStart = (key: string) => setDragKey(key);
