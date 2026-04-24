@@ -254,14 +254,33 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
         </DialogHeader>
 
         {isEdit && editRecurrence && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
-            <Repeat className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            <div>
-              <div className="font-semibold">Lançamento recorrente</div>
-              <div className="opacity-90">
-                Este lançamento foi gerado pela recorrência <b>{editRecurrence.description}</b>.
-                As alterações aqui afetam apenas <b>esta ocorrência</b> — a regra continua igual.
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 space-y-2 text-xs text-amber-700 dark:text-amber-300">
+            <div className="flex items-start gap-2">
+              <Repeat className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <div>
+                <div className="font-semibold">
+                  Lançamento recorrente {editRecurrence.active ? '' : '(pausado)'}
+                </div>
+                <div className="opacity-90">
+                  Vem da regra <b>{editRecurrence.description}</b>
+                  {editRecurrence.dayOfMonth ? ` · todo dia ${editRecurrence.dayOfMonth}` : ''} ·
+                  R$ {editRecurrence.amount.toFixed(2).replace('.', ',')}.
+                  Alterações aqui afetam apenas <b>esta ocorrência</b>.
+                </div>
               </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <Button size="sm" variant="outline" onClick={handlePauseRecurrence} className="h-7 rounded-lg text-xs">
+                {editRecurrence.active ? <><Pause className="h-3 w-3 mr-1" /> Pausar regra</> : <><Play className="h-3 w-3 mr-1" /> Reativar regra</>}
+              </Button>
+              {editRecurrence.active && (
+                <Button size="sm" variant="outline" onClick={handleEndRecurrence} className="h-7 rounded-lg text-xs">
+                  Encerrar regra hoje
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => setConfirmDeleteFuture(true)} className="h-7 rounded-lg text-xs text-destructive">
+                <Trash2 className="h-3 w-3 mr-1" /> Excluir esta e futuras
+              </Button>
             </div>
           </div>
         )}
