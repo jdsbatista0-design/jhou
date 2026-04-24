@@ -18,16 +18,19 @@ export type Database = {
         Row: {
           key: string
           updated_at: string
+          user_id: string | null
           value: Json
         }
         Insert: {
           key: string
           updated_at?: string
+          user_id?: string | null
           value: Json
         }
         Update: {
           key?: string
           updated_at?: string
+          user_id?: string | null
           value?: Json
         }
         Relationships: []
@@ -41,6 +44,7 @@ export type Database = {
           linked_item_id: string | null
           title: string
           type: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -50,6 +54,7 @@ export type Database = {
           linked_item_id?: string | null
           title: string
           type?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -59,6 +64,7 @@ export type Database = {
           linked_item_id?: string | null
           title?: string
           type?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -80,6 +86,7 @@ export type Database = {
           source: string
           status: string
           type: string
+          user_id: string | null
           whatsapp_from: string | null
         }
         Insert: {
@@ -91,6 +98,7 @@ export type Database = {
           source?: string
           status?: string
           type?: string
+          user_id?: string | null
           whatsapp_from?: string | null
         }
         Update: {
@@ -102,6 +110,7 @@ export type Database = {
           source?: string
           status?: string
           type?: string
+          user_id?: string | null
           whatsapp_from?: string | null
         }
         Relationships: []
@@ -112,18 +121,21 @@ export type Database = {
           id: string
           item_id: string
           text: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           item_id: string
           text: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           item_id?: string
           text?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -153,6 +165,7 @@ export type Database = {
           tipo: string
           title: string
           updated_at: string
+          user_id: string | null
           value: number | null
         }
         Insert: {
@@ -172,6 +185,7 @@ export type Database = {
           tipo?: string
           title: string
           updated_at?: string
+          user_id?: string | null
           value?: number | null
         }
         Update: {
@@ -191,6 +205,7 @@ export type Database = {
           tipo?: string
           title?: string
           updated_at?: string
+          user_id?: string | null
           value?: number | null
         }
         Relationships: []
@@ -208,6 +223,7 @@ export type Database = {
           tags: Json
           title: string
           url: string | null
+          user_id: string | null
         }
         Insert: {
           area?: string | null
@@ -221,6 +237,7 @@ export type Database = {
           tags?: Json
           title: string
           url?: string | null
+          user_id?: string | null
         }
         Update: {
           area?: string | null
@@ -234,6 +251,34 @@ export type Database = {
           tags?: Json
           title?: string
           url?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
         }
         Relationships: []
       }

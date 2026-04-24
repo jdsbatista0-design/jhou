@@ -60,6 +60,16 @@ serve(async (req) => {
       );
     }
 
+    // Pick the owner user (first profile created — owner of personal Central app)
+    const { data: ownerProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const ownerId = ownerProfile?.id || null;
+
     // Insert into inbox_entries
     const entry: any = {
       content: body || (messageType === "photo" ? "📷 Foto via WhatsApp" : "🎙️ Áudio via WhatsApp"),
@@ -67,6 +77,7 @@ serve(async (req) => {
       status: "pending",
       source: "whatsapp",
       whatsapp_from: from,
+      user_id: ownerId,
     };
 
     if (messageType === "photo" && mediaUrl) {
