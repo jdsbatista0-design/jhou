@@ -6,7 +6,7 @@ import InboxEntryCard from './InboxEntryCard';
 import { Badge } from './ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Inbox, AlarmClock, Flame, Ban, Rocket, Sparkles, Check, GripVertical, Search, SlidersHorizontal, Archive, X } from 'lucide-react';
+import { Inbox, AlarmClock, Flame, Ban, Rocket, Sparkles, Check, GripVertical, Search, SlidersHorizontal, Archive, X, Hourglass } from 'lucide-react';
 import { parseLocalDateTime } from '@/lib/dates';
 import { toast } from 'sonner';
 import { Item } from '@/types/central';
@@ -24,7 +24,7 @@ interface StoryDef {
   render: () => React.ReactNode;
 }
 
-const STORY_KEYS = ['agora', 'urgentes', 'inbox', 'em-andamento', 'travado', 'concluidos'] as const;
+const STORY_KEYS = ['agora', 'urgentes', 'inbox', 'em-andamento', 'aguardando', 'travado', 'concluidos'] as const;
 const ORDER_STORAGE_KEY = 'central_dashboard_story_order';
 
 const PRIORITY_RANK: Record<string, number> = { alta: 0, media: 1, baixa: 2 };
@@ -145,6 +145,7 @@ export default function DashboardStories() {
     return date ? isPast(date) && !isToday(date) && i.fase !== 'Concluído' : false;
   })), [filteredItemsAll, sortKey]);
   const andando = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Em andamento')), [filteredItemsAll, sortKey]);
+  const aguardando = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Aguardando')), [filteredItemsAll, sortKey]);
   const concluidos = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Concluído')), [filteredItemsAll, sortKey]);
 
   const storyMap: Record<string, StoryDef> = {
@@ -176,24 +177,35 @@ export default function DashboardStories() {
                       <button
                         onClick={(ev) => {
                           ev.stopPropagation();
-                          if (e.source === 'item') {
-                            const newFase = isConcluido ? 'Inbox' : 'Concluído';
-                            updateItem(e.sourceId, { fase: newFase });
-                            toast.success(isConcluido ? 'Item reaberto' : 'Item concluído ✅');
+                          if (e.source === 'item' && linkedItem) {
+                            if (isConcluido) {
+                              const restoreFase = linkedItem.previousFase || 'Em andamento';
+                              updateItem(e.sourceId, { fase: restoreFase, previousFase: undefined });
+                              toast.success(`Reaberto em "${restoreFase}"`);
+                            } else {
+                              updateItem(e.sourceId, { fase: 'Concluído', previousFase: linkedItem.fase });
+                              toast.success('Item concluído ✅');
+                            }
                           } else {
-                            deleteEvent(e.sourceId);
-                            toast.success('Evento removido');
+                            // Evento standalone — confirmar antes de remover
+                            if (window.confirm('Remover este evento da agenda?')) {
+                              deleteEvent(e.sourceId);
+                              toast.success('Evento removido');
+                            }
                           }
                         }}
                         className={cn(
                           "mt-0.5 shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all",
                           isConcluido
                             ? "bg-primary border-primary text-primary-foreground"
-                            : "border-muted-foreground/30 hover:border-primary hover:bg-primary/5"
+                            : e.source === 'item'
+                              ? "border-muted-foreground/30 hover:border-primary hover:bg-primary/5"
+                              : "border-muted-foreground/30 hover:border-destructive hover:bg-destructive/5 hover:text-destructive"
                         )}
-                        aria-label={isConcluido ? 'Reabrir' : 'Concluir'}
+                        aria-label={isConcluido ? 'Reabrir' : e.source === 'item' ? 'Concluir' : 'Remover evento'}
                       >
                         {isConcluido && <Check className="h-3 w-3" strokeWidth={3} />}
+                        {!isConcluido && e.source !== 'item' && <X className="h-3 w-3" strokeWidth={3} />}
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
