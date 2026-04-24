@@ -611,7 +611,7 @@ export default function DashboardStories() {
           <div
             key={s.key}
             data-story-card
-            className="snap-start shrink-0 w-[88vw] max-w-[440px]"
+            className="snap-center shrink-0 w-full sm:w-[88%] md:w-[70%] lg:w-[60%] max-w-[560px]"
           >
             <div className={cn(
               'rounded-2xl bg-gradient-to-br ring-1 p-3 min-h-[300px]',
