@@ -175,9 +175,78 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     await supabase.from('fin_categories').insert(rows);
   }, []);
 
+  // ---------- Auto-generate pending occurrences for active recurrences ----------
+  // Generates from last_generated_on (or start_on) up to today + 30 days.
+  const generatePendingRecurrences = useCallback(async () => {
+    const userId = await getUserId();
+    if (!userId) return;
+    const { data: recs } = await supabase
+      .from('fin_recurrences').select('*').eq('active', true);
+    if (!recs || recs.length === 0) return;
+
+    const today = new Date();
+    const horizon = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
+    const toInsert: any[] = [];
+    const lastGenUpdates: Array<{ id: string; date: string }> = [];
+
+    const advance = (d: Date, freq: string): Date => {
+      const n = new Date(d);
+      if (freq === 'weekly') n.setDate(n.getDate() + 7);
+      else if (freq === 'yearly') n.setFullYear(n.getFullYear() + 1);
+      else n.setMonth(n.getMonth() + 1);
+      return n;
+    };
+
+    for (const r of recs) {
+      const startOn = new Date(r.start_on + 'T00:00:00');
+      const endOn = r.end_on ? new Date(r.end_on + 'T00:00:00') : null;
+      // First occurrence to evaluate: day AFTER last_generated_on, or start_on itself
+      let cursor = r.last_generated_on
+        ? advance(new Date(r.last_generated_on + 'T00:00:00'), r.frequency)
+        : new Date(startOn);
+
+      let lastGen: string | null = r.last_generated_on || null;
+      let safety = 0;
+      while (cursor <= horizon && safety < 60) {
+        safety++;
+        if (endOn && cursor > endOn) break;
+        const ymd = cursor.toISOString().slice(0, 10);
+        toInsert.push({
+          user_id: userId,
+          scope: r.scope,
+          company_id: r.company_id,
+          account_id: r.account_id,
+          card_id: r.card_id,
+          category_id: r.category_id,
+          recurrence_id: r.id,
+          kind: r.kind,
+          amount: r.amount,
+          description: r.description,
+          occurred_on: ymd,
+          status: 'pending',
+          source: 'recurrence',
+        });
+        lastGen = ymd;
+        cursor = advance(cursor, r.frequency);
+      }
+      if (lastGen && lastGen !== r.last_generated_on) {
+        lastGenUpdates.push({ id: r.id, date: lastGen });
+      }
+    }
+
+    if (toInsert.length > 0) {
+      await supabase.from('fin_transactions').insert(toInsert);
+    }
+    for (const u of lastGenUpdates) {
+      await supabase.from('fin_recurrences').update({ last_generated_on: u.date }).eq('id', u.id);
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       await seedDefaultCategoriesIfNeeded();
+      await generatePendingRecurrences();
       await refreshAll();
     })();
 
@@ -193,7 +262,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       .subscribe();
 
     return () => { supabase.removeChannel(ch); };
-  }, [refreshAll, seedDefaultCategoriesIfNeeded]);
+  }, [refreshAll, seedDefaultCategoriesIfNeeded, generatePendingRecurrences]);
 
   // ---------- Companies ----------
   const addCompany: FinanceContextType['addCompany'] = async ({ name, cnpj, color }) => {
