@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Mic, Camera, Square, Send, X, Type } from 'lucide-react';
+import { Plus, Mic, Camera, Square, Send, X, Type, ListChecks } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { useCentral } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 type Mode = 'menu' | 'text' | 'audio';
 
@@ -24,6 +25,7 @@ export default function CaptureFAB() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { addInboxEntry } = useCentral();
+  const navigate = useNavigate();
 
   // Auto-focus textarea
   useEffect(() => {
@@ -184,7 +186,7 @@ export default function CaptureFAB() {
 
           {/* MENU: 3 grandes botões */}
           {mode === 'menu' && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={pickText}
                 className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-card border border-border hover:border-primary active:scale-95 transition-all"
@@ -193,6 +195,7 @@ export default function CaptureFAB() {
                   <Type className="h-5 w-5 text-primary" />
                 </div>
                 <span className="text-xs font-medium text-foreground">Texto</span>
+                <span className="text-[10px] text-muted-foreground -mt-1">→ Inbox</span>
               </button>
 
               <button
@@ -203,6 +206,7 @@ export default function CaptureFAB() {
                   <Mic className="h-5 w-5 text-destructive" />
                 </div>
                 <span className="text-xs font-medium text-foreground">Áudio</span>
+                <span className="text-[10px] text-muted-foreground -mt-1">→ Inbox</span>
               </button>
 
               <button
@@ -213,6 +217,18 @@ export default function CaptureFAB() {
                   <Camera className="h-5 w-5 text-accent-foreground" />
                 </div>
                 <span className="text-xs font-medium text-foreground">Foto</span>
+                <span className="text-[10px] text-muted-foreground -mt-1">→ Inbox</span>
+              </button>
+
+              <button
+                onClick={() => { closeAll(); navigate('/items/new'); }}
+                className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-card border border-primary/40 hover:border-primary active:scale-95 transition-all"
+              >
+                <div className="h-12 w-12 rounded-full bg-primary/15 flex items-center justify-center">
+                  <ListChecks className="h-5 w-5 text-primary" />
+                </div>
+                <span className="text-xs font-medium text-foreground">Item</span>
+                <span className="text-[10px] text-muted-foreground -mt-1">com fase, prazo…</span>
               </button>
             </div>
           )}
