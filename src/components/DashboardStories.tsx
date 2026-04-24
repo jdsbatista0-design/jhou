@@ -53,7 +53,6 @@ export default function DashboardStories() {
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState<string | null>(null);
   const [filterArea, setFilterArea] = useState<string | null>(null);
-  const [filterFase, setFilterFase] = useState<string | null>(null);
   const [filterPeriod, setFilterPeriod] = useState<PeriodFilter | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('data-asc');
 
@@ -65,7 +64,7 @@ export default function DashboardStories() {
     localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(storyOrder));
   }, [storyOrder]);
 
-  const visibleFases = settings.fases.filter(f => f !== 'Concluído');
+  
 
   const matchesPeriod = (deadline?: string) => {
     if (!filterPeriod) return true;
@@ -82,7 +81,6 @@ export default function DashboardStories() {
     if (search && !i.title.toLowerCase().includes(search.toLowerCase()) && !i.description?.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterTipo && i.tipo !== filterTipo) return false;
     if (filterArea && i.area !== filterArea) return false;
-    if (filterFase && i.fase !== filterFase) return false;
     if (!matchesPeriod(i.deadline)) return false;
     return true;
   };
@@ -103,7 +101,7 @@ export default function DashboardStories() {
   };
 
   // Filtered datasets
-  const filteredItemsAll = useMemo(() => items.filter(applyItemFilters), [items, search, filterTipo, filterArea, filterFase, filterPeriod]);
+  const filteredItemsAll = useMemo(() => items.filter(applyItemFilters), [items, search, filterTipo, filterArea, filterPeriod]);
 
   const pendingInbox = useMemo(() => {
     return inbox.filter(e => {
@@ -123,10 +121,10 @@ export default function DashboardStories() {
     } else {
       // standalone event: only basic filters apply (period via datetime)
       if (filterPeriod && !matchesPeriod(format(date, 'yyyy-MM-dd'))) return false;
-      if (filterTipo || filterArea || filterFase) return false;
+      if (filterTipo || filterArea) return false;
     }
     return true;
-  }), [agendaEntries, items, search, filterTipo, filterArea, filterFase, filterPeriod]);
+  }), [agendaEntries, items, search, filterTipo, filterArea, filterPeriod]);
 
   const todayItems = useMemo(() => sortItems(filteredItemsAll.filter(i => {
     const date = safeDate(i.deadline);
@@ -401,7 +399,6 @@ export default function DashboardStories() {
           ))}
         </div>
         <FilterRow label="Todos tipos" options={settings.tipos} value={filterTipo} onChange={setFilterTipo} />
-        <FilterRow label="Todas fases" options={visibleFases} value={filterFase} onChange={setFilterFase} />
         <FilterRow label="Todas áreas" options={settings.areas} value={filterArea} onChange={setFilterArea} />
         {/* Sort */}
         <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar items-center">
