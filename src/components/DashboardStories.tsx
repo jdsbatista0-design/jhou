@@ -60,6 +60,7 @@ export default function DashboardStories() {
   const [storyOrder, setStoryOrder] = useState<string[]>(loadStoryOrder);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   useEffect(() => {
     localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(storyOrder));
   }, [storyOrder]);
