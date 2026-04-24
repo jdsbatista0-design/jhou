@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff, LogOut, Calendar } from 'lucide-react';
+import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff, LogOut } from 'lucide-react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
