@@ -18,19 +18,19 @@ export type Database = {
         Row: {
           key: string
           updated_at: string
-          user_id: string | null
+          user_id: string
           value: Json
         }
         Insert: {
           key: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           value: Json
         }
         Update: {
           key?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           value?: Json
         }
         Relationships: []
@@ -44,7 +44,7 @@ export type Database = {
           linked_item_id: string | null
           title: string
           type: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -54,7 +54,7 @@ export type Database = {
           linked_item_id?: string | null
           title: string
           type?: string
-          user_id?: string | null
+          user_id?: string
         }
         Update: {
           created_at?: string
@@ -64,7 +64,7 @@ export type Database = {
           linked_item_id?: string | null
           title?: string
           type?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -155,7 +155,7 @@ export type Database = {
           source: string
           status: string
           type: string
-          user_id: string | null
+          user_id: string
           whatsapp_from: string | null
         }
         Insert: {
@@ -167,7 +167,7 @@ export type Database = {
           source?: string
           status?: string
           type?: string
-          user_id?: string | null
+          user_id?: string
           whatsapp_from?: string | null
         }
         Update: {
@@ -179,7 +179,7 @@ export type Database = {
           source?: string
           status?: string
           type?: string
-          user_id?: string | null
+          user_id?: string
           whatsapp_from?: string | null
         }
         Relationships: []
@@ -190,21 +190,21 @@ export type Database = {
           id: string
           item_id: string
           text: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           item_id: string
           text: string
-          user_id?: string | null
+          user_id?: string
         }
         Update: {
           created_at?: string
           id?: string
           item_id?: string
           text?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -234,7 +234,7 @@ export type Database = {
           tipo: string
           title: string
           updated_at: string
-          user_id: string | null
+          user_id: string
           value: number | null
         }
         Insert: {
@@ -254,7 +254,7 @@ export type Database = {
           tipo?: string
           title: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           value?: number | null
         }
         Update: {
@@ -274,7 +274,7 @@ export type Database = {
           tipo?: string
           title?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
           value?: number | null
         }
         Relationships: []
@@ -292,7 +292,7 @@ export type Database = {
           tags: Json
           title: string
           url: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           area?: string | null
@@ -306,7 +306,7 @@ export type Database = {
           tags?: Json
           title: string
           url?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Update: {
           area?: string | null
@@ -320,7 +320,7 @@ export type Database = {
           tags?: Json
           title?: string
           url?: string | null
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
