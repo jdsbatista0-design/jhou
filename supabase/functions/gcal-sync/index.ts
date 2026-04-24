@@ -82,13 +82,28 @@ function buildEventBody(item: any) {
   };
 }
 
-async function ensureCalendar(supa: any, userId: string): Promise<string> {
-  const { data: state } = await supa
-    .from("gcal_state")
-    .select("calendar_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (state?.calendar_id) return state.calendar_id;
+async function ensureCalendar(supa: any, userId: string, forceRefresh = false): Promise<string> {
+  if (!forceRefresh) {
+    const { data: state } = await supa
+      .from("gcal_state")
+      .select("calendar_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (state?.calendar_id) {
+      // Verifica se ainda existe no Google
+      const check = await gfetch(`/calendars/${encodeURIComponent(state.calendar_id)}`);
+      if (check.ok) return state.calendar_id;
+      if (check.status === 404 || check.status === 410) {
+        // calendário sumiu (provavelmente reconectou conta) -> limpar e recriar
+        await supa
+          .from("gcal_state")
+          .update({ calendar_id: null, sync_token: null })
+          .eq("user_id", userId);
+      } else {
+        return state.calendar_id;
+      }
+    }
+  }
 
   // 1) Procurar agenda existente "Central" na lista
   const listRes = await gfetch("/users/me/calendarList?maxResults=250");
@@ -292,6 +307,15 @@ async function pullChanges(supa: any, userId: string) {
       // sync token invalidado -> reset e refaz full
       await supa.from("gcal_state").update({ sync_token: null }).eq("user_id", userId);
       return { ok: true, reset: true, processed };
+    }
+    if (r.status === 404) {
+      // calendário não existe mais no Google (provavelmente reconectou conta) -> resetar
+      await supa
+        .from("gcal_state")
+        .update({ calendar_id: null, sync_token: null })
+        .eq("user_id", userId);
+      const newCalId = await ensureCalendar(supa, userId, true);
+      return { ok: true, reset: true, processed, recreated_calendar: newCalId };
     }
     if (!r.ok) throw new Error(`Pull falhou [${r.status}]: ${await r.text()}`);
     const data = await r.json();
