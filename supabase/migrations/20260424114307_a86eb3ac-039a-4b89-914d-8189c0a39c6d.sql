@@ -1,0 +1,1 @@
+ALTER TABLE public.app_settings REPLICA IDENTITY FULL;
