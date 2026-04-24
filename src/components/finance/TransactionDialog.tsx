@@ -106,6 +106,7 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
     setKind('expense'); setAmount(''); setDescription(''); setOccurredOn(new Date().toISOString().slice(0, 10));
     setAccountId('none'); setCardId('none'); setCategoryId('none'); setPersonId('none'); setNotes('');
     setStatus('confirmed'); setFromAccountId(''); setToAccountId(''); setToCompanyId(''); setToCompanyAccountId('');
+    setRepeats(false); setRepFrequency('monthly'); setRepHasEnd(false); setRepEndOn('');
   };
 
   const handleSave = async () => {
