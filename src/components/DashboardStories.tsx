@@ -144,6 +144,7 @@ export default function DashboardStories() {
     return date ? isPast(date) && !isToday(date) && i.fase !== 'Concluído' : false;
   })), [filteredItemsAll, sortKey]);
   const andando = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Em andamento')), [filteredItemsAll, sortKey]);
+  const concluidos = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Concluído')), [filteredItemsAll, sortKey]);
 
   const storyMap: Record<string, StoryDef> = {
     agora: {
@@ -275,6 +276,19 @@ export default function DashboardStories() {
       render: () => (
         <div className="space-y-2">
           {travado.map(i => <ItemCard key={i.id} item={i} />)}
+        </div>
+      ),
+    },
+    concluidos: {
+      key: 'concluidos',
+      label: 'Concluídos',
+      icon: <Archive className="h-4 w-4" />,
+      count: concluidos.length,
+      accent: 'from-emerald-500/20 to-emerald-500/5 ring-emerald-500/30',
+      empty: { emoji: '🗂️', text: 'Nada arquivado ainda.' },
+      render: () => (
+        <div className="space-y-2">
+          {concluidos.map(i => <ItemCard key={i.id} item={i} />)}
         </div>
       ),
     },
