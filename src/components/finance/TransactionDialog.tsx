@@ -3,15 +3,20 @@ import { useFinance } from '@/contexts/FinanceContext';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { FinScope, FinTransaction, TX_KIND_LABELS, TxKind } from '@/types/finance';
+import { FinScope, FinTransaction, RecurrenceFreq, TX_KIND_LABELS, TxKind } from '@/types/finance';
 import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
-import { Repeat } from 'lucide-react';
+import { Repeat, Pause, Play, Trash2 } from 'lucide-react';
 
 interface Props {
   open: boolean;
