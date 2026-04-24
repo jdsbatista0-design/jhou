@@ -292,17 +292,8 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Google Agenda (em breve) */}
-      <div className="border border-border rounded-xl p-3 flex items-center gap-3 opacity-60">
-        <Calendar className="h-5 w-5 text-muted-foreground" />
-        <div className="flex-1">
-          <p className="text-xs font-medium text-foreground">Google Agenda</p>
-          <p className="text-[10px] text-muted-foreground">Em breve — sincronização bidirecional</p>
-        </div>
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-          Em breve
-        </span>
-      </div>
+      <GoogleCalendarCard />
+
 
       {/* Sync status */}
       <div className="border border-border rounded-xl p-3 space-y-2">
