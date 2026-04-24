@@ -40,6 +40,14 @@ async function gfetch(path: string, init: RequestInit = {}): Promise<Response> {
 }
 
 // ------- helpers -------
+function isValidDateString(date: string | null | undefined): date is string {
+  if (!date || typeof date !== "string") return false;
+  // Aceita YYYY-MM-DD
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const d = new Date(date + "T00:00:00Z");
+  return !isNaN(d.getTime());
+}
+
 function buildEventBody(item: any) {
   // item: { id, title, description, deadline (YYYY-MM-DD), deadline_time (HH:mm) | null, area, fase, tipo, person }
   const date: string = item.deadline; // YYYY-MM-DD
@@ -54,7 +62,7 @@ function buildEventBody(item: any) {
   ].filter(Boolean);
   const description = descParts.join("\n");
 
-  if (time) {
+  if (time && /^\d{2}:\d{2}$/.test(time)) {
     const start = `${date}T${time}:00`;
     // Duração default 1h
     const [hh, mm] = time.split(":").map(Number);
