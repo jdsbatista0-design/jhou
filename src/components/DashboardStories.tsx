@@ -353,7 +353,12 @@ export default function DashboardStories() {
     const el = scrollerRef.current;
     if (!el) return;
     const card = el.querySelectorAll<HTMLElement>('[data-story-card]')[i];
-    if (card) el.scrollTo({ left: card.offsetLeft - 16, behavior: 'smooth' });
+    if (!card) return;
+    // Centraliza o card no viewport do scroller (funciona em mobile e desktop)
+    const target = card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2;
+    const max = el.scrollWidth - el.clientWidth;
+    el.scrollTo({ left: Math.max(0, Math.min(target, max)), behavior: 'smooth' });
+    setActiveIdx(i);
   };
 
   const handleDragStart = (key: string) => setDragKey(key);
@@ -606,7 +611,7 @@ export default function DashboardStories() {
           <div
             key={s.key}
             data-story-card
-            className="snap-start shrink-0 w-[88vw] max-w-[440px]"
+            className="snap-center shrink-0 w-full sm:w-[88%] md:w-[70%] lg:w-[60%] max-w-[560px]"
           >
             <div className={cn(
               'rounded-2xl bg-gradient-to-br ring-1 p-3 min-h-[300px]',
@@ -641,7 +646,7 @@ export default function DashboardStories() {
         ))}
 
         {/* Final story: visão completa */}
-        <div data-story-card className="snap-start shrink-0 w-[88vw] max-w-[440px]">
+        <div data-story-card className="snap-center shrink-0 w-full sm:w-[88%] md:w-[70%] lg:w-[60%] max-w-[560px]">
           <div className="rounded-2xl bg-gradient-to-br from-accent to-muted ring-1 ring-border p-4 min-h-[300px] flex flex-col items-center justify-center text-center">
             <Sparkles className="h-8 w-8 text-primary mb-2" />
             <p className="text-sm font-bold text-foreground">Quer ver tudo?</p>
