@@ -126,10 +126,16 @@ export default function DashboardStories() {
     return true;
   }), [agendaEntries, items, search, filterTipo, filterArea, filterPeriod]);
 
-  const todayItems = useMemo(() => sortItems(filteredItemsAll.filter(i => {
-    const date = safeDate(i.deadline);
-    return date ? isToday(date) && i.fase !== 'Concluído' : false;
-  })), [filteredItemsAll, sortKey]);
+  const todayItems = useMemo(() => {
+    const itemIdsInAgenda = new Set(
+      todayAgenda.filter(e => e.source === 'item').map(e => e.sourceId)
+    );
+    return sortItems(filteredItemsAll.filter(i => {
+      if (itemIdsInAgenda.has(i.id)) return false;
+      const date = safeDate(i.deadline);
+      return date ? isToday(date) && i.fase !== 'Concluído' : false;
+    }));
+  }, [filteredItemsAll, todayAgenda, sortKey]);
 
   const urgentes = useMemo(() => sortItems(filteredItemsAll.filter(i => i.tags.includes('urgente') && i.fase !== 'Concluído')), [filteredItemsAll, sortKey]);
   const travado = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Travado')), [filteredItemsAll, sortKey]);
