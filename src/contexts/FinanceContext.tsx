@@ -339,6 +339,56 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteTransactionAndFuture: FinanceContextType['deleteTransactionAndFuture'] = async (id) => {
+    const { data: t } = await supabase.from('fin_transactions')
+      .select('recurrence_id, occurred_on').eq('id', id).maybeSingle();
+    if (!t?.recurrence_id) {
+      await supabase.from('fin_transactions').delete().eq('id', id);
+      return;
+    }
+    await supabase.from('fin_transactions').delete()
+      .eq('recurrence_id', t.recurrence_id)
+      .gte('occurred_on', t.occurred_on);
+  };
+
+  // ---------- Recurrences ----------
+  const addRecurrence: FinanceContextType['addRecurrence'] = async (r) => {
+    const userId = await getUserId(); if (!userId) return null;
+    const { data, error } = await supabase.from('fin_recurrences').insert({
+      scope: r.scope, company_id: r.companyId || null,
+      account_id: r.accountId || null, card_id: r.cardId || null,
+      category_id: r.categoryId || null, description: r.description,
+      amount: r.amount, kind: r.kind, frequency: r.frequency,
+      day_of_month: r.dayOfMonth || null, start_on: r.startOn,
+      end_on: r.endOn || null, active: r.active !== false,
+      user_id: userId,
+    }).select('id').single();
+    if (error) { console.error(error); return null; }
+    return data?.id || null;
+  };
+  const updateRecurrence: FinanceContextType['updateRecurrence'] = async (id, data) => {
+    const upd: any = {};
+    if (data.description !== undefined) upd.description = data.description;
+    if (data.amount !== undefined) upd.amount = data.amount;
+    if (data.frequency !== undefined) upd.frequency = data.frequency;
+    if (data.dayOfMonth !== undefined) upd.day_of_month = data.dayOfMonth || null;
+    if (data.endOn !== undefined) upd.end_on = data.endOn || null;
+    if (data.active !== undefined) upd.active = data.active;
+    if (data.accountId !== undefined) upd.account_id = data.accountId || null;
+    if (data.cardId !== undefined) upd.card_id = data.cardId || null;
+    if (data.categoryId !== undefined) upd.category_id = data.categoryId || null;
+    if (data.lastGeneratedOn !== undefined) upd.last_generated_on = data.lastGeneratedOn || null;
+    await supabase.from('fin_recurrences').update(upd).eq('id', id);
+  };
+  const deleteRecurrence: FinanceContextType['deleteRecurrence'] = async (id, alsoDeleteFutureTx = true) => {
+    if (alsoDeleteFutureTx) {
+      const today = new Date().toISOString().slice(0, 10);
+      await supabase.from('fin_transactions').delete()
+        .eq('recurrence_id', id).gte('occurred_on', today);
+    }
+    await supabase.from('fin_recurrences').delete().eq('id', id);
+  };
+
   const addTransferBetweenAccounts: FinanceContextType['addTransferBetweenAccounts'] = async ({
     scope, companyId, fromAccountId, toAccountId, amount, description, occurredOn,
   }) => {
