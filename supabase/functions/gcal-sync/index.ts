@@ -40,6 +40,14 @@ async function gfetch(path: string, init: RequestInit = {}): Promise<Response> {
 }
 
 // ------- helpers -------
+function isValidDateString(date: string | null | undefined): date is string {
+  if (!date || typeof date !== "string") return false;
+  // Aceita YYYY-MM-DD
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const d = new Date(date + "T00:00:00Z");
+  return !isNaN(d.getTime());
+}
+
 function buildEventBody(item: any) {
   // item: { id, title, description, deadline (YYYY-MM-DD), deadline_time (HH:mm) | null, area, fase, tipo, person }
   const date: string = item.deadline; // YYYY-MM-DD
@@ -54,7 +62,7 @@ function buildEventBody(item: any) {
   ].filter(Boolean);
   const description = descParts.join("\n");
 
-  if (time) {
+  if (time && /^\d{2}:\d{2}$/.test(time)) {
     const start = `${date}T${time}:00`;
     // Duração default 1h
     const [hh, mm] = time.split(":").map(Number);
@@ -92,16 +100,15 @@ async function ensureCalendar(supa: any, userId: string, forceRefresh = false): 
     if (state?.calendar_id) {
       // Verifica se ainda existe no Google
       const check = await gfetch(`/calendars/${encodeURIComponent(state.calendar_id)}`);
-      if (check.ok) return state.calendar_id;
-      if (check.status === 404 || check.status === 410) {
-        // calendário sumiu (provavelmente reconectou conta) -> limpar e recriar
-        await supa
-          .from("gcal_state")
-          .update({ calendar_id: null, sync_token: null })
-          .eq("user_id", userId);
-      } else {
+      if (check.ok) {
         return state.calendar_id;
       }
+      // Qualquer outra resposta (404, 410, 403...) -> calendário inválido, limpar e recriar
+      await check.text().catch(() => "");
+      await supa
+        .from("gcal_state")
+        .update({ calendar_id: null, sync_token: null })
+        .eq("user_id", userId);
     }
   }
 
@@ -187,8 +194,8 @@ async function pushItem(
   if (itemErr) throw itemErr;
   if (!item) return { ok: true, skipped: "item não encontrado" };
 
-  // Sem deadline ou concluído -> deletar do Google se existia
-  if (!item.deadline || item.fase === "Concluído") {
+  // Sem deadline válido ou concluído -> deletar do Google se existia
+  if (!isValidDateString(item.deadline) || item.fase === "Concluído") {
     if (mapping?.google_event_id) {
       const r = await gfetch(
         `/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(mapping.google_event_id)}`,
@@ -200,7 +207,7 @@ async function pushItem(
       }
       await supa.from("gcal_sync").update({ deleted: true }).eq("id", mapping.id);
     }
-    return { ok: true, removed_from_calendar: true };
+    return { ok: true, removed_from_calendar: true, reason: !isValidDateString(item.deadline) ? "sem_data_valida" : "concluido" };
   }
 
   const body = buildEventBody(item);
@@ -244,10 +251,43 @@ async function pushItem(
   }
 
   // INSERT novo
-  const r = await gfetch(
+  let r = await gfetch(
     `/calendars/${encodeURIComponent(calendarId)}/events`,
     { method: "POST", body: JSON.stringify(body) },
   );
+  // Se o calendário sumiu do Google (404), recria e tenta UMA vez de novo
+  if (r.status === 404) {
+    const errBody = await r.text().catch(() => "");
+    console.warn("calendário 404 no INSERT, recriando…", errBody);
+    await supa
+      .from("gcal_state")
+      .update({ calendar_id: null, sync_token: null })
+      .eq("user_id", userId);
+    const newCalId = await ensureCalendar(supa, userId, true);
+    r = await gfetch(
+      `/calendars/${encodeURIComponent(newCalId)}/events`,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+    if (!r.ok) throw new Error(`Insert event falhou após recriar calendário [${r.status}]: ${await r.text()}`);
+    const ev = await r.json();
+    await supa.from("gcal_sync").upsert(
+      {
+        user_id: userId,
+        item_id: itemId,
+        google_event_id: ev.id,
+        google_calendar_id: newCalId,
+        deleted: false,
+        last_local_updated_at: item.updated_at,
+        last_remote_updated_at: ev.updated,
+      },
+      { onConflict: "user_id,google_event_id" },
+    );
+    await supa
+      .from("gcal_state")
+      .update({ last_push_at: new Date().toISOString() })
+      .eq("user_id", userId);
+    return { ok: true, inserted: true, recreated_calendar: true, eventId: ev.id };
+  }
   if (!r.ok) throw new Error(`Insert event falhou [${r.status}]: ${await r.text()}`);
   const ev = await r.json();
   await supa.from("gcal_sync").upsert(
