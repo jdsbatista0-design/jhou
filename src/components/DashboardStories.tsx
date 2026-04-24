@@ -279,6 +279,19 @@ export default function DashboardStories() {
         </div>
       ),
     },
+    aguardando: {
+      key: 'aguardando',
+      label: 'Aguardando',
+      icon: <Hourglass className="h-4 w-4" />,
+      count: aguardando.length,
+      accent: 'from-purple-500/20 to-purple-500/5 ring-purple-500/30',
+      empty: { emoji: '⏳', text: 'Nada aguardando retorno.' },
+      render: () => (
+        <div className="space-y-2">
+          {aguardando.map(i => <ItemCard key={i.id} item={i} />)}
+        </div>
+      ),
+    },
     travado: {
       key: 'travado',
       label: 'Travado',
