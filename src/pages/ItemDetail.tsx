@@ -80,14 +80,14 @@ export default function ItemDetail() {
       updateItem(id, data);
       toast.success('Item atualizado');
     }
-    navigate('/items');
+    navigate('/');
   };
 
   const handleDelete = () => {
     if (id && !isNew) {
       deleteItem(id);
       toast.success('Item removido');
-      navigate('/items');
+      navigate('/');
     }
   };
 
@@ -109,7 +109,7 @@ export default function ItemDetail() {
     return (
       <div className="text-center py-12">
         <p className="text-sm text-muted-foreground">Item não encontrado.</p>
-        <Button variant="ghost" onClick={() => navigate('/items')} className="mt-4">Voltar</Button>
+        <Button variant="ghost" onClick={() => navigate('/')} className="mt-4">Voltar</Button>
       </div>
     );
   }
@@ -119,7 +119,7 @@ export default function ItemDetail() {
   return (
     <div className="space-y-4 pb-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/items')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-lg font-bold text-foreground">{isNew ? 'Novo Item' : 'Editar Item'}</h1>
