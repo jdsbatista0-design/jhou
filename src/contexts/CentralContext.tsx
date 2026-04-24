@@ -267,6 +267,29 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshSettings]);
 
+  // Auto-pull do Google Calendar a cada 2 minutos quando a aba está visível
+  useEffect(() => {
+    const tick = async () => {
+      if (document.hidden) return;
+      try {
+        const { data: state } = await (supabase as any)
+          .from('gcal_state')
+          .select('calendar_id')
+          .maybeSingle();
+        if (!state?.calendar_id) return;
+        await supabase.functions.invoke('gcal-sync', { body: { action: 'pull' } });
+      } catch (e) {
+        console.warn('gcal pull periódico falhou', e);
+      }
+    };
+    const initial = window.setTimeout(tick, 5000);
+    const timer = window.setInterval(tick, 120_000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, []);
+
   // Settings still localStorage (personal preferences)
   useEffect(() => saveToStorage('central_settings', settings), [settings]);
 
