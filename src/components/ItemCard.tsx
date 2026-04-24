@@ -37,9 +37,6 @@ export default function ItemCard({ item }: { item: Item }) {
         isConcluido && "opacity-60"
       )}
     >
-      {item.photoUrl && (
-        <img src={item.photoUrl} alt="" className="w-full h-28 object-cover rounded-lg" />
-      )}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 flex-1 min-w-0">
           <button
