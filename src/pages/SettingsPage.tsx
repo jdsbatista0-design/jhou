@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff, LogOut } from 'lucide-react';
+import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff, LogOut, Pencil, Check } from 'lucide-react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -175,17 +175,66 @@ function TagGroupEditor({ group, onUpdate, onDelete }: { group: TagGroup; onUpda
           </div>
           <div className="flex flex-wrap gap-1.5">
             {group.tags.map(tag => (
-              <span key={tag} className="inline-flex items-center gap-1 bg-muted text-muted-foreground text-[11px] px-2 py-0.5 rounded-full">
-                {tag}
-                <button onClick={() => onUpdate({ ...group, tags: group.tags.filter(t => t !== tag) })} className="hover:text-destructive">
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </span>
+              <TagChip
+                key={tag}
+                tag={tag}
+                onRename={(newTag) => {
+                  const trimmed = newTag.trim();
+                  if (!trimmed || trimmed === tag) return;
+                  if (group.tags.includes(trimmed)) { toast.error('Tag já existe neste grupo'); return; }
+                  onUpdate({ ...group, tags: group.tags.map(t => t === tag ? trimmed : t) });
+                }}
+                onDelete={() => onUpdate({ ...group, tags: group.tags.filter(t => t !== tag) })}
+              />
             ))}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+function TagChip({ tag, onRename, onDelete }: { tag: string; onRename: (v: string) => void; onDelete: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(tag);
+
+  const commit = () => {
+    setEditing(false);
+    if (value.trim() && value.trim() !== tag) onRename(value.trim());
+    else setValue(tag);
+  };
+
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1 bg-card border border-primary text-foreground text-[11px] px-2 py-0.5 rounded-full">
+        <input
+          autoFocus
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') commit();
+            if (e.key === 'Escape') { setValue(tag); setEditing(false); }
+          }}
+          className="bg-transparent outline-none w-20 text-[11px]"
+        />
+        <button onMouseDown={e => { e.preventDefault(); commit(); }} className="text-primary">
+          <Check className="h-2.5 w-2.5" />
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 bg-muted text-muted-foreground text-[11px] px-2 py-0.5 rounded-full group">
+      {tag}
+      <button onClick={() => setEditing(true)} className="hover:text-foreground" aria-label="Renomear tag">
+        <Pencil className="h-2.5 w-2.5" />
+      </button>
+      <button onClick={onDelete} className="hover:text-destructive" aria-label="Excluir tag">
+        <X className="h-2.5 w-2.5" />
+      </button>
+    </span>
   );
 }
 
