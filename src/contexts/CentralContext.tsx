@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { InboxEntry, Item, ItemComment, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDateTime } from '@/lib/dates';
+import { encryptString, decryptString } from '@/lib/crypto';
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
@@ -115,7 +116,7 @@ function dbRowToItem(row: any, comments: ItemComment[]): Item {
   };
 }
 
-function dbRowToMemory(row: any): Memory {
+async function dbRowToMemory(row: any): Promise<Memory> {
   return {
     id: row.id,
     title: row.title,
@@ -123,9 +124,9 @@ function dbRowToMemory(row: any): Memory {
     tags: Array.isArray(row.tags) ? row.tags : [],
     category: row.category || 'geral',
     area: row.area || undefined,
-    login: row.login || undefined,
-    password: row.password || undefined,
-    url: row.url || undefined,
+    login: (await decryptString(row.login)) || undefined,
+    password: (await decryptString(row.password)) || undefined,
+    url: (await decryptString(row.url)) || undefined,
     city: row.city || undefined,
     createdAt: row.created_at,
   };
@@ -190,7 +191,8 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       .select('*')
       .order('created_at', { ascending: false });
     if (!error && data) {
-      setMemories(data.map(dbRowToMemory));
+      const mapped = await Promise.all(data.map(dbRowToMemory));
+      setMemories(mapped);
     }
   }, []);
 
@@ -469,15 +471,19 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   const addMemory = useCallback(async (memory: Omit<Memory, 'id' | 'createdAt'>) => {
     const userId = await getUserId();
     if (!userId) return;
+    // Criptografa campos sensíveis antes de salvar
+    const encLogin = memory.login ? await encryptString(memory.login) : null;
+    const encPassword = memory.password ? await encryptString(memory.password) : null;
+    const encUrl = memory.url ? await encryptString(memory.url) : null;
     await supabase.from('memories').insert({
       title: memory.title,
       content: memory.content,
       tags: memory.tags || [],
       category: memory.category || 'geral',
       area: memory.area || null,
-      login: memory.login || null,
-      password: memory.password || null,
-      url: memory.url || null,
+      login: encLogin,
+      password: encPassword,
+      url: encUrl,
       city: memory.city || null,
       user_id: userId,
     });
