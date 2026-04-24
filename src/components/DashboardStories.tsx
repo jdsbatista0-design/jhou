@@ -60,34 +60,54 @@ export default function DashboardStories() {
           {todayAgenda.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Agenda de hoje</p>
-              {todayAgenda.map(e => (
-                <div
-                  key={e.id}
-                  className="bg-card border border-border rounded-xl p-3 cursor-pointer hover:border-primary/30 transition-colors"
-                  onClick={() => e.source === 'item' ? navigate(`/items/${e.sourceId}`) : undefined}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-foreground flex-1">{e.title}</p>
-                    <Badge variant="outline" className="text-[9px] shrink-0">{e.type}</Badge>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">🕐 {format(safeDate(e.datetime) || new Date(e.datetime), 'HH:mm')}</p>
-                  <button
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                      if (e.source === 'item') {
-                        updateItem(e.sourceId, { fase: 'Concluído' });
-                        toast.success('Item concluído ✅');
-                      } else {
-                        deleteEvent(e.sourceId);
-                        toast.success('Evento removido');
-                      }
-                    }}
-                    className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+              {todayAgenda.map(e => {
+                const linkedItem = e.source === 'item'
+                  ? items.find(i => i.id === e.sourceId)
+                  : undefined;
+                const isConcluido = linkedItem?.fase === 'Concluído';
+                return (
+                  <div
+                    key={e.id}
+                    className={cn(
+                      "bg-card border border-border rounded-xl p-3 cursor-pointer hover:border-primary/30 transition-colors",
+                      isConcluido && "opacity-60"
+                    )}
+                    onClick={() => e.source === 'item' ? navigate(`/items/${e.sourceId}`) : undefined}
                   >
-                    <Check className="h-3 w-3" /> Concluir
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-start gap-2">
+                      <button
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          if (e.source === 'item') {
+                            const newFase = isConcluido ? 'Inbox' : 'Concluído';
+                            updateItem(e.sourceId, { fase: newFase });
+                            toast.success(isConcluido ? 'Item reaberto' : 'Item concluído ✅');
+                          } else {
+                            deleteEvent(e.sourceId);
+                            toast.success('Evento removido');
+                          }
+                        }}
+                        className={cn(
+                          "mt-0.5 shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all",
+                          isConcluido
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-muted-foreground/30 hover:border-primary hover:bg-primary/5"
+                        )}
+                        aria-label={isConcluido ? 'Reabrir' : 'Concluir'}
+                      >
+                        {isConcluido && <Check className="h-3 w-3" strokeWidth={3} />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={cn("text-sm font-medium text-foreground flex-1", isConcluido && "line-through")}>{e.title}</p>
+                          <Badge variant="outline" className="text-[9px] shrink-0">{e.type}</Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">🕐 {format(safeDate(e.datetime) || new Date(e.datetime), 'HH:mm')}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
           {todayItems.length > 0 && (
