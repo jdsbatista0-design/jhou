@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff, LogOut, Calendar } from 'lucide-react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -195,6 +195,7 @@ export default function SettingsPage() {
   const [syncing, setSyncing] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [profile, setProfile] = useState<{ email?: string; full_name?: string; avatar_url?: string } | null>(null);
 
   useEffect(() => {
     const goOnline = () => setOnline(true);
@@ -206,6 +207,25 @@ export default function SettingsPage() {
       window.removeEventListener('offline', goOffline);
     };
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('email, full_name, avatar_url')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (data) setProfile(data);
+      else setProfile({ email: user.email });
+    })();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast.success('Saiu da conta');
+  };
 
   const handleSyncNow = async () => {
     setSyncing(true);
