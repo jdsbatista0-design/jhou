@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, Check } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -52,49 +53,64 @@ export default function AgendaPage() {
   const handleConclude = (entry: AgendaEntry, e: React.MouseEvent) => {
     e.stopPropagation();
     if (entry.source === 'item') {
-      updateItem(entry.sourceId, { fase: 'Concluído' });
-      toast.success('Item concluído ✅');
+      const isConcluido = entry.item?.fase === 'Concluído';
+      updateItem(entry.sourceId, { fase: isConcluido ? 'Inbox' : 'Concluído' });
+      toast.success(isConcluido ? 'Item reaberto' : 'Item concluído ✅');
     } else {
       deleteEvent(entry.sourceId);
       toast.success('Evento removido');
     }
   };
 
-  const renderEntry = (entry: AgendaEntry) => (
-    <div
-      key={entry.id}
-      className="bg-card border border-border rounded-xl p-3 flex items-start justify-between cursor-pointer hover:border-primary/30 transition-colors"
-      onClick={() => entry.source === 'item' ? navigate(`/items/${entry.sourceId}`) : undefined}
-    >
-      <div className="space-y-1 flex-1">
-        <p className="text-sm font-medium text-foreground">{entry.title}</p>
-        <p className="text-[11px] text-muted-foreground">
-          {format(entryDate(entry), "HH:mm · EEEE, dd/MM", { locale: ptBR })} · {entry.type}
-        </p>
-        {entry.item && (
-          <div className="flex gap-1 mt-1">
-            <Badge variant="secondary" className="text-[9px]">{entry.item.area}</Badge>
-            <Badge variant="outline" className="text-[9px]">{entry.item.fase}</Badge>
-            {entry.item.person && <Badge variant="outline" className="text-[9px]">👤 {entry.item.person}</Badge>}
-          </div>
+  const renderEntry = (entry: AgendaEntry) => {
+    const isConcluido = entry.source === 'item' && entry.item?.fase === 'Concluído';
+    return (
+      <div
+        key={entry.id}
+        className={cn(
+          "bg-card border border-border rounded-xl p-3 flex items-start justify-between cursor-pointer hover:border-primary/30 transition-colors",
+          isConcluido && "opacity-60"
         )}
-        <Badge variant={entry.source === 'item' ? 'secondary' : 'outline'} className="text-[9px] mt-1">
-          {entry.source === 'item' ? '📋 Item' : '📅 Evento'}
-        </Badge>
-        <button
-          onClick={(e) => handleConclude(entry, e)}
-          className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
-        >
-          <Check className="h-3 w-3" /> Concluir
-        </button>
+        onClick={() => entry.source === 'item' ? navigate(`/items/${entry.sourceId}`) : undefined}
+      >
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          <button
+            onClick={(e) => handleConclude(entry, e)}
+            className={cn(
+              "mt-0.5 shrink-0 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all",
+              isConcluido
+                ? "bg-primary border-primary text-primary-foreground"
+                : "border-muted-foreground/30 hover:border-primary hover:bg-primary/5"
+            )}
+            aria-label={isConcluido ? 'Reabrir' : 'Concluir'}
+          >
+            {isConcluido && <Check className="h-3 w-3" strokeWidth={3} />}
+          </button>
+          <div className="space-y-1 flex-1 min-w-0">
+            <p className={cn("text-sm font-medium text-foreground", isConcluido && "line-through")}>{entry.title}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {format(entryDate(entry), "HH:mm · EEEE, dd/MM", { locale: ptBR })} · {entry.type}
+            </p>
+            {entry.item && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                <Badge variant="secondary" className="text-[9px]">{entry.item.area}</Badge>
+                <Badge variant="outline" className="text-[9px]">{entry.item.fase}</Badge>
+                {entry.item.person && <Badge variant="outline" className="text-[9px]">👤 {entry.item.person}</Badge>}
+              </div>
+            )}
+            <Badge variant={entry.source === 'item' ? 'secondary' : 'outline'} className="text-[9px] mt-1">
+              {entry.source === 'item' ? '📋 Item' : '📅 Evento'}
+            </Badge>
+          </div>
+        </div>
+        {entry.source === 'event' && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground shrink-0" onClick={e => { e.stopPropagation(); deleteEvent(entry.sourceId); toast.success('Evento removido'); }}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
-      {entry.source === 'event' && (
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground shrink-0" onClick={e => { e.stopPropagation(); deleteEvent(entry.sourceId); toast.success('Evento removido'); }}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      )}
-    </div>
-  );
+    );
+  };
 
   const renderGroup = (label: string, list: AgendaEntry[]) => {
     if (list.length === 0) return null;
