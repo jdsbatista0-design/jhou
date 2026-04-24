@@ -205,17 +205,25 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const getUserId = useCallback(async (): Promise<string | null> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id ?? null;
+  }, []);
+
   const refreshSettings = useCallback(async () => {
+    const userId = await getUserId();
+    if (!userId) return;
     const { data, error } = await (supabase as any)
       .from('app_settings')
       .select('value')
       .eq('key', 'central_settings')
+      .eq('user_id', userId)
       .maybeSingle();
 
     if (!error && data?.value) {
       setSettings(normalizeSettings(data.value));
     }
-  }, []);
+  }, [getUserId]);
 
   // Initial load + realtime
   useEffect(() => {
