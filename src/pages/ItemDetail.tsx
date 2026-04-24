@@ -59,7 +59,7 @@ export default function ItemDetail() {
       toast.error('Título é obrigatório');
       return;
     }
-    const data = {
+    const data: Partial<Item> = {
       title: form.title,
       description: form.description || undefined,
       tipo: form.tipo,
@@ -73,8 +73,17 @@ export default function ItemDetail() {
       tags: form.tags,
     };
 
+    // Se o usuário mudou a fase manualmente para/de "Concluído", manter previousFase coerente
+    if (existing) {
+      if (existing.fase !== 'Concluído' && form.fase === 'Concluído') {
+        data.previousFase = existing.fase;
+      } else if (existing.fase === 'Concluído' && form.fase !== 'Concluído') {
+        data.previousFase = undefined;
+      }
+    }
+
     if (isNew) {
-      addItem(data);
+      addItem(data as any);
       toast.success('Item criado');
     } else if (id) {
       updateItem(id, data);
