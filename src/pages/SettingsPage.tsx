@@ -231,16 +231,23 @@ export default function SettingsPage() {
   const handleSyncNow = async () => {
     setSyncing(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Sessão expirada — faça login novamente');
+
       // Force re-upsert das settings + leitura
       const { error: upErr } = await (supabase as any)
         .from('app_settings')
-        .upsert({ key: 'central_settings', value: settings });
+        .upsert(
+          { key: 'central_settings', value: settings, user_id: user.id },
+          { onConflict: 'user_id,key' }
+        );
       if (upErr) throw upErr;
 
       const { error: readErr } = await (supabase as any)
         .from('app_settings')
         .select('value')
         .eq('key', 'central_settings')
+        .eq('user_id', user.id)
         .maybeSingle();
       if (readErr) throw readErr;
 
