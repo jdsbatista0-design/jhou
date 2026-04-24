@@ -101,6 +101,7 @@ function dbRowToItem(row: any, comments: ItemComment[]): Item {
     photoUrl: row.photo_url || undefined,
     tipo: row.tipo,
     fase: row.fase,
+    previousFase: row.previous_fase || undefined,
     area: row.area,
     priority: row.priority || undefined,
     deadline: row.deadline || undefined,
@@ -494,6 +495,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     if (updates.photoUrl !== undefined) dbUpdates.photo_url = updates.photoUrl;
     if (updates.tipo !== undefined) dbUpdates.tipo = updates.tipo;
     if (updates.fase !== undefined) dbUpdates.fase = updates.fase;
+    if (updates.previousFase !== undefined) dbUpdates.previous_fase = updates.previousFase || null;
     if (updates.area !== undefined) dbUpdates.area = updates.area;
     if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
     if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;

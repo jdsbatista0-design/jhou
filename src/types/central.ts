@@ -24,6 +24,7 @@ export interface Item {
   photoUrl?: string;
   tipo: string;
   fase: string;
+  previousFase?: string;
   area: string;
   priority?: 'baixa' | 'media' | 'alta';
   deadline?: string;
