@@ -646,7 +646,7 @@ export default function DashboardStories() {
         ))}
 
         {/* Final story: visão completa */}
-        <div data-story-card className="snap-start shrink-0 w-[88vw] max-w-[440px]">
+        <div data-story-card className="snap-center shrink-0 w-full sm:w-[88%] md:w-[70%] lg:w-[60%] max-w-[560px]">
           <div className="rounded-2xl bg-gradient-to-br from-accent to-muted ring-1 ring-border p-4 min-h-[300px] flex flex-col items-center justify-center text-center">
             <Sparkles className="h-8 w-8 text-primary mb-2" />
             <p className="text-sm font-bold text-foreground">Quer ver tudo?</p>
