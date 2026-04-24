@@ -78,6 +78,23 @@ export default function ItemsPage() {
       </div>
 
       <div className="space-y-1.5">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {([
+            { key: null, label: 'Qualquer data' },
+            { key: 'hoje', label: 'Hoje' },
+            { key: 'semana', label: 'Esta semana' },
+            { key: 'mes', label: 'Este mês' },
+            { key: 'vencidos', label: '⚠ Vencidos' },
+          ] as { key: PeriodFilter | null; label: string }[]).map(p => (
+            <button
+              key={p.label}
+              onClick={() => setFilterPeriod(p.key)}
+              className={cn('text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 transition-colors', filterPeriod === p.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
         <FilterRow label="Todos tipos" options={settings.tipos} value={filterTipo} onChange={setFilterTipo} />
         {!showArchived && <FilterRow label="Todas fases" options={visibleFases} value={filterFase} onChange={setFilterFase} />}
         <FilterRow label="Todas áreas" options={settings.areas} value={filterArea} onChange={setFilterArea} />
