@@ -17,10 +17,11 @@ const INCOMING_KINDS = new Set(['income', 'receivable', 'bank_loan']);
 const TRANSFER_KINDS = new Set(['transfer', 'inter_company']);
 
 export function TransactionsList({ scope, companyId }: Props) {
-  const { transactions, accounts, cards, categories, people, companies, deleteTransaction, updateTransaction } = useFinance();
+  const { transactions, accounts, cards, categories, people, companies, recurrences, deleteTransaction, updateTransaction } = useFinance();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'pending'>('all');
   const [filterKind, setFilterKind] = useState<'all' | 'incoming' | 'outgoing' | 'transfer'>('all');
+  const [editing, setEditing] = useState<FinTransaction | null>(null);
 
   const visible = useMemo(() => {
     return transactions
