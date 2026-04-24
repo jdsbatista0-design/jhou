@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff, LogOut, Calendar } from 'lucide-react';
+import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff, LogOut } from 'lucide-react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
+import { GoogleCalendarCard } from '@/components/GoogleCalendarCard';
 
 function reorder<T>(arr: T[], idx: number, dir: -1 | 1): T[] {
   const next = [...arr];
@@ -292,17 +293,8 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Google Agenda (em breve) */}
-      <div className="border border-border rounded-xl p-3 flex items-center gap-3 opacity-60">
-        <Calendar className="h-5 w-5 text-muted-foreground" />
-        <div className="flex-1">
-          <p className="text-xs font-medium text-foreground">Google Agenda</p>
-          <p className="text-[10px] text-muted-foreground">Em breve — sincronização bidirecional</p>
-        </div>
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-          Em breve
-        </span>
-      </div>
+      <GoogleCalendarCard />
+
 
       {/* Sync status */}
       <div className="border border-border rounded-xl p-3 space-y-2">

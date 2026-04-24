@@ -267,6 +267,29 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshSettings]);
 
+  // Auto-pull do Google Calendar a cada 2 minutos quando a aba está visível
+  useEffect(() => {
+    const tick = async () => {
+      if (document.hidden) return;
+      try {
+        const { data: state } = await (supabase as any)
+          .from('gcal_state')
+          .select('calendar_id')
+          .maybeSingle();
+        if (!state?.calendar_id) return;
+        await supabase.functions.invoke('gcal-sync', { body: { action: 'pull' } });
+      } catch (e) {
+        console.warn('gcal pull periódico falhou', e);
+      }
+    };
+    const initial = window.setTimeout(tick, 5000);
+    const timer = window.setInterval(tick, 120_000);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, []);
+
   // Settings still localStorage (personal preferences)
   useEffect(() => saveToStorage('central_settings', settings), [settings]);
 
@@ -355,11 +378,28 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     }
   }, [inbox, getUserId]);
 
+  // ---- GOOGLE CALENDAR PUSH ----
+  const pushToGoogle = useCallback(async (itemId: string, op: 'upsert' | 'delete') => {
+    try {
+      // Só dispara se a agenda já foi conectada (gcal_state existe)
+      const { data: state } = await (supabase as any)
+        .from('gcal_state')
+        .select('calendar_id')
+        .maybeSingle();
+      if (!state?.calendar_id) return;
+      await supabase.functions.invoke('gcal-sync', {
+        body: { action: 'push', itemId, op },
+      });
+    } catch (e) {
+      console.warn('gcal push falhou (não-crítico)', e);
+    }
+  }, []);
+
   // ---- ITEM ACTIONS ----
   const addItem = useCallback(async (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => {
     const userId = await getUserId();
     if (!userId) return;
-    await supabase.from('items').insert({
+    const { data, error } = await supabase.from('items').insert({
       title: item.title,
       description: item.description || null,
       photo_url: item.photoUrl || null,
@@ -375,8 +415,11 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       tags: item.tags || [],
       linked_agenda_ids: item.linkedAgendaIds || [],
       user_id: userId,
-    });
-  }, [getUserId]);
+    }).select('id').single();
+    if (!error && data?.id && item.deadline) {
+      pushToGoogle(data.id, 'upsert');
+    }
+  }, [getUserId, pushToGoogle]);
 
   const updateItem = useCallback(async (id: string, updates: Partial<Item>) => {
     const dbUpdates: any = { updated_at: new Date().toISOString() };
@@ -394,12 +437,23 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     if (updates.value !== undefined) dbUpdates.value = updates.value;
     if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
     if (updates.linkedAgendaIds !== undefined) dbUpdates.linked_agenda_ids = updates.linkedAgendaIds;
-    await supabase.from('items').update(dbUpdates).eq('id', id);
-  }, []);
+    const { error } = await supabase.from('items').update(dbUpdates).eq('id', id);
+    if (!error) {
+      // Qualquer mudança em campos que afetam o evento → push
+      const affectsCalendar =
+        updates.title !== undefined ||
+        updates.deadline !== undefined ||
+        updates.deadlineTime !== undefined ||
+        updates.fase !== undefined ||
+        updates.description !== undefined;
+      if (affectsCalendar) pushToGoogle(id, 'upsert');
+    }
+  }, [pushToGoogle]);
 
   const deleteItem = useCallback(async (id: string) => {
+    pushToGoogle(id, 'delete');
     await supabase.from('items').delete().eq('id', id);
-  }, []);
+  }, [pushToGoogle]);
 
   const addComment = useCallback(async (itemId: string, text: string) => {
     const userId = await getUserId();
