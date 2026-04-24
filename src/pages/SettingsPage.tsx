@@ -264,6 +264,46 @@ export default function SettingsPage() {
     <div className="space-y-6 pb-4">
       <h1 className="text-xl font-bold text-foreground">Configurações</h1>
 
+      {/* Conta */}
+      {profile && (
+        <div className="border border-border rounded-xl p-3 flex items-center gap-3">
+          {profile.avatar_url ? (
+            <img src={profile.avatar_url} alt="" className="h-10 w-10 rounded-full" />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
+              {(profile.full_name || profile.email || '?').slice(0, 1).toUpperCase()}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">
+              {profile.full_name || 'Conta Google'}
+            </p>
+            <p className="text-[11px] text-muted-foreground truncate">{profile.email}</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-xl h-8 gap-1"
+            onClick={handleSignOut}
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="text-xs">Sair</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Google Agenda (em breve) */}
+      <div className="border border-border rounded-xl p-3 flex items-center gap-3 opacity-60">
+        <Calendar className="h-5 w-5 text-muted-foreground" />
+        <div className="flex-1">
+          <p className="text-xs font-medium text-foreground">Google Agenda</p>
+          <p className="text-[10px] text-muted-foreground">Em breve — sincronização bidirecional</p>
+        </div>
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+          Em breve
+        </span>
+      </div>
+
       {/* Sync status */}
       <div className="border border-border rounded-xl p-3 space-y-2">
         <div className="flex items-center justify-between">
