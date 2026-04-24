@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Building2, User, Plus, Wallet, CreditCard, ArrowLeftRight, ListChecks, Users, TrendingUp, TrendingDown, Receipt } from 'lucide-react';
+import { Building2, User, Plus, Wallet, CreditCard, ArrowLeftRight, ListChecks, Users, TrendingUp, TrendingDown, Receipt, Repeat } from 'lucide-react';
 import { FinanceProvider, useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -12,8 +12,9 @@ import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { CategoriesManager } from '@/components/finance/CategoriesManager';
 import { PeopleManager } from '@/components/finance/PeopleManager';
 import { FinanceOverview } from '@/components/finance/FinanceOverview';
+import { RecurrencesManager } from '@/components/finance/RecurrencesManager';
 
-type Section = 'overview' | 'accounts' | 'cards' | 'transactions' | 'categories' | 'people' | 'companies';
+type Section = 'overview' | 'accounts' | 'cards' | 'transactions' | 'categories' | 'people' | 'companies' | 'recurrences';
 
 function FinanceInner() {
   const { scope, setScope, companies, selectedCompanyId, setSelectedCompanyId, loading } = useFinance();
@@ -33,6 +34,7 @@ function FinanceInner() {
   const sections: { id: Section; label: string; icon: any }[] = [
     { id: 'overview', label: 'Resumo', icon: TrendingUp },
     { id: 'transactions', label: 'Lançamentos', icon: ListChecks },
+    { id: 'recurrences', label: 'Recorrências', icon: Repeat },
     { id: 'accounts', label: 'Contas', icon: Wallet },
     { id: 'cards', label: 'Cartões', icon: CreditCard },
     { id: 'categories', label: 'Categorias', icon: Receipt },
@@ -160,6 +162,7 @@ function FinanceInner() {
       <div className="pt-1">
         {section === 'overview' && <FinanceOverview scope={scope} companyId={effectiveCompanyId} />}
         {section === 'transactions' && <TransactionsList scope={scope} companyId={effectiveCompanyId} />}
+        {section === 'recurrences' && <RecurrencesManager scope={scope} companyId={effectiveCompanyId} />}
         {section === 'accounts' && <AccountsManager scope={scope} companyId={effectiveCompanyId} />}
         {section === 'cards' && <CardsManager scope={scope} companyId={effectiveCompanyId} />}
         {section === 'categories' && <CategoriesManager scope={scope} />}

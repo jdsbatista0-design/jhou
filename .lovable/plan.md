@@ -1,96 +1,89 @@
+## Recorrência mensal no lançamento
 
-# Aba Financeiro — Fase 1
-
-Estrutura completa de finanças pessoais e empresariais com lançamentos 100% manuais nessa primeira rodada. Google Sheets (Fase 2) e Belvo / Open Finance (Fase 3) entram depois, sobre essa base.
-
-Frota, imóveis, IPTU, IPVA, plano de saúde, escola das crianças, etc. são tratados como **categorias** dos lançamentos (decisão sua) — não vamos cadastrar carro a carro nessa fase.
+A ideia: ao criar um lançamento, marcar **"se repete todo mês"** e o sistema cuida de gerar as próximas ocorrências sozinho. A tabela `fin_recurrences` já existe no banco, só falta plugar a UI e a lógica.
 
 ---
 
-## O que você vai ter ao final dessa entrega
+### O que vai mudar na tela
 
-### Nova aba "Finanças" (5ª aba na barra inferior)
+**No diálogo de Novo lançamento** (já tem valor, data, descrição, conta, categoria):
 
-Bottom nav passa de 4 para 5 abas: Início · Agenda · **Finanças** · Painel · Config.
+Adiciono um bloco "Repetir":
+- Toggle **"Se repete todo mês"** — desligado por padrão
+- Quando ligado, aparecem 2 campos curtos:
+  - **Frequência**: Mensal (padrão) · Semanal · Anual
+  - **Até quando**: "Sem fim" (padrão) · escolher data
+- O dia do mês é pego automaticamente da data do lançamento (se você lançou dia 5, a recorrência é todo dia 5)
 
-Ao entrar, dois grandes botões/segmentos no topo: **Pessoa Física** | **Pessoa Jurídica**. Toda a navegação interna respeita o contexto escolhido (cada empresa PJ tem seus próprios dados isolados).
+**Status padrão das próximas ocorrências**: serão criadas como **"Previsto"** (com o relógio âmbar), e você marca como pago clicando no ✓ — exatamente como já funciona hoje pros pendentes. Isso é o que faz mais sentido pra "conta a pagar todo mês".
 
-### Pessoa Física
+**No banner de edição** (que já mostra "Lançamento recorrente"):
+- Adiciono botão **"Editar regra"** → abre um diálogo pra pausar/encerrar a recorrência ou mudar valor/dia que vale daqui pra frente
+- Adiciono botão **"Excluir só esta"** vs **"Excluir esta e as futuras"**
 
-- **Resumo do mês:** entradas, saídas, saldo, gasto previsto vs realizado.
-- **Contas bancárias:** cadastrar nome, banco, tipo (corrente / poupança / investimento), saldo inicial. Saldo atual é calculado a partir dos lançamentos.
-- **Cartões de crédito:** nome, bandeira, limite total, dia de fechamento, dia de vencimento, conta vinculada. Mostra fatura aberta, próxima fatura, % do limite usado.
-- **Lançamentos:** entrada, saída, transferência entre contas, pagamento de fatura. Cada lançamento tem: descrição, valor, data, conta ou cartão, categoria, recorrência opcional, anexo opcional, observação.
-- **Recorrências:** aluguel, água, luz, internet, plano de saúde, escola — geradas automaticamente todo mês na data definida (status "previsto" até você confirmar pagamento).
-- **Contas a pagar / a receber:** lançamentos com data futura aparecem em duas listas dedicadas, ordenadas por vencimento, com alerta quando vencem em ≤ 3 dias.
-- **Categorias customizáveis:** padrão sugerido (Alimentação, Transporte, Saúde, Educação, Lazer, Moradia, Frota, Imóveis, IPTU/IPVA, Viagens, Inesperados, Empréstimos…) e você adiciona / remove / renomeia em Config.
-
-### Pessoa Jurídica
-
-- **Cadastro de empresas:** nome, CNPJ opcional, cor identificadora. Adicionar, editar, arquivar (com confirmação porque tem lançamentos vinculados).
-- **Seletor de empresa** no topo da seção PJ — todos os dados filtram pela empresa selecionada. Há também opção "Todas as empresas" para visão consolidada.
-- **Contas bancárias e cartões** por empresa, mesmo modelo da PF.
-- **Lançamentos PJ** com tipos extras: pagamento a funcionário, pagamento a fornecedor, empréstimo a funcionário, empréstimo bancário, imposto, conta a receber.
-- **Cadastro de funcionários e fornecedores** (nome + observação), reutilizáveis em lançamentos como "pessoa".
-- **Transferência entre empresas:** lançamento especial que cria saída em uma empresa e entrada em outra (vinculadas pelo mesmo `transfer_id`), para refletir aporte / empréstimo entre PJs.
-
-### Dashboard financeiro (resumo)
-
-Dentro de cada contexto (PF ou empresa PJ selecionada):
-
-- Saldo total consolidado (soma das contas).
-- Entradas vs saídas no mês corrente, com comparativo do mês anterior.
-- Top categorias de gasto do mês.
-- Gasto por cartão no período (qual cartão está concentrando alimentação, qual está concentrando frota, etc.).
-- Próximos vencimentos (7 dias).
-
-### Config (extensão da aba existente)
-
-Nova seção "Finanças": gerenciar categorias PF, categorias PJ, listas de funcionários e fornecedores, empresas PJ.
+**Numa nova mini-seção "Recorrências"** dentro de Finanças (aba Categorias já tem precedente):
+- Lista das recorrências ativas (ex.: "Aluguel · R$ 2.500 · todo dia 5 · ativa")
+- Botão pra pausar, encerrar ou editar cada uma
 
 ---
 
-## Detalhes técnicos
+### Como a geração automática funciona
 
-### Banco de dados (novas tabelas, todas com RLS `auth.uid() = user_id`)
+Quando você abre a aba Finanças, o sistema roda uma rotina silenciosa:
 
-- `fin_companies` — empresas PJ (id, user_id, name, cnpj, color, archived, created_at).
-- `fin_accounts` — contas bancárias (id, user_id, scope `pf|pj`, company_id nullable, name, bank, type, initial_balance, archived).
-- `fin_cards` — cartões (id, user_id, scope, company_id nullable, account_id, name, brand, limit_amount, closing_day, due_day, archived).
-- `fin_categories` — categorias (id, user_id, scope, name, kind `income|expense|transfer`, color, archived).
-- `fin_people` — funcionários e fornecedores PJ (id, user_id, company_id, name, role `employee|supplier|other`, note).
-- `fin_transactions` — lançamentos (id, user_id, scope, company_id nullable, account_id nullable, card_id nullable, category_id, kind `income|expense|transfer|card_payment|invoice_payment`, amount, occurred_on, description, person_id nullable, recurrence_id nullable, transfer_id nullable, status `pending|confirmed`, attachment_url nullable, notes).
-- `fin_recurrences` — modelos de lançamento recorrente (id, user_id, scope, company_id nullable, template fields, frequency `monthly|weekly|yearly`, day_of_month, start_on, end_on nullable, active).
+1. Lê todas as recorrências ativas
+2. Pra cada uma, calcula quais ocorrências deveriam existir entre `start_on` e **hoje + 1 mês** (gera o do mês corrente e já adianta o do próximo mês — aparece como "Previsto" pra você ver no caixa)
+3. Compara com `last_generated_on` da recorrência pra não duplicar
+4. Insere as `fin_transactions` que faltam, vinculadas via `recurrence_id`
+5. Atualiza `last_generated_on`
 
-Realtime ligado em todas as tabelas `fin_*`.
-
-### Frontend
-
-- Novo contexto `FinanceContext` separado do `CentralContext` para não inflar o atual.
-- Páginas: `/financas` (overview com toggle PF/PJ) → `/financas/pf` e `/financas/pj` → sub-rotas para `contas`, `cartoes`, `lancamentos`, `recorrencias`, `a-pagar`, `a-receber`, `funcionarios`, `empresas`.
-- Componentes reutilizáveis: `TransactionForm`, `TransactionList`, `AccountCard`, `CardSummary`, `CategoryPicker`, `CompanySelector`.
-- BottomNav passa de 4 para 5 itens (ícone `Wallet` para Finanças).
-
-### Geração de recorrências
-
-Quando uma recorrência ativa existe, na primeira vez que o usuário abre a aba Finanças no mês corrente, geramos as parcelas faltantes daquele mês (status `pending`) e ele só confirma quando paga. Sem precisar de cron / edge function nessa fase.
-
-### Cálculos
-
-Saldo de conta = `initial_balance + Σ(entradas confirmadas) − Σ(saídas confirmadas) ± transferências`. Tudo derivado em memória a partir dos lançamentos — nada armazenado em cache que possa desincronizar.
-
-Fatura do cartão = soma das despesas no cartão entre o último fechamento e o próximo, status confirmado.
+Tudo client-side, sem precisar de cron/edge function nessa fase. Roda só quando você abre Finanças.
 
 ---
 
-## O que NÃO entra nessa fase (deixado explícito)
+### Detalhes técnicos
 
-- **Belvo / Open Finance** — Fase 3, depende de você criar conta Belvo e fornecer credenciais.
-- **Google Sheets** — Fase 2, faremos depois que validarmos a estrutura aqui.
-- **Conciliação bancária** — depende de Belvo + Sheets, então também Fase 3.
-- **Cadastro individual de carros / imóveis** — viram categorias por enquanto.
-- **Anexos de comprovantes** — campo já fica no schema, mas a UI de upload entra numa próxima rodada se você priorizar.
+**`src/contexts/FinanceContext.tsx`**
+- Adicionar CRUD: `addRecurrence`, `updateRecurrence`, `deleteRecurrence`, `pauseRecurrence`
+- Adicionar `generatePendingRecurrences()` que calcula ocorrências faltantes baseado em `frequency`, `day_of_month`, `last_generated_on`
+- Chamar essa função no `useEffect` inicial, depois do `refreshAll()`
+- Helper `deleteTransactionAndFuture(id)` que apaga a ocorrência atual + as futuras da mesma `recurrence_id` com `occurred_on >= ?`
+
+**`src/components/finance/TransactionDialog.tsx`**
+- Bloco novo "Repetir" com Switch + Select de frequência + date picker opcional de fim
+- No `handleSave` (modo create): se toggle ligado, primeiro cria a recorrência, depois usa o `id` retornado como `recurrenceId` no insert do primeiro lançamento e seta `status: 'pending'` (a menos que data ≤ hoje, aí confirma)
+- No modo edit, manter o banner "Lançamento recorrente" e adicionar os botões "Editar regra" / "Excluir esta e futuras"
+
+**`src/components/finance/RecurrencesManager.tsx`** (novo)
+- Lista as `recurrences` ativas/pausadas
+- Cada linha: descrição, valor, dia do mês, status, conta/categoria
+- Ações: pausar (toggle `active`), encerrar (set `end_on = hoje`), editar valor/dia, excluir (com aviso de quantas ocorrências futuras serão removidas)
+
+**`src/pages/FinancePage.tsx`**
+- Adicionar `'recurrences'` no array `sections` com ícone `Repeat`
+
+**Lógica da geração (resumida):**
+```
+para cada recurrence ativa:
+  cursor = last_generated_on || start_on
+  até cursor < hoje + 30 dias:
+    cursor = próximo vencimento (segundo frequency)
+    se cursor > end_on: para
+    se já existe transaction com (recurrence_id, occurred_on=cursor): pula
+    insere transaction (status = cursor <= hoje ? 'pending' : 'pending')
+  atualiza last_generated_on = cursor
+```
+
+Status sempre `'pending'` mesmo pras passadas: assim você vê quais não pagou ainda e marca uma a uma com o ✓ — alinhado com o que o app já faz hoje.
 
 ---
 
-Aprova pra eu começar a implementar?
+### O que **não** está nesse plano
+
+- Notificação de vencimento (vira fase 2 junto com o módulo de Agenda)
+- "Pagar todas de uma vez" em lote (dá pra adicionar depois se virar incômodo)
+- Recorrência de transferências entre contas (só income/expense por enquanto, que é 99% dos casos)
+
+---
+
+**Posso implementar?**

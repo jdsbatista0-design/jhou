@@ -3,15 +3,20 @@ import { useFinance } from '@/contexts/FinanceContext';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { FinScope, FinTransaction, TX_KIND_LABELS, TxKind } from '@/types/finance';
+import { FinScope, FinTransaction, RecurrenceFreq, TX_KIND_LABELS, TxKind } from '@/types/finance';
 import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
-import { Repeat } from 'lucide-react';
+import { Repeat, Pause, Play, Trash2 } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -25,7 +30,8 @@ interface Props {
 export function TransactionDialog({ open, onClose, scope, companyId, editTransaction }: Props) {
   const {
     accounts, cards, categories, people, companies, recurrences,
-    addTransaction, updateTransaction,
+    addTransaction, updateTransaction, deleteTransaction, deleteTransactionAndFuture,
+    addRecurrence, updateRecurrence, deleteRecurrence,
     addTransferBetweenAccounts, addInterCompanyTransfer,
   } = useFinance();
 
@@ -45,6 +51,12 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
   const [personId, setPersonId] = useState<string>('none');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'confirmed' | 'pending'>('confirmed');
+  // Recurrence (create mode only — editing rules happens via a sub-dialog)
+  const [repeats, setRepeats] = useState(false);
+  const [repFrequency, setRepFrequency] = useState<RecurrenceFreq>('monthly');
+  const [repHasEnd, setRepHasEnd] = useState(false);
+  const [repEndOn, setRepEndOn] = useState('');
+  const [confirmDeleteFuture, setConfirmDeleteFuture] = useState(false);
   // Transfer-specific (only for create)
   const [fromAccountId, setFromAccountId] = useState<string>('');
   const [toAccountId, setToAccountId] = useState<string>('');
@@ -94,6 +106,7 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
     setKind('expense'); setAmount(''); setDescription(''); setOccurredOn(new Date().toISOString().slice(0, 10));
     setAccountId('none'); setCardId('none'); setCategoryId('none'); setPersonId('none'); setNotes('');
     setStatus('confirmed'); setFromAccountId(''); setToAccountId(''); setToCompanyId(''); setToCompanyAccountId('');
+    setRepeats(false); setRepFrequency('monthly'); setRepHasEnd(false); setRepEndOn('');
   };
 
   const handleSave = async () => {
@@ -148,16 +161,79 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
       reset(); onClose(); return;
     }
 
+    // Recurrence: only allowed for plain income/expense (no transfers, no inter)
+    const canRepeat = !isTransfer && !isInter && (kind === 'income' || kind === 'expense');
+    let recurrenceId: string | undefined;
+    if (canRepeat && repeats) {
+      const dayOfMonth = parseInt(occurredOn.slice(-2), 10);
+      const newRecId = await addRecurrence({
+        scope,
+        companyId: scope === 'pj' ? (companyId || undefined) : undefined,
+        accountId: accountId !== 'none' ? accountId : undefined,
+        cardId: cardId !== 'none' ? cardId : undefined,
+        categoryId: categoryId !== 'none' ? categoryId : undefined,
+        description: description.trim(),
+        amount: amt,
+        kind: kind as 'income' | 'expense',
+        frequency: repFrequency,
+        dayOfMonth: repFrequency === 'monthly' ? dayOfMonth : undefined,
+        startOn: occurredOn,
+        endOn: repHasEnd && repEndOn ? repEndOn : undefined,
+      });
+      recurrenceId = newRecId || undefined;
+    }
+
     await addTransaction({
       scope, companyId: scope === 'pj' ? (companyId || undefined) : undefined,
       accountId: accountId !== 'none' ? accountId : undefined,
       cardId: cardId !== 'none' ? cardId : undefined,
       categoryId: categoryId !== 'none' ? categoryId : undefined,
       personId: personId !== 'none' ? personId : undefined,
+      recurrenceId,
       kind, amount: amt, description: description.trim(), occurredOn, status,
       notes: notes.trim() || undefined,
+      source: recurrenceId ? 'recurrence' : 'manual',
     });
-    toast.success('Lançamento registrado');
+
+    if (recurrenceId) {
+      // Mark this first occurrence as already generated so the auto-generator
+      // doesn't try to recreate it next time.
+      await updateRecurrence(recurrenceId, { lastGeneratedOn: occurredOn });
+      toast.success('Lançamento e recorrência criados');
+    } else {
+      toast.success('Lançamento registrado');
+    }
+    reset(); onClose();
+  };
+
+  const handlePauseRecurrence = async () => {
+    if (!editRecurrence) return;
+    await updateRecurrence(editRecurrence.id, { active: !editRecurrence.active });
+    toast.success(editRecurrence.active ? 'Recorrência pausada' : 'Recorrência reativada');
+  };
+
+  const handleEndRecurrence = async () => {
+    if (!editRecurrence) return;
+    const today = new Date().toISOString().slice(0, 10);
+    await updateRecurrence(editRecurrence.id, { endOn: today, active: false });
+    toast.success('Recorrência encerrada');
+  };
+
+  const handleDeleteOnlyThis = async () => {
+    if (!editTransaction) return;
+    await deleteTransaction(editTransaction.id);
+    toast.success('Lançamento excluído');
+    reset(); onClose();
+  };
+
+  const handleDeleteThisAndFuture = async () => {
+    if (!editTransaction) return;
+    await deleteTransactionAndFuture(editTransaction.id);
+    if (editRecurrence) {
+      await updateRecurrence(editRecurrence.id, { active: false });
+    }
+    toast.success('Esta e as futuras foram excluídas');
+    setConfirmDeleteFuture(false);
     reset(); onClose();
   };
 
@@ -178,14 +254,33 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
         </DialogHeader>
 
         {isEdit && editRecurrence && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
-            <Repeat className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            <div>
-              <div className="font-semibold">Lançamento recorrente</div>
-              <div className="opacity-90">
-                Este lançamento foi gerado pela recorrência <b>{editRecurrence.description}</b>.
-                As alterações aqui afetam apenas <b>esta ocorrência</b> — a regra continua igual.
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 space-y-2 text-xs text-amber-700 dark:text-amber-300">
+            <div className="flex items-start gap-2">
+              <Repeat className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <div>
+                <div className="font-semibold">
+                  Lançamento recorrente {editRecurrence.active ? '' : '(pausado)'}
+                </div>
+                <div className="opacity-90">
+                  Vem da regra <b>{editRecurrence.description}</b>
+                  {editRecurrence.dayOfMonth ? ` · todo dia ${editRecurrence.dayOfMonth}` : ''} ·
+                  R$ {editRecurrence.amount.toFixed(2).replace('.', ',')}.
+                  Alterações aqui afetam apenas <b>esta ocorrência</b>.
+                </div>
               </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <Button size="sm" variant="outline" onClick={handlePauseRecurrence} className="h-7 rounded-lg text-xs">
+                {editRecurrence.active ? <><Pause className="h-3 w-3 mr-1" /> Pausar regra</> : <><Play className="h-3 w-3 mr-1" /> Reativar regra</>}
+              </Button>
+              {editRecurrence.active && (
+                <Button size="sm" variant="outline" onClick={handleEndRecurrence} className="h-7 rounded-lg text-xs">
+                  Encerrar regra hoje
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => setConfirmDeleteFuture(true)} className="h-7 rounded-lg text-xs text-destructive">
+                <Trash2 className="h-3 w-3 mr-1" /> Excluir esta e futuras
+              </Button>
             </div>
           </div>
         )}
@@ -337,14 +432,96 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
                 <Label className="text-xs">Observação</Label>
                 <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Opcional" className="rounded-xl text-sm min-h-[60px]" />
               </div>
+
+              {/* Recurrence block — only when creating a plain income/expense */}
+              {!isEdit && (kind === 'income' || kind === 'expense') && (
+                <div className="rounded-xl border border-border bg-muted/30 p-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="rep-toggle" className="text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                      <Repeat className="h-3.5 w-3.5 text-primary" /> Se repete todo mês
+                    </Label>
+                    <Switch id="rep-toggle" checked={repeats} onCheckedChange={setRepeats} />
+                  </div>
+                  {repeats && (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Frequência</Label>
+                          <Select value={repFrequency} onValueChange={v => setRepFrequency(v as RecurrenceFreq)}>
+                            <SelectTrigger className="rounded-xl h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="monthly">Mensal</SelectItem>
+                              <SelectItem value="weekly">Semanal</SelectItem>
+                              <SelectItem value="yearly">Anual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1">
+                          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">Termina em</Label>
+                          <Select
+                            value={repHasEnd ? 'date' : 'never'}
+                            onValueChange={v => { setRepHasEnd(v === 'date'); if (v !== 'date') setRepEndOn(''); }}
+                          >
+                            <SelectTrigger className="rounded-xl h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="never">Sem fim</SelectItem>
+                              <SelectItem value="date">Escolher data</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      {repHasEnd && (
+                        <Input
+                          type="date" value={repEndOn} onChange={e => setRepEndOn(e.target.value)}
+                          min={occurredOn}
+                          className="rounded-xl h-8 text-xs"
+                        />
+                      )}
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        Próximas ocorrências serão criadas como <b>Previsto</b>{' '}
+                        {repFrequency === 'monthly' ? `todo dia ${parseInt(occurredOn.slice(-2), 10)}` :
+                         repFrequency === 'weekly' ? 'a cada 7 dias' : 'todo ano'} até {repHasEnd && repEndOn ? new Date(repEndOn + 'T00:00:00').toLocaleDateString('pt-BR') : 'você encerrar'}.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-2">
+          {isEdit && (
+            <Button
+              variant="outline"
+              onClick={handleDeleteOnlyThis}
+              className="rounded-xl text-destructive hover:text-destructive mr-auto"
+            >
+              <Trash2 className="h-4 w-4 mr-1" /> Excluir
+            </Button>
+          )}
           <Button variant="outline" onClick={() => { reset(); onClose(); }} className="rounded-xl">Cancelar</Button>
           <Button onClick={handleSave} className="rounded-xl">{isEdit ? 'Salvar alterações' : 'Salvar'}</Button>
         </DialogFooter>
+
+        <AlertDialog open={confirmDeleteFuture} onOpenChange={setConfirmDeleteFuture}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir esta e as futuras ocorrências?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Todas as ocorrências da recorrência <b>{editRecurrence?.description}</b> a partir de{' '}
+                <b>{editTransaction && new Date(editTransaction.occurredOn + 'T00:00:00').toLocaleDateString('pt-BR')}</b>{' '}
+                serão removidas e a regra será pausada. Ocorrências anteriores não são afetadas.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteThisAndFuture} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Excluir todas a partir desta
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
