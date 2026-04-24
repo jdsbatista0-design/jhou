@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, Check } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
