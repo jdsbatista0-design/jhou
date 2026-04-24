@@ -51,6 +51,12 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
   const [personId, setPersonId] = useState<string>('none');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'confirmed' | 'pending'>('confirmed');
+  // Recurrence (create mode only — editing rules happens via a sub-dialog)
+  const [repeats, setRepeats] = useState(false);
+  const [repFrequency, setRepFrequency] = useState<RecurrenceFreq>('monthly');
+  const [repHasEnd, setRepHasEnd] = useState(false);
+  const [repEndOn, setRepEndOn] = useState('');
+  const [confirmDeleteFuture, setConfirmDeleteFuture] = useState(false);
   // Transfer-specific (only for create)
   const [fromAccountId, setFromAccountId] = useState<string>('');
   const [toAccountId, setToAccountId] = useState<string>('');
