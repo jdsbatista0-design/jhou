@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, X, Brain, ChevronDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,8 +7,40 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { TagGroup } from '@/types/central';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
 
-function EditableList({ label, items, onAdd, onRemove }: { label: string; items: string[]; onAdd: (v: string) => void; onRemove: (v: string) => void }) {
+function reorder<T>(arr: T[], idx: number, dir: -1 | 1): T[] {
+  const next = [...arr];
+  const target = idx + dir;
+  if (target < 0 || target >= next.length) return next;
+  [next[idx], next[target]] = [next[target], next[idx]];
+  return next;
+}
+
+function EditableList({
+  label,
+  items,
+  onAdd,
+  onRemove,
+  onReorder,
+}: {
+  label: string;
+  items: string[];
+  onAdd: (v: string) => void;
+  onRemove: (v: string) => void;
+  onReorder: (next: string[]) => void;
+}) {
   const [input, setInput] = useState('');
   const handleAdd = () => {
     const v = input.trim();
@@ -25,12 +57,46 @@ function EditableList({ label, items, onAdd, onRemove }: { label: string; items:
           onKeyDown={e => e.key === 'Enter' && handleAdd()} />
         <Button size="sm" variant="outline" onClick={handleAdd} className="rounded-xl h-8 px-2"><Plus className="h-3.5 w-3.5" /></Button>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {items.map(item => (
-          <span key={item} className="inline-flex items-center gap-1 bg-muted text-muted-foreground text-xs px-2.5 py-1 rounded-full">
-            {item}
-            <button onClick={() => onRemove(item)} className="hover:text-destructive"><X className="h-3 w-3" /></button>
-          </span>
+      <div className="space-y-1">
+        {items.map((item, idx) => (
+          <div key={item} className="flex items-center gap-1 bg-muted/50 rounded-lg px-2 py-1">
+            <span className="text-xs text-foreground flex-1 truncate">{item}</span>
+            <button
+              onClick={() => onReorder(reorder(items, idx, -1))}
+              disabled={idx === 0}
+              className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              aria-label="Mover para cima"
+            >
+              <ArrowUp className="h-3 w-3" />
+            </button>
+            <button
+              onClick={() => onReorder(reorder(items, idx, 1))}
+              disabled={idx === items.length - 1}
+              className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+              aria-label="Mover para baixo"
+            >
+              <ArrowDown className="h-3 w-3" />
+            </button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button className="p-1 text-muted-foreground hover:text-destructive" aria-label="Excluir">
+                  <X className="h-3 w-3" />
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir "{item}"?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação remove "{item}" de {label}. Items existentes que usam este valor continuarão com ele, mas você não poderá selecioná-lo em novos cadastros.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onRemove(item)}>Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         ))}
       </div>
     </div>
@@ -79,9 +145,25 @@ function TagGroupEditor({ group, onUpdate, onDelete }: { group: TagGroup; onUpda
           </button>
         )}
         <span className="text-[10px] text-muted-foreground">{group.tags.length}</span>
-        <button onClick={onDelete} className="text-muted-foreground hover:text-destructive">
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button className="text-muted-foreground hover:text-destructive" aria-label="Excluir grupo">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir grupo "{group.name}"?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Todas as {group.tags.length} tags deste grupo serão removidas das opções disponíveis.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={onDelete}>Excluir</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
       {open && (
         <>
@@ -110,6 +192,45 @@ export default function SettingsPage() {
   const { settings, updateSettings } = useCentral();
   const navigate = useNavigate();
   const [newGroupName, setNewGroupName] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const [online, setOnline] = useState(navigator.onLine);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    try {
+      // Force re-upsert das settings + leitura
+      const { error: upErr } = await (supabase as any)
+        .from('app_settings')
+        .upsert({ key: 'central_settings', value: settings });
+      if (upErr) throw upErr;
+
+      const { error: readErr } = await (supabase as any)
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'central_settings')
+        .maybeSingle();
+      if (readErr) throw readErr;
+
+      setLastSync(new Date());
+      toast.success('Sincronizado com a nuvem ✅');
+    } catch (e: any) {
+      toast.error('Erro ao sincronizar: ' + (e?.message || 'desconhecido'));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const handleAddGroup = () => {
     const v = newGroupName.trim();
@@ -123,6 +244,39 @@ export default function SettingsPage() {
     <div className="space-y-6 pb-4">
       <h1 className="text-xl font-bold text-foreground">Configurações</h1>
 
+      {/* Sync status */}
+      <div className="border border-border rounded-xl p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {online ? (
+              <Wifi className="h-4 w-4 text-primary" />
+            ) : (
+              <WifiOff className="h-4 w-4 text-destructive" />
+            )}
+            <div>
+              <p className="text-xs font-medium text-foreground">
+                {online ? 'Conectado à nuvem' : 'Sem conexão'}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {lastSync
+                  ? `Última sincronização: ${lastSync.toLocaleTimeString('pt-BR')}`
+                  : 'Sincronização automática ativa entre PC e celular'}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-xl h-8 gap-1"
+            onClick={handleSyncNow}
+            disabled={syncing || !online}
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', syncing && 'animate-spin')} />
+            <span className="text-xs">Sincronizar</span>
+          </Button>
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Button variant="outline" className="w-full rounded-xl justify-start gap-2" onClick={() => navigate('/memory')}>
           <Brain className="h-4 w-4" /> Memória / HD
@@ -134,34 +288,56 @@ export default function SettingsPage() {
         items={settings.tipos}
         onAdd={v => updateSettings({ tipos: [...settings.tipos, v] })}
         onRemove={v => updateSettings({ tipos: settings.tipos.filter(t => t !== v) })}
+        onReorder={next => updateSettings({ tipos: next })}
       />
       <EditableList
         label="Fases"
         items={settings.fases}
         onAdd={v => updateSettings({ fases: [...settings.fases, v] })}
         onRemove={v => updateSettings({ fases: settings.fases.filter(f => f !== v) })}
+        onReorder={next => updateSettings({ fases: next })}
       />
       <EditableList
         label="Áreas"
         items={settings.areas}
         onAdd={v => updateSettings({ areas: [...settings.areas, v] })}
         onRemove={v => updateSettings({ areas: settings.areas.filter(a => a !== v) })}
+        onReorder={next => updateSettings({ areas: next })}
       />
 
       {/* Tag Groups */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-foreground">🏷️ Tags (por grupo)</h3>
         {settings.tagGroups.map((group, idx) => (
-          <TagGroupEditor
-            key={group.name}
-            group={group}
-            onUpdate={g => {
-              const updated = [...settings.tagGroups];
-              updated[idx] = g;
-              updateSettings({ tagGroups: updated });
-            }}
-            onDelete={() => updateSettings({ tagGroups: settings.tagGroups.filter((_, i) => i !== idx) })}
-          />
+          <div key={group.name} className="space-y-1">
+            <div className="flex justify-end gap-1">
+              <button
+                onClick={() => updateSettings({ tagGroups: reorder(settings.tagGroups, idx, -1) })}
+                disabled={idx === 0}
+                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                aria-label="Mover grupo para cima"
+              >
+                <ArrowUp className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => updateSettings({ tagGroups: reorder(settings.tagGroups, idx, 1) })}
+                disabled={idx === settings.tagGroups.length - 1}
+                className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                aria-label="Mover grupo para baixo"
+              >
+                <ArrowDown className="h-3 w-3" />
+              </button>
+            </div>
+            <TagGroupEditor
+              group={group}
+              onUpdate={g => {
+                const updated = [...settings.tagGroups];
+                updated[idx] = g;
+                updateSettings({ tagGroups: updated });
+              }}
+              onDelete={() => updateSettings({ tagGroups: settings.tagGroups.filter((_, i) => i !== idx) })}
+            />
+          </div>
         ))}
         <div className="flex gap-2">
           <Input value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Novo grupo de tags" className="rounded-xl h-8 text-xs flex-1"
@@ -175,6 +351,7 @@ export default function SettingsPage() {
         items={settings.agendaTypes}
         onAdd={v => updateSettings({ agendaTypes: [...settings.agendaTypes, v] })}
         onRemove={v => updateSettings({ agendaTypes: settings.agendaTypes.filter(t => t !== v) })}
+        onReorder={next => updateSettings({ agendaTypes: next })}
       />
     </div>
   );
