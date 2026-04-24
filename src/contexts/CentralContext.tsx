@@ -303,11 +303,13 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
 
   // ---- INBOX ACTIONS ----
   const addInboxEntry = useCallback(async (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => {
-    const entry: any = { content, type, status: 'pending', source: 'app' };
+    const userId = await getUserId();
+    if (!userId) return;
+    const entry: any = { content, type, status: 'pending', source: 'app', user_id: userId };
     if (photoUrl) entry.photo_url = photoUrl;
     if (audioUrl) entry.audio_url = audioUrl;
     await supabase.from('inbox_entries').insert(entry);
-  }, []);
+  }, [getUserId]);
 
   const archiveInboxEntry = useCallback(async (id: string) => {
     await supabase.from('inbox_entries').update({ status: 'archived' }).eq('id', id);
@@ -321,6 +323,8 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   const convertInboxToItem = useCallback(async (id: string, title?: string) => {
     const entry = inbox.find(e => e.id === id);
     if (!entry) return;
+    const userId = await getUserId();
+    if (!userId) return;
     const { error } = await supabase.from('items').insert({
       title: title || entry.content.slice(0, 100),
       description: entry.content,
@@ -328,27 +332,33 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       tipo: 'Inbox',
       fase: 'Inbox',
       area: settings.areas[0],
+      user_id: userId,
     });
     if (!error) {
       await supabase.from('inbox_entries').update({ status: 'processed' }).eq('id', id);
     }
-  }, [inbox, settings]);
+  }, [inbox, settings, getUserId]);
 
   const convertInboxToMemory = useCallback(async (id: string, title?: string) => {
     const entry = inbox.find(e => e.id === id);
     if (!entry) return;
+    const userId = await getUserId();
+    if (!userId) return;
     const { error } = await supabase.from('memories').insert({
       title: title || entry.content.slice(0, 100),
       content: entry.content,
       category: 'geral',
+      user_id: userId,
     });
     if (!error) {
       await supabase.from('inbox_entries').update({ status: 'processed' }).eq('id', id);
     }
-  }, [inbox]);
+  }, [inbox, getUserId]);
 
   // ---- ITEM ACTIONS ----
   const addItem = useCallback(async (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => {
+    const userId = await getUserId();
+    if (!userId) return;
     await supabase.from('items').insert({
       title: item.title,
       description: item.description || null,
@@ -364,8 +374,9 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       value: item.value ?? null,
       tags: item.tags || [],
       linked_agenda_ids: item.linkedAgendaIds || [],
+      user_id: userId,
     });
-  }, []);
+  }, [getUserId]);
 
   const updateItem = useCallback(async (id: string, updates: Partial<Item>) => {
     const dbUpdates: any = { updated_at: new Date().toISOString() };
@@ -391,8 +402,10 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addComment = useCallback(async (itemId: string, text: string) => {
-    await supabase.from('item_comments').insert({ item_id: itemId, text });
-  }, []);
+    const userId = await getUserId();
+    if (!userId) return;
+    await supabase.from('item_comments').insert({ item_id: itemId, text, user_id: userId });
+  }, [getUserId]);
 
   const deleteComment = useCallback(async (itemId: string, commentId: string) => {
     await supabase.from('item_comments').delete().eq('id', commentId);
@@ -400,6 +413,8 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
 
   // ---- MEMORY ACTIONS ----
   const addMemory = useCallback(async (memory: Omit<Memory, 'id' | 'createdAt'>) => {
+    const userId = await getUserId();
+    if (!userId) return;
     await supabase.from('memories').insert({
       title: memory.title,
       content: memory.content,
@@ -410,8 +425,9 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       password: memory.password || null,
       url: memory.url || null,
       city: memory.city || null,
+      user_id: userId,
     });
-  }, []);
+  }, [getUserId]);
 
   const deleteMemory = useCallback(async (id: string) => {
     await supabase.from('memories').delete().eq('id', id);
@@ -419,14 +435,17 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
 
   // ---- EVENT ACTIONS ----
   const addEvent = useCallback(async (event: Omit<AgendaEvent, 'id' | 'createdAt'>) => {
+    const userId = await getUserId();
+    if (!userId) return;
     await supabase.from('events').insert({
       title: event.title,
       datetime: event.datetime,
       duration: event.duration ?? null,
       type: event.type,
       linked_item_id: event.linkedItemId || null,
+      user_id: userId,
     });
-  }, []);
+  }, [getUserId]);
 
   const deleteEvent = useCallback(async (id: string) => {
     await supabase.from('events').delete().eq('id', id);
@@ -435,15 +454,20 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   const updateSettings = useCallback((updates: Partial<Settings>) => {
     setSettings(prev => {
       const next = normalizeSettings({ ...prev, ...updates });
-      (supabase as any)
-        .from('app_settings')
-        .upsert({ key: 'central_settings', value: next })
-        .then(({ error }: { error: unknown }) => {
-          if (error) console.error('Erro ao sincronizar configurações', error);
-        });
+      (async () => {
+        const userId = await getUserId();
+        if (!userId) return;
+        const { error } = await (supabase as any)
+          .from('app_settings')
+          .upsert(
+            { key: 'central_settings', value: next, user_id: userId },
+            { onConflict: 'user_id,key' }
+          );
+        if (error) console.error('Erro ao sincronizar configurações', error);
+      })();
       return next;
     });
-  }, []);
+  }, [getUserId]);
 
   return (
     <CentralContext.Provider value={{
