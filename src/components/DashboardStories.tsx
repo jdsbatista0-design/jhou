@@ -22,7 +22,7 @@ interface StoryDef {
 }
 
 export default function DashboardStories() {
-  const { items, agendaEntries, inbox } = useCentral();
+  const { items, agendaEntries, inbox, updateItem, deleteEvent } = useCentral();
   const navigate = useNavigate();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
