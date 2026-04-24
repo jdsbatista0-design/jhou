@@ -7,8 +7,9 @@ import InboxEntryCard from './InboxEntryCard';
 import { Badge } from './ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Inbox, AlarmClock, Flame, Ban, CalendarDays, Rocket, Sparkles } from 'lucide-react';
+import { Inbox, AlarmClock, Flame, Ban, CalendarDays, Rocket, Sparkles, Check } from 'lucide-react';
 import { parseLocalDateTime } from '@/lib/dates';
+import { toast } from 'sonner';
 
 interface StoryDef {
   key: string;
