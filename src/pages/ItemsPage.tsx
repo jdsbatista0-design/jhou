@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { isToday, isThisWeek, isThisMonth, isPast } from 'date-fns';
+import { parseLocalDateTime } from '@/lib/dates';
+
+type PeriodFilter = 'hoje' | 'semana' | 'mes' | 'vencidos';
 
 export default function ItemsPage() {
   const { items, settings } = useCentral();
@@ -14,8 +18,20 @@ export default function ItemsPage() {
   const [filterFase, setFilterFase] = useState<string | null>(null);
   const [filterArea, setFilterArea] = useState<string | null>(null);
   const [filterTipo, setFilterTipo] = useState<string | null>(null);
+  const [filterPeriod, setFilterPeriod] = useState<PeriodFilter | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const visibleFases = settings.fases.filter(fase => fase !== 'Concluído');
+
+  const matchesPeriod = (deadline?: string) => {
+    if (!filterPeriod) return true;
+    const d = parseLocalDateTime(deadline);
+    if (!d) return false;
+    if (filterPeriod === 'hoje') return isToday(d);
+    if (filterPeriod === 'semana') return isThisWeek(d, { weekStartsOn: 1 });
+    if (filterPeriod === 'mes') return isThisMonth(d);
+    if (filterPeriod === 'vencidos') return isPast(d) && !isToday(d);
+    return true;
+  };
 
   const filtered = items.filter(i => {
     if (showArchived ? i.fase !== 'Concluído' : i.fase === 'Concluído') return false;
@@ -23,6 +39,7 @@ export default function ItemsPage() {
     if (filterFase && i.fase !== filterFase) return false;
     if (filterArea && i.area !== filterArea) return false;
     if (filterTipo && i.tipo !== filterTipo) return false;
+    if (!matchesPeriod(i.deadline)) return false;
     return true;
   });
 
