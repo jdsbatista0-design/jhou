@@ -34,6 +34,7 @@ function FinanceInner() {
   const sections: { id: Section; label: string; icon: any }[] = [
     { id: 'overview', label: 'Resumo', icon: TrendingUp },
     { id: 'transactions', label: 'Lançamentos', icon: ListChecks },
+    { id: 'recurrences', label: 'Recorrências', icon: Repeat },
     { id: 'accounts', label: 'Contas', icon: Wallet },
     { id: 'cards', label: 'Cartões', icon: CreditCard },
     { id: 'categories', label: 'Categorias', icon: Receipt },
