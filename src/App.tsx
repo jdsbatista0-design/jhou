@@ -12,7 +12,7 @@ import CaptureFAB from "@/components/CaptureFAB";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 
-import ItemsPage from "@/pages/ItemsPage";
+
 import ItemDetail from "@/pages/ItemDetail";
 import AgendaPage from "@/pages/AgendaPage";
 import MemoryPage from "@/pages/MemoryPage";
@@ -76,7 +76,6 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
                   
-                  <Route path="/items" element={<ItemsPage />} />
                   <Route path="/items/:id" element={<ItemDetail />} />
                   <Route path="/agenda" element={<AgendaPage />} />
                   <Route path="/memory" element={<MemoryPage />} />

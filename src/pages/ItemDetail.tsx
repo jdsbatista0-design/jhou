@@ -59,7 +59,7 @@ export default function ItemDetail() {
       toast.error('Título é obrigatório');
       return;
     }
-    const data = {
+    const data: Partial<Item> = {
       title: form.title,
       description: form.description || undefined,
       tipo: form.tipo,
@@ -73,21 +73,30 @@ export default function ItemDetail() {
       tags: form.tags,
     };
 
+    // Se o usuário mudou a fase manualmente para/de "Concluído", manter previousFase coerente
+    if (existing) {
+      if (existing.fase !== 'Concluído' && form.fase === 'Concluído') {
+        data.previousFase = existing.fase;
+      } else if (existing.fase === 'Concluído' && form.fase !== 'Concluído') {
+        data.previousFase = undefined;
+      }
+    }
+
     if (isNew) {
-      addItem(data);
+      addItem(data as any);
       toast.success('Item criado');
     } else if (id) {
       updateItem(id, data);
       toast.success('Item atualizado');
     }
-    navigate('/items');
+    navigate('/');
   };
 
   const handleDelete = () => {
     if (id && !isNew) {
       deleteItem(id);
       toast.success('Item removido');
-      navigate('/items');
+      navigate('/');
     }
   };
 
@@ -109,7 +118,7 @@ export default function ItemDetail() {
     return (
       <div className="text-center py-12">
         <p className="text-sm text-muted-foreground">Item não encontrado.</p>
-        <Button variant="ghost" onClick={() => navigate('/items')} className="mt-4">Voltar</Button>
+        <Button variant="ghost" onClick={() => navigate('/')} className="mt-4">Voltar</Button>
       </div>
     );
   }
@@ -119,7 +128,7 @@ export default function ItemDetail() {
   return (
     <div className="space-y-4 pb-4">
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/items')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-lg font-bold text-foreground">{isNew ? 'Novo Item' : 'Editar Item'}</h1>
