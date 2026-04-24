@@ -533,22 +533,64 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   const addComment = useCallback(async (itemId: string, text: string) => {
     const userId = await getUserId();
     if (!userId) return;
-    await supabase.from('item_comments').insert({ item_id: itemId, text, user_id: userId });
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const optimistic: ItemComment = { id: tempId, text, createdAt: new Date().toISOString() };
+    setItems(prev => prev.map(i => (i.id === itemId ? { ...i, comments: [...i.comments, optimistic] } : i)));
+
+    const { data, error } = await supabase.from('item_comments')
+      .insert({ item_id: itemId, text, user_id: userId })
+      .select('*').single();
+    if (error) {
+      setItems(prev => prev.map(i => (i.id === itemId ? { ...i, comments: i.comments.filter(c => c.id !== tempId) } : i)));
+      return;
+    }
+    if (data) {
+      const real: ItemComment = { id: data.id, text: data.text, createdAt: data.created_at };
+      setItems(prev => prev.map(i => (i.id === itemId
+        ? { ...i, comments: i.comments.map(c => (c.id === tempId ? real : c)) }
+        : i)));
+    }
   }, [getUserId]);
 
   const deleteComment = useCallback(async (itemId: string, commentId: string) => {
-    await supabase.from('item_comments').delete().eq('id', commentId);
+    let prevSnap: ItemComment[] | undefined;
+    setItems(prev => prev.map(i => {
+      if (i.id !== itemId) return i;
+      prevSnap = i.comments;
+      return { ...i, comments: i.comments.filter(c => c.id !== commentId) };
+    }));
+    const { error } = await supabase.from('item_comments').delete().eq('id', commentId);
+    if (error && prevSnap) {
+      const snap = prevSnap;
+      setItems(prev => prev.map(i => (i.id === itemId ? { ...i, comments: snap } : i)));
+    }
   }, []);
 
   // ---- MEMORY ACTIONS ----
   const addMemory = useCallback(async (memory: Omit<Memory, 'id' | 'createdAt'>) => {
     const userId = await getUserId();
     if (!userId) return;
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const optimistic: Memory = {
+      id: tempId,
+      title: memory.title,
+      content: memory.content,
+      tags: memory.tags || [],
+      category: memory.category || 'geral',
+      area: memory.area,
+      login: memory.login,
+      password: memory.password,
+      url: memory.url,
+      city: memory.city,
+      createdAt: new Date().toISOString(),
+    };
+    setMemories(prev => [optimistic, ...prev]);
+
     // Criptografa campos sensíveis antes de salvar
     const encLogin = memory.login ? await encryptString(memory.login) : null;
     const encPassword = memory.password ? await encryptString(memory.password) : null;
     const encUrl = memory.url ? await encryptString(memory.url) : null;
-    await supabase.from('memories').insert({
+    const { data, error } = await supabase.from('memories').insert({
       title: memory.title,
       content: memory.content,
       tags: memory.tags || [],
@@ -559,30 +601,65 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       url: encUrl,
       city: memory.city || null,
       user_id: userId,
-    });
+    }).select('*').single();
+
+    if (error) {
+      setMemories(prev => prev.filter(m => m.id !== tempId));
+      return;
+    }
+    if (data) {
+      // Replace temp with real (decrypt for plaintext fields)
+      const real = await dbRowToMemory(data);
+      setMemories(prev => prev.map(m => (m.id === tempId ? real : m)));
+    }
   }, [getUserId]);
 
   const deleteMemory = useCallback(async (id: string) => {
-    await supabase.from('memories').delete().eq('id', id);
-  }, []);
+    const prev = memories;
+    setMemories(curr => curr.filter(m => m.id !== id));
+    const { error } = await supabase.from('memories').delete().eq('id', id);
+    if (error) setMemories(prev);
+  }, [memories]);
 
   // ---- EVENT ACTIONS ----
   const addEvent = useCallback(async (event: Omit<AgendaEvent, 'id' | 'createdAt'>) => {
     const userId = await getUserId();
     if (!userId) return;
-    await supabase.from('events').insert({
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const optimistic: AgendaEvent = {
+      id: tempId,
+      title: event.title,
+      datetime: event.datetime,
+      duration: event.duration,
+      type: event.type,
+      linkedItemId: event.linkedItemId,
+      createdAt: new Date().toISOString(),
+    };
+    setEvents(prev => [...prev, optimistic]);
+
+    const { data, error } = await supabase.from('events').insert({
       title: event.title,
       datetime: event.datetime,
       duration: event.duration ?? null,
       type: event.type,
       linked_item_id: event.linkedItemId || null,
       user_id: userId,
-    });
+    }).select('*').single();
+    if (error) {
+      setEvents(prev => prev.filter(e => e.id !== tempId));
+      return;
+    }
+    if (data) {
+      setEvents(prev => prev.map(e => (e.id === tempId ? dbRowToEvent(data) : e)));
+    }
   }, [getUserId]);
 
   const deleteEvent = useCallback(async (id: string) => {
-    await supabase.from('events').delete().eq('id', id);
-  }, []);
+    const prev = events;
+    setEvents(curr => curr.filter(e => e.id !== id));
+    const { error } = await supabase.from('events').delete().eq('id', id);
+    if (error) setEvents(prev);
+  }, [events]);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {
     setSettings(prev => {
