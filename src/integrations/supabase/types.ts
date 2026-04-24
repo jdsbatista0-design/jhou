@@ -665,6 +665,7 @@ export type Database = {
           linked_agenda_ids: Json
           person: string | null
           photo_url: string | null
+          previous_fase: string | null
           priority: string | null
           tags: Json
           tipo: string
@@ -685,6 +686,7 @@ export type Database = {
           linked_agenda_ids?: Json
           person?: string | null
           photo_url?: string | null
+          previous_fase?: string | null
           priority?: string | null
           tags?: Json
           tipo?: string
@@ -705,6 +707,7 @@ export type Database = {
           linked_agenda_ids?: Json
           person?: string | null
           photo_url?: string | null
+          previous_fase?: string | null
           priority?: string | null
           tags?: Json
           tipo?: string
