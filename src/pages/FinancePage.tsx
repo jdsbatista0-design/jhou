@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Building2, User, Plus, Wallet, CreditCard, ArrowLeftRight, ListChecks, Users, TrendingUp, TrendingDown, Receipt } from 'lucide-react';
+import { Building2, User, Plus, Wallet, CreditCard, ArrowLeftRight, ListChecks, Users, TrendingUp, TrendingDown, Receipt, Repeat } from 'lucide-react';
 import { FinanceProvider, useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -12,8 +12,9 @@ import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { CategoriesManager } from '@/components/finance/CategoriesManager';
 import { PeopleManager } from '@/components/finance/PeopleManager';
 import { FinanceOverview } from '@/components/finance/FinanceOverview';
+import { RecurrencesManager } from '@/components/finance/RecurrencesManager';
 
-type Section = 'overview' | 'accounts' | 'cards' | 'transactions' | 'categories' | 'people' | 'companies';
+type Section = 'overview' | 'accounts' | 'cards' | 'transactions' | 'categories' | 'people' | 'companies' | 'recurrences';
 
 function FinanceInner() {
   const { scope, setScope, companies, selectedCompanyId, setSelectedCompanyId, loading } = useFinance();
