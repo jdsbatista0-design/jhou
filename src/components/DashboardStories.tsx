@@ -6,7 +6,7 @@ import InboxEntryCard from './InboxEntryCard';
 import { Badge } from './ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Inbox, AlarmClock, Flame, Ban, Rocket, Sparkles, Check, GripVertical, ArrowUpDown, Search } from 'lucide-react';
+import { Inbox, AlarmClock, Flame, Ban, Rocket, Sparkles, Check, GripVertical, ArrowUpDown, Search, SlidersHorizontal, Archive, X } from 'lucide-react';
 import { parseLocalDateTime } from '@/lib/dates';
 import { toast } from 'sonner';
 import { Item } from '@/types/central';
@@ -24,7 +24,7 @@ interface StoryDef {
   render: () => React.ReactNode;
 }
 
-const STORY_KEYS = ['agora', 'urgentes', 'inbox', 'em-andamento', 'travado'] as const;
+const STORY_KEYS = ['agora', 'urgentes', 'inbox', 'em-andamento', 'travado', 'concluidos'] as const;
 const ORDER_STORAGE_KEY = 'central_dashboard_story_order';
 
 const PRIORITY_RANK: Record<string, number> = { alta: 0, media: 1, baixa: 2 };
