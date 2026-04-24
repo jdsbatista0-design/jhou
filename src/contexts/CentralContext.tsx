@@ -330,19 +330,43 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   const addInboxEntry = useCallback(async (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => {
     const userId = await getUserId();
     if (!userId) return;
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const optimistic: InboxEntry = {
+      id: tempId,
+      content, type,
+      photoUrl, audioUrl,
+      status: 'pending',
+      source: 'app',
+      createdAt: new Date().toISOString(),
+    };
+    setInbox(prev => [optimistic, ...prev]);
+
     const entry: any = { content, type, status: 'pending', source: 'app', user_id: userId };
     if (photoUrl) entry.photo_url = photoUrl;
     if (audioUrl) entry.audio_url = audioUrl;
-    await supabase.from('inbox_entries').insert(entry);
+    const { data, error } = await supabase.from('inbox_entries').insert(entry).select('*').single();
+    if (error) {
+      setInbox(prev => prev.filter(e => e.id !== tempId));
+      return;
+    }
+    if (data) {
+      setInbox(prev => prev.map(e => (e.id === tempId ? dbRowToInboxEntry(data) : e)));
+    }
   }, [getUserId]);
 
   const archiveInboxEntry = useCallback(async (id: string) => {
-    await supabase.from('inbox_entries').update({ status: 'archived' }).eq('id', id);
-  }, []);
+    const prevInbox = inbox;
+    setInbox(prev => prev.map(e => (e.id === id ? { ...e, status: 'archived' } : e)));
+    const { error } = await supabase.from('inbox_entries').update({ status: 'archived' }).eq('id', id);
+    if (error) setInbox(prevInbox);
+  }, [inbox]);
 
   const deleteInboxEntry = useCallback(async (id: string) => {
-    await supabase.from('inbox_entries').delete().eq('id', id);
-  }, []);
+    const prevInbox = inbox;
+    setInbox(prev => prev.filter(e => e.id !== id));
+    const { error } = await supabase.from('inbox_entries').delete().eq('id', id);
+    if (error) setInbox(prevInbox);
+  }, [inbox]);
 
   // ---- CONVERT INBOX ----
   const convertInboxToItem = useCallback(async (id: string, title?: string) => {
@@ -401,6 +425,30 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback(async (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => {
     const userId = await getUserId();
     if (!userId) return;
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const now = new Date().toISOString();
+    const optimistic: Item = {
+      id: tempId,
+      title: item.title,
+      description: item.description,
+      photoUrl: item.photoUrl,
+      tipo: item.tipo,
+      fase: item.fase,
+      area: item.area,
+      priority: item.priority,
+      deadline: item.deadline,
+      deadlineTime: item.deadlineTime,
+      person: item.person,
+      asset: item.asset,
+      value: item.value,
+      tags: item.tags || [],
+      linkedAgendaIds: item.linkedAgendaIds || [],
+      comments: item.comments || [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    setItems(prev => [optimistic, ...prev]);
+
     const { data, error } = await supabase.from('items').insert({
       title: item.title,
       description: item.description || null,
@@ -417,13 +465,29 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       tags: item.tags || [],
       linked_agenda_ids: item.linkedAgendaIds || [],
       user_id: userId,
-    }).select('id').single();
-    if (!error && data?.id && item.deadline) {
-      pushToGoogle(data.id, 'upsert');
+    }).select('*').single();
+
+    if (error) {
+      // Rollback optimistic add
+      setItems(prev => prev.filter(i => i.id !== tempId));
+      return;
+    }
+    if (data) {
+      // Replace temp with real row (preserves order at top)
+      setItems(prev => prev.map(i => (i.id === tempId ? dbRowToItem(data, []) : i)));
+      if (item.deadline) pushToGoogle(data.id, 'upsert');
     }
   }, [getUserId, pushToGoogle]);
 
   const updateItem = useCallback(async (id: string, updates: Partial<Item>) => {
+    // Optimistic local update — UI reflects instantly (e.g. fase: 'Concluído')
+    let prevSnapshot: Item | undefined;
+    setItems(prev => prev.map(i => {
+      if (i.id !== id) return i;
+      prevSnapshot = i;
+      return { ...i, ...updates, updatedAt: new Date().toISOString() };
+    }));
+
     const dbUpdates: any = { updated_at: new Date().toISOString() };
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if (updates.description !== undefined) dbUpdates.description = updates.description;
@@ -440,42 +504,93 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
     if (updates.linkedAgendaIds !== undefined) dbUpdates.linked_agenda_ids = updates.linkedAgendaIds;
     const { error } = await supabase.from('items').update(dbUpdates).eq('id', id);
-    if (!error) {
-      // Qualquer mudança em campos que afetam o evento → push
-      const affectsCalendar =
-        updates.title !== undefined ||
-        updates.deadline !== undefined ||
-        updates.deadlineTime !== undefined ||
-        updates.fase !== undefined ||
-        updates.description !== undefined;
-      if (affectsCalendar) pushToGoogle(id, 'upsert');
+    if (error) {
+      // Rollback to snapshot
+      if (prevSnapshot) {
+        const snap = prevSnapshot;
+        setItems(prev => prev.map(i => (i.id === id ? snap : i)));
+      }
+      return;
     }
+    // Qualquer mudança em campos que afetam o evento → push
+    const affectsCalendar =
+      updates.title !== undefined ||
+      updates.deadline !== undefined ||
+      updates.deadlineTime !== undefined ||
+      updates.fase !== undefined ||
+      updates.description !== undefined;
+    if (affectsCalendar) pushToGoogle(id, 'upsert');
   }, [pushToGoogle]);
 
   const deleteItem = useCallback(async (id: string) => {
+    const prevItems = items;
+    setItems(prev => prev.filter(i => i.id !== id));
     pushToGoogle(id, 'delete');
-    await supabase.from('items').delete().eq('id', id);
-  }, [pushToGoogle]);
+    const { error } = await supabase.from('items').delete().eq('id', id);
+    if (error) setItems(prevItems);
+  }, [items, pushToGoogle]);
 
   const addComment = useCallback(async (itemId: string, text: string) => {
     const userId = await getUserId();
     if (!userId) return;
-    await supabase.from('item_comments').insert({ item_id: itemId, text, user_id: userId });
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const optimistic: ItemComment = { id: tempId, text, createdAt: new Date().toISOString() };
+    setItems(prev => prev.map(i => (i.id === itemId ? { ...i, comments: [...i.comments, optimistic] } : i)));
+
+    const { data, error } = await supabase.from('item_comments')
+      .insert({ item_id: itemId, text, user_id: userId })
+      .select('*').single();
+    if (error) {
+      setItems(prev => prev.map(i => (i.id === itemId ? { ...i, comments: i.comments.filter(c => c.id !== tempId) } : i)));
+      return;
+    }
+    if (data) {
+      const real: ItemComment = { id: data.id, text: data.text, createdAt: data.created_at };
+      setItems(prev => prev.map(i => (i.id === itemId
+        ? { ...i, comments: i.comments.map(c => (c.id === tempId ? real : c)) }
+        : i)));
+    }
   }, [getUserId]);
 
   const deleteComment = useCallback(async (itemId: string, commentId: string) => {
-    await supabase.from('item_comments').delete().eq('id', commentId);
+    let prevSnap: ItemComment[] | undefined;
+    setItems(prev => prev.map(i => {
+      if (i.id !== itemId) return i;
+      prevSnap = i.comments;
+      return { ...i, comments: i.comments.filter(c => c.id !== commentId) };
+    }));
+    const { error } = await supabase.from('item_comments').delete().eq('id', commentId);
+    if (error && prevSnap) {
+      const snap = prevSnap;
+      setItems(prev => prev.map(i => (i.id === itemId ? { ...i, comments: snap } : i)));
+    }
   }, []);
 
   // ---- MEMORY ACTIONS ----
   const addMemory = useCallback(async (memory: Omit<Memory, 'id' | 'createdAt'>) => {
     const userId = await getUserId();
     if (!userId) return;
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const optimistic: Memory = {
+      id: tempId,
+      title: memory.title,
+      content: memory.content,
+      tags: memory.tags || [],
+      category: memory.category || 'geral',
+      area: memory.area,
+      login: memory.login,
+      password: memory.password,
+      url: memory.url,
+      city: memory.city,
+      createdAt: new Date().toISOString(),
+    };
+    setMemories(prev => [optimistic, ...prev]);
+
     // Criptografa campos sensíveis antes de salvar
     const encLogin = memory.login ? await encryptString(memory.login) : null;
     const encPassword = memory.password ? await encryptString(memory.password) : null;
     const encUrl = memory.url ? await encryptString(memory.url) : null;
-    await supabase.from('memories').insert({
+    const { data, error } = await supabase.from('memories').insert({
       title: memory.title,
       content: memory.content,
       tags: memory.tags || [],
@@ -486,30 +601,65 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       url: encUrl,
       city: memory.city || null,
       user_id: userId,
-    });
+    }).select('*').single();
+
+    if (error) {
+      setMemories(prev => prev.filter(m => m.id !== tempId));
+      return;
+    }
+    if (data) {
+      // Replace temp with real (decrypt for plaintext fields)
+      const real = await dbRowToMemory(data);
+      setMemories(prev => prev.map(m => (m.id === tempId ? real : m)));
+    }
   }, [getUserId]);
 
   const deleteMemory = useCallback(async (id: string) => {
-    await supabase.from('memories').delete().eq('id', id);
-  }, []);
+    const prev = memories;
+    setMemories(curr => curr.filter(m => m.id !== id));
+    const { error } = await supabase.from('memories').delete().eq('id', id);
+    if (error) setMemories(prev);
+  }, [memories]);
 
   // ---- EVENT ACTIONS ----
   const addEvent = useCallback(async (event: Omit<AgendaEvent, 'id' | 'createdAt'>) => {
     const userId = await getUserId();
     if (!userId) return;
-    await supabase.from('events').insert({
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const optimistic: AgendaEvent = {
+      id: tempId,
+      title: event.title,
+      datetime: event.datetime,
+      duration: event.duration,
+      type: event.type,
+      linkedItemId: event.linkedItemId,
+      createdAt: new Date().toISOString(),
+    };
+    setEvents(prev => [...prev, optimistic]);
+
+    const { data, error } = await supabase.from('events').insert({
       title: event.title,
       datetime: event.datetime,
       duration: event.duration ?? null,
       type: event.type,
       linked_item_id: event.linkedItemId || null,
       user_id: userId,
-    });
+    }).select('*').single();
+    if (error) {
+      setEvents(prev => prev.filter(e => e.id !== tempId));
+      return;
+    }
+    if (data) {
+      setEvents(prev => prev.map(e => (e.id === tempId ? dbRowToEvent(data) : e)));
+    }
   }, [getUserId]);
 
   const deleteEvent = useCallback(async (id: string) => {
-    await supabase.from('events').delete().eq('id', id);
-  }, []);
+    const prev = events;
+    setEvents(curr => curr.filter(e => e.id !== id));
+    const { error } = await supabase.from('events').delete().eq('id', id);
+    if (error) setEvents(prev);
+  }, [events]);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {
     setSettings(prev => {
