@@ -1,4 +1,4 @@
-import { Home, CalendarDays, Settings, BarChart3 } from 'lucide-react';
+import { Home, CalendarDays, Settings, BarChart3, Wallet } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useCentral } from '@/contexts/CentralContext';
@@ -6,6 +6,7 @@ import { useCentral } from '@/contexts/CentralContext';
 const tabs = [
   { path: '/', icon: Home, label: 'Início' },
   { path: '/agenda', icon: CalendarDays, label: 'Agenda' },
+  { path: '/financas', icon: Wallet, label: 'Finanças' },
   { path: '/reports', icon: BarChart3, label: 'Painel' },
   { path: '/settings', icon: Settings, label: 'Config' },
 ];
