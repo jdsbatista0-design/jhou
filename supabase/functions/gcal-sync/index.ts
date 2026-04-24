@@ -303,8 +303,13 @@ async function pullChanges(supa: any, userId: string) {
     const r = await gfetch(
       `/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
     );
+    if (r.status === 410) {
+      // sync token invalidado -> reset e refaz full
+      await supa.from("gcal_state").update({ sync_token: null }).eq("user_id", userId);
+      return { ok: true, reset: true, processed };
+    }
     if (r.status === 404) {
-      // calendário não existe mais no Google -> resetar e refazer
+      // calendário não existe mais no Google (provavelmente reconectou conta) -> resetar
       await supa
         .from("gcal_state")
         .update({ calendar_id: null, sync_token: null })
