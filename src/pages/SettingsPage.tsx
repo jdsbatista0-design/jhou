@@ -19,6 +19,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
+import { GoogleCalendarCard } from '@/components/GoogleCalendarCard';
 
 function reorder<T>(arr: T[], idx: number, dir: -1 | 1): T[] {
   const next = [...arr];
