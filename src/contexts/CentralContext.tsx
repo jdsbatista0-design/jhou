@@ -330,19 +330,43 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   const addInboxEntry = useCallback(async (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => {
     const userId = await getUserId();
     if (!userId) return;
+    const tempId = `tmp-${crypto.randomUUID()}`;
+    const optimistic: InboxEntry = {
+      id: tempId,
+      content, type,
+      photoUrl, audioUrl,
+      status: 'pending',
+      source: 'app',
+      createdAt: new Date().toISOString(),
+    };
+    setInbox(prev => [optimistic, ...prev]);
+
     const entry: any = { content, type, status: 'pending', source: 'app', user_id: userId };
     if (photoUrl) entry.photo_url = photoUrl;
     if (audioUrl) entry.audio_url = audioUrl;
-    await supabase.from('inbox_entries').insert(entry);
+    const { data, error } = await supabase.from('inbox_entries').insert(entry).select('*').single();
+    if (error) {
+      setInbox(prev => prev.filter(e => e.id !== tempId));
+      return;
+    }
+    if (data) {
+      setInbox(prev => prev.map(e => (e.id === tempId ? dbRowToInboxEntry(data) : e)));
+    }
   }, [getUserId]);
 
   const archiveInboxEntry = useCallback(async (id: string) => {
-    await supabase.from('inbox_entries').update({ status: 'archived' }).eq('id', id);
-  }, []);
+    const prevInbox = inbox;
+    setInbox(prev => prev.map(e => (e.id === id ? { ...e, status: 'archived' } : e)));
+    const { error } = await supabase.from('inbox_entries').update({ status: 'archived' }).eq('id', id);
+    if (error) setInbox(prevInbox);
+  }, [inbox]);
 
   const deleteInboxEntry = useCallback(async (id: string) => {
-    await supabase.from('inbox_entries').delete().eq('id', id);
-  }, []);
+    const prevInbox = inbox;
+    setInbox(prev => prev.filter(e => e.id !== id));
+    const { error } = await supabase.from('inbox_entries').delete().eq('id', id);
+    if (error) setInbox(prevInbox);
+  }, [inbox]);
 
   // ---- CONVERT INBOX ----
   const convertInboxToItem = useCallback(async (id: string, title?: string) => {
