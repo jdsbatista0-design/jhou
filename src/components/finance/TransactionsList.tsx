@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
-import { FinScope, TX_KIND_LABELS, formatBRL } from '@/types/finance';
-import { Trash2, ArrowDown, ArrowUp, ArrowLeftRight, Check, Clock, Search } from 'lucide-react';
+import { FinScope, FinTransaction, TX_KIND_LABELS, formatBRL } from '@/types/finance';
+import { Trash2, ArrowDown, ArrowUp, ArrowLeftRight, Check, Clock, Search, Repeat, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+import { TransactionDialog } from './TransactionDialog';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
