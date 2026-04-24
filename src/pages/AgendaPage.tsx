@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Check } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,10 +13,10 @@ import { useNavigate } from 'react-router-dom';
 import { parseLocalDateTime } from '@/lib/dates';
 
 export default function AgendaPage() {
-  const { agendaEntries, addEvent, deleteEvent, settings } = useCentral();
+  const { agendaEntries, addItem, updateItem, deleteEvent, settings } = useCentral();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', datetime: '', type: settings.agendaTypes[0] });
+  const [form, setForm] = useState({ title: '', date: '', time: '', area: settings.areas[0], type: settings.agendaTypes[0] });
   const entryDate = (entry: AgendaEntry) => parseLocalDateTime(entry.datetime) || new Date(entry.datetime);
 
   const today = agendaEntries.filter(e => isToday(entryDate(e)));
@@ -33,15 +33,31 @@ export default function AgendaPage() {
   );
 
   const handleAdd = () => {
-    if (!form.title.trim() || !form.datetime) { toast.error('Preencha título e data/hora'); return; }
-    addEvent({
-      title: form.title,
-      datetime: new Date(form.datetime).toISOString(),
-      type: form.type,
+    if (!form.title.trim() || !form.date) { toast.error('Preencha título e data'); return; }
+    // Cria como Item para que apareça em Items/Início também
+    addItem({
+      title: form.title.trim(),
+      tipo: 'Ação',
+      fase: 'Inbox',
+      area: form.area,
+      deadline: form.date,
+      deadlineTime: form.time || undefined,
+      tags: [form.type],
     });
-    setForm({ title: '', datetime: '', type: settings.agendaTypes[0] });
+    setForm({ title: '', date: '', time: '', area: settings.areas[0], type: settings.agendaTypes[0] });
     setOpen(false);
-    toast.success('Evento criado');
+    toast.success('Compromisso criado como Item ✅');
+  };
+
+  const handleConclude = (entry: AgendaEntry, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (entry.source === 'item') {
+      updateItem(entry.sourceId, { fase: 'Concluído' });
+      toast.success('Item concluído ✅');
+    } else {
+      deleteEvent(entry.sourceId);
+      toast.success('Evento removido');
+    }
   };
 
   const renderEntry = (entry: AgendaEntry) => (
@@ -65,6 +81,12 @@ export default function AgendaPage() {
         <Badge variant={entry.source === 'item' ? 'secondary' : 'outline'} className="text-[9px] mt-1">
           {entry.source === 'item' ? '📋 Item' : '📅 Evento'}
         </Badge>
+        <button
+          onClick={(e) => handleConclude(entry, e)}
+          className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+        >
+          <Check className="h-3 w-3" /> Concluir
+        </button>
       </div>
       {entry.source === 'event' && (
         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground shrink-0" onClick={e => { e.stopPropagation(); deleteEvent(entry.sourceId); toast.success('Evento removido'); }}>
@@ -90,17 +112,27 @@ export default function AgendaPage() {
         <h1 className="text-xl font-bold text-foreground">Agenda</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full gap-1"><Plus className="h-4 w-4" /> Evento</Button>
+            <Button size="sm" className="rounded-full gap-1"><Plus className="h-4 w-4" /> Compromisso</Button>
           </DialogTrigger>
           <DialogContent className="max-w-sm">
-            <DialogHeader><DialogTitle>Novo Evento Avulso</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Novo Compromisso</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <Input placeholder="Título" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl" />
-              <Input type="datetime-local" value={form.datetime} onChange={e => setForm(f => ({ ...f, datetime: e.target.value }))} className="rounded-xl" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="rounded-xl" />
+                <Input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="rounded-xl" />
+              </div>
+              <Select value={form.area} onValueChange={v => setForm(f => ({ ...f, area: v }))}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Área" /></SelectTrigger>
+                <SelectContent>{settings.areas.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+              </Select>
               <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Tipo" /></SelectTrigger>
                 <SelectContent>{settings.agendaTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Cria um Item com data — aparece também em Items e Início.
+              </p>
               <Button onClick={handleAdd} className="w-full rounded-xl">Criar</Button>
             </div>
           </DialogContent>
@@ -108,7 +140,7 @@ export default function AgendaPage() {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Items com data aparecem automaticamente aqui. Eventos avulsos podem ser criados separadamente.
+        Items com data aparecem aqui automaticamente. Tudo criado na agenda também vira Item.
       </p>
 
       {renderGroup('Hoje', today)}
