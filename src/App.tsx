@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
@@ -12,14 +12,14 @@ import CaptureFAB from "@/components/CaptureFAB";
 import Auth from "@/pages/Auth";
 import Dashboard from "@/pages/Dashboard";
 
-
-import ItemDetail from "@/pages/ItemDetail";
-import AgendaPage from "@/pages/AgendaPage";
-import MemoryPage from "@/pages/MemoryPage";
-import SettingsPage from "@/pages/SettingsPage";
-import ReportsPage from "@/pages/ReportsPage";
-import FinancePage from "@/pages/FinancePage";
-import NotFound from "./pages/NotFound";
+// Lazy-loaded routes — keeps initial bundle small
+const ItemDetail = lazy(() => import("@/pages/ItemDetail"));
+const AgendaPage = lazy(() => import("@/pages/AgendaPage"));
+const MemoryPage = lazy(() => import("@/pages/MemoryPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
+const FinancePage = lazy(() => import("@/pages/FinancePage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -73,17 +73,18 @@ const App = () => {
           <BrowserRouter>
             <div className="min-h-screen bg-background">
               <main className="max-w-lg mx-auto px-4 pt-4 pb-20">
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  
-                  <Route path="/items/:id" element={<ItemDetail />} />
-                  <Route path="/agenda" element={<AgendaPage />} />
-                  <Route path="/memory" element={<MemoryPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/reports" element={<ReportsPage />} />
-                  <Route path="/financas" element={<FinancePage />} />
-                  <Route path="*" element={<NotFound />} />
-              </Routes>
+                <Suspense fallback={<div className="text-sm text-muted-foreground p-4 animate-pulse">Carregando…</div>}>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/items/:id" element={<ItemDetail />} />
+                    <Route path="/agenda" element={<AgendaPage />} />
+                    <Route path="/memory" element={<MemoryPage />} />
+                    <Route path="/settings" element={<SettingsPage />} />
+                    <Route path="/reports" element={<ReportsPage />} />
+                    <Route path="/financas" element={<FinancePage />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
               </main>
               <CaptureFAB />
               <BottomNav />
