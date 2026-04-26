@@ -139,6 +139,7 @@ export default function DashboardStories() {
   }, [filteredItemsAll, todayAgenda, sortKey]);
 
   const urgentes = useMemo(() => sortItems(filteredItemsAll.filter(i => i.tags.includes('urgente') && i.fase !== 'Concluído')), [filteredItemsAll, sortKey]);
+  const inboxItems = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Inbox')), [filteredItemsAll, sortKey]);
   const travado = useMemo(() => sortItems(filteredItemsAll.filter(i => i.fase === 'Travado')), [filteredItemsAll, sortKey]);
   const overdue = useMemo(() => sortItems(filteredItemsAll.filter(i => {
     const date = safeDate(i.deadline);
