@@ -435,13 +435,24 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
 
               {/* Recurrence block — only when creating a plain income/expense */}
               {!isEdit && (kind === 'income' || kind === 'expense') && (
-                <div className="rounded-xl border border-border bg-muted/30 p-2.5 space-y-2">
+                <div className={cn(
+                  'rounded-xl border p-3 space-y-2 transition-colors',
+                  repeats
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-border bg-muted/30',
+                )}>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="rep-toggle" className="text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
-                      <Repeat className="h-3.5 w-3.5 text-primary" /> Se repete todo mês
+                    <Label htmlFor="rep-toggle" className="text-sm font-semibold flex items-center gap-2 cursor-pointer">
+                      <Repeat className={cn('h-4 w-4', repeats ? 'text-primary' : 'text-muted-foreground')} />
+                      <span>Se repete todo mês</span>
                     </Label>
                     <Switch id="rep-toggle" checked={repeats} onCheckedChange={setRepeats} />
                   </div>
+                  {!repeats && (
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      Marque para que este pagamento apareça automaticamente todo mês como <b>previsto</b>.
+                    </p>
+                  )}
                   {repeats && (
                     <div className="space-y-2 pt-1">
                       <div className="flex gap-2">
@@ -477,8 +488,8 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
                           className="rounded-xl h-8 text-xs"
                         />
                       )}
-                      <p className="text-[10px] text-muted-foreground leading-snug">
-                        Próximas ocorrências serão criadas como <b>Previsto</b>{' '}
+                      <p className="text-[11px] text-muted-foreground leading-snug">
+                        ✓ Próximas ocorrências serão criadas como <b>Previsto</b>{' '}
                         {repFrequency === 'monthly' ? `todo dia ${parseInt(occurredOn.slice(-2), 10)}` :
                          repFrequency === 'weekly' ? 'a cada 7 dias' : 'todo ano'} até {repHasEnd && repEndOn ? new Date(repEndOn + 'T00:00:00').toLocaleDateString('pt-BR') : 'você encerrar'}.
                       </p>
