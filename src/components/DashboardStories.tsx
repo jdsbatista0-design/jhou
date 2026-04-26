@@ -258,12 +258,23 @@ export default function DashboardStories() {
       key: 'inbox',
       label: 'Inbox',
       icon: <Inbox className="h-4 w-4" />,
-      count: pendingInbox.length,
+      count: pendingInbox.length + inboxItems.length,
       accent: 'from-amber-500/20 to-amber-500/5 ring-amber-500/30',
       empty: { emoji: '📥', text: 'Inbox vazia. Capture sua próxima ideia.' },
       render: () => (
-        <div className="space-y-2">
-          {pendingInbox.map(entry => <InboxEntryCard key={entry.id} entry={entry} />)}
+        <div className="space-y-3">
+          {pendingInbox.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Capturas a triar</p>
+              {pendingInbox.map(entry => <InboxEntryCard key={entry.id} entry={entry} />)}
+            </div>
+          )}
+          {inboxItems.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Itens sem fase</p>
+              {inboxItems.map(i => <ItemCard key={i.id} item={i} />)}
+            </div>
+          )}
         </div>
       ),
     },
