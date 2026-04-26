@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { FinScope, FinTransaction, RecurrenceFreq, TX_KIND_LABELS, TxKind } from '@/types/finance';
 import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
 import { Repeat, Pause, Play, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Props {
   open: boolean;
@@ -254,31 +255,31 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
         </DialogHeader>
 
         {isEdit && editRecurrence && (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2.5 space-y-2 text-xs text-amber-700 dark:text-amber-300">
-            <div className="flex items-start gap-2">
-              <Repeat className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <div>
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-2.5 text-xs space-y-2">
+            <div className="flex items-start gap-2 text-foreground">
+              <Repeat className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+              <div className="leading-snug">
                 <div className="font-semibold">
-                  Lançamento recorrente {editRecurrence.active ? '' : '(pausado)'}
+                  Este lançamento se repete{' '}
+                  {editRecurrence.frequency === 'monthly' ? 'todo mês' :
+                   editRecurrence.frequency === 'weekly' ? 'toda semana' : 'todo ano'}
+                  {editRecurrence.active ? '' : ' (pausado)'}.
                 </div>
-                <div className="opacity-90">
-                  Vem da regra <b>{editRecurrence.description}</b>
-                  {editRecurrence.dayOfMonth ? ` · todo dia ${editRecurrence.dayOfMonth}` : ''} ·
-                  R$ {editRecurrence.amount.toFixed(2).replace('.', ',')}.
-                  Alterações aqui afetam apenas <b>esta ocorrência</b>.
+                <div className="text-muted-foreground text-[11px]">
+                  Editar aqui altera só esta ocorrência. Use os botões abaixo se quiser mudar a regra inteira.
                 </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              <Button size="sm" variant="outline" onClick={handlePauseRecurrence} className="h-7 rounded-lg text-xs">
-                {editRecurrence.active ? <><Pause className="h-3 w-3 mr-1" /> Pausar regra</> : <><Play className="h-3 w-3 mr-1" /> Reativar regra</>}
+              <Button size="sm" variant="outline" onClick={handlePauseRecurrence} className="h-7 rounded-lg text-[11px]">
+                {editRecurrence.active ? <><Pause className="h-3 w-3 mr-1" /> Pausar repetição</> : <><Play className="h-3 w-3 mr-1" /> Reativar repetição</>}
               </Button>
               {editRecurrence.active && (
-                <Button size="sm" variant="outline" onClick={handleEndRecurrence} className="h-7 rounded-lg text-xs">
-                  Encerrar regra hoje
+                <Button size="sm" variant="outline" onClick={handleEndRecurrence} className="h-7 rounded-lg text-[11px]">
+                  Parar de repetir
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => setConfirmDeleteFuture(true)} className="h-7 rounded-lg text-xs text-destructive">
+              <Button size="sm" variant="outline" onClick={() => setConfirmDeleteFuture(true)} className="h-7 rounded-lg text-[11px] text-destructive ml-auto">
                 <Trash2 className="h-3 w-3 mr-1" /> Excluir esta e futuras
               </Button>
             </div>
@@ -435,13 +436,24 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
 
               {/* Recurrence block — only when creating a plain income/expense */}
               {!isEdit && (kind === 'income' || kind === 'expense') && (
-                <div className="rounded-xl border border-border bg-muted/30 p-2.5 space-y-2">
+                <div className={cn(
+                  'rounded-xl border p-3 space-y-2 transition-colors',
+                  repeats
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-border bg-muted/30',
+                )}>
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="rep-toggle" className="text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
-                      <Repeat className="h-3.5 w-3.5 text-primary" /> Se repete todo mês
+                    <Label htmlFor="rep-toggle" className="text-sm font-semibold flex items-center gap-2 cursor-pointer">
+                      <Repeat className={cn('h-4 w-4', repeats ? 'text-primary' : 'text-muted-foreground')} />
+                      <span>Se repete todo mês</span>
                     </Label>
                     <Switch id="rep-toggle" checked={repeats} onCheckedChange={setRepeats} />
                   </div>
+                  {!repeats && (
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      Marque para que este pagamento apareça automaticamente todo mês como <b>previsto</b>.
+                    </p>
+                  )}
                   {repeats && (
                     <div className="space-y-2 pt-1">
                       <div className="flex gap-2">
@@ -477,8 +489,8 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
                           className="rounded-xl h-8 text-xs"
                         />
                       )}
-                      <p className="text-[10px] text-muted-foreground leading-snug">
-                        Próximas ocorrências serão criadas como <b>Previsto</b>{' '}
+                      <p className="text-[11px] text-muted-foreground leading-snug">
+                        ✓ Próximas ocorrências serão criadas como <b>Previsto</b>{' '}
                         {repFrequency === 'monthly' ? `todo dia ${parseInt(occurredOn.slice(-2), 10)}` :
                          repFrequency === 'weekly' ? 'a cada 7 dias' : 'todo ano'} até {repHasEnd && repEndOn ? new Date(repEndOn + 'T00:00:00').toLocaleDateString('pt-BR') : 'você encerrar'}.
                       </p>
