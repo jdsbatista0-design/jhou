@@ -141,26 +141,60 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     else localStorage.removeItem('fin_company_id');
   }, []);
 
-  // ---------- Refresh ----------
-  const refreshAll = useCallback(async () => {
-    const [c, a, cd, cat, pe, rec, tx] = await Promise.all([
-      supabase.from('fin_companies').select('*').order('created_at', { ascending: true }),
-      supabase.from('fin_accounts').select('*').order('created_at', { ascending: true }),
-      supabase.from('fin_cards').select('*').order('created_at', { ascending: true }),
-      supabase.from('fin_categories').select('*').order('name', { ascending: true }),
-      supabase.from('fin_people').select('*').order('name', { ascending: true }),
-      supabase.from('fin_recurrences').select('*').order('created_at', { ascending: true }),
-      supabase.from('fin_transactions').select('*').order('occurred_on', { ascending: false }).limit(2000),
-    ]);
-    if (c.data) setCompanies(c.data.map(rowCompany));
-    if (a.data) setAccounts(a.data.map(rowAccount));
-    if (cd.data) setCards(cd.data.map(rowCard));
-    if (cat.data) setCategories(cat.data.map(rowCategory));
-    if (pe.data) setPeople(pe.data.map(rowPerson));
-    if (rec.data) setRecurrences(rec.data.map(rowRecurrence));
-    if (tx.data) setTransactions(tx.data.map(rowTransaction));
-    setLoading(false);
+  // ---------- Refresh granular (por tabela) ----------
+  const refreshCompanies = useCallback(async () => {
+    const { data } = await supabase.from('fin_companies').select('*').order('created_at', { ascending: true });
+    if (data) setCompanies(data.map(rowCompany));
   }, []);
+  const refreshAccounts = useCallback(async () => {
+    const { data } = await supabase.from('fin_accounts').select('*').order('created_at', { ascending: true });
+    if (data) setAccounts(data.map(rowAccount));
+  }, []);
+  const refreshCards = useCallback(async () => {
+    const { data } = await supabase.from('fin_cards').select('*').order('created_at', { ascending: true });
+    if (data) setCards(data.map(rowCard));
+  }, []);
+  const refreshCategories = useCallback(async () => {
+    const { data } = await supabase.from('fin_categories').select('*').order('name', { ascending: true });
+    if (data) setCategories(data.map(rowCategory));
+  }, []);
+  const refreshPeople = useCallback(async () => {
+    const { data } = await supabase.from('fin_people').select('*').order('name', { ascending: true });
+    if (data) setPeople(data.map(rowPerson));
+  }, []);
+  const refreshRecurrences = useCallback(async () => {
+    const { data } = await supabase.from('fin_recurrences').select('*').order('created_at', { ascending: true });
+    if (data) setRecurrences(data.map(rowRecurrence));
+  }, []);
+  const refreshTransactions = useCallback(async () => {
+    const { data } = await supabase.from('fin_transactions')
+      .select('*').order('occurred_on', { ascending: false }).limit(2000);
+    if (data) setTransactions(data.map(rowTransaction));
+  }, []);
+
+  // Debounce helper — agrupa eventos realtime em rajadas
+  const debouncedRef = React.useRef<Record<string, number>>({});
+  const debouncedRefresh = useCallback((key: string, fn: () => void) => {
+    if (debouncedRef.current[key]) window.clearTimeout(debouncedRef.current[key]);
+    debouncedRef.current[key] = window.setTimeout(() => {
+      fn();
+      delete debouncedRef.current[key];
+    }, 400);
+  }, []);
+
+  // Boot: carrega tudo em paralelo de uma só vez
+  const initialLoad = useCallback(async () => {
+    await Promise.all([
+      refreshCompanies(),
+      refreshAccounts(),
+      refreshCards(),
+      refreshCategories(),
+      refreshPeople(),
+      refreshRecurrences(),
+      refreshTransactions(),
+    ]);
+    setLoading(false);
+  }, [refreshCompanies, refreshAccounts, refreshCards, refreshCategories, refreshPeople, refreshRecurrences, refreshTransactions]);
 
   // ---------- Seed default categories on first load ----------
   const seedDefaultCategoriesIfNeeded = useCallback(async () => {
@@ -201,7 +235,6 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     for (const r of recs) {
       const startOn = new Date(r.start_on + 'T00:00:00');
       const endOn = r.end_on ? new Date(r.end_on + 'T00:00:00') : null;
-      // First occurrence to evaluate: day AFTER last_generated_on, or start_on itself
       let cursor = r.last_generated_on
         ? advance(new Date(r.last_generated_on + 'T00:00:00'), r.frequency)
         : new Date(startOn);
@@ -238,31 +271,50 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     if (toInsert.length > 0) {
       await supabase.from('fin_transactions').insert(toInsert);
     }
-    for (const u of lastGenUpdates) {
-      await supabase.from('fin_recurrences').update({ last_generated_on: u.date }).eq('id', u.id);
+    // Atualiza last_generated_on em paralelo
+    if (lastGenUpdates.length > 0) {
+      await Promise.all(lastGenUpdates.map(u =>
+        supabase.from('fin_recurrences').update({ last_generated_on: u.date }).eq('id', u.id)
+      ));
     }
   }, []);
 
   useEffect(() => {
+    // Mostra dados o quanto antes; recorrências e seed rodam em background
+    initialLoad();
+    // Background: não bloqueia UI
     (async () => {
       await seedDefaultCategoriesIfNeeded();
       await generatePendingRecurrences();
-      await refreshAll();
+      // Após gerar recorrências, refresca apenas as tabelas afetadas
+      refreshTransactions();
+      refreshRecurrences();
+      refreshCategories();
     })();
 
+    // Realtime granular + debounced
     const ch = supabase
       .channel('fin_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_companies' }, () => refreshAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_accounts' }, () => refreshAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_cards' }, () => refreshAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_categories' }, () => refreshAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_people' }, () => refreshAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_recurrences' }, () => refreshAll())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_transactions' }, () => refreshAll())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_companies' },
+        () => debouncedRefresh('companies', refreshCompanies))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_accounts' },
+        () => debouncedRefresh('accounts', refreshAccounts))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_cards' },
+        () => debouncedRefresh('cards', refreshCards))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_categories' },
+        () => debouncedRefresh('categories', refreshCategories))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_people' },
+        () => debouncedRefresh('people', refreshPeople))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_recurrences' },
+        () => debouncedRefresh('recurrences', refreshRecurrences))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'fin_transactions' },
+        () => debouncedRefresh('transactions', refreshTransactions))
       .subscribe();
 
     return () => { supabase.removeChannel(ch); };
-  }, [refreshAll, seedDefaultCategoriesIfNeeded, generatePendingRecurrences]);
+  }, [initialLoad, seedDefaultCategoriesIfNeeded, generatePendingRecurrences,
+      refreshCompanies, refreshAccounts, refreshCards, refreshCategories,
+      refreshPeople, refreshRecurrences, refreshTransactions, debouncedRefresh]);
 
   // ---------- Companies ----------
   const addCompany: FinanceContextType['addCompany'] = async ({ name, cnpj, color }) => {
