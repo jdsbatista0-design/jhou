@@ -230,11 +230,14 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
 
   // Initial load + realtime
   useEffect(() => {
-    refreshInbox();
-    refreshItems();
-    refreshMemories();
-    refreshEvents();
-    refreshSettings();
+    // Carrega tudo em paralelo (não em série) — reduz tempo de boot drasticamente
+    Promise.all([
+      refreshInbox(),
+      refreshItems(),
+      refreshMemories(),
+      refreshEvents(),
+      refreshSettings(),
+    ]).catch(e => console.warn('boot load falhou parcialmente', e));
 
     const inboxCh = supabase.channel('inbox_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' }, () => refreshInbox())
