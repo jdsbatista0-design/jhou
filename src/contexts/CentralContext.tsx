@@ -288,7 +288,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
         console.warn('gcal pull periódico falhou', e);
       }
     };
-    const initial = window.setTimeout(tick, 5000);
+    const initial = window.setTimeout(tick, 15000);
     const timer = window.setInterval(tick, 120_000);
     return () => {
       window.clearTimeout(initial);
