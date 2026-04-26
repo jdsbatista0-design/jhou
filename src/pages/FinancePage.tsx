@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Building2, User, Plus, Wallet, CreditCard, ArrowLeftRight, ListChecks, Users, TrendingUp, TrendingDown, Receipt, Repeat } from 'lucide-react';
+import { Building2, User, Plus, Wallet, CreditCard, ListChecks, Users, TrendingUp, Receipt, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
 import { FinanceProvider, useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -12,14 +12,14 @@ import { TransactionDialog } from '@/components/finance/TransactionDialog';
 import { CategoriesManager } from '@/components/finance/CategoriesManager';
 import { PeopleManager } from '@/components/finance/PeopleManager';
 import { FinanceOverview } from '@/components/finance/FinanceOverview';
-import { RecurrencesManager } from '@/components/finance/RecurrencesManager';
 
-type Section = 'overview' | 'accounts' | 'cards' | 'transactions' | 'categories' | 'people' | 'companies' | 'recurrences';
+type Section = 'overview' | 'transactions' | 'accounts' | 'cards' | 'categories' | 'people' | 'companies';
 
 function FinanceInner() {
   const { scope, setScope, companies, selectedCompanyId, setSelectedCompanyId, loading } = useFinance();
-  const [section, setSection] = useState<Section>('overview');
+  const [section, setSection] = useState<Section>('transactions');
   const [txOpen, setTxOpen] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
 
   const activeCompanies = companies.filter(c => !c.archived);
 
@@ -31,10 +31,14 @@ function FinanceInner() {
     return activeCompanies[0]?.id || null;
   }, [scope, selectedCompanyId, activeCompanies]);
 
-  const sections: { id: Section; label: string; icon: any }[] = [
+  // Main sections (always visible)
+  const mainSections: { id: Section; label: string; icon: any }[] = [
+    { id: 'transactions', label: 'Movimentações', icon: ListChecks },
     { id: 'overview', label: 'Resumo', icon: TrendingUp },
-    { id: 'transactions', label: 'Lançamentos', icon: ListChecks },
-    { id: 'recurrences', label: 'Recorrências', icon: Repeat },
+  ];
+
+  // Config sections (under "⚙ Configurações" expandable)
+  const configSections: { id: Section; label: string; icon: any }[] = [
     { id: 'accounts', label: 'Contas', icon: Wallet },
     { id: 'cards', label: 'Cartões', icon: CreditCard },
     { id: 'categories', label: 'Categorias', icon: Receipt },
