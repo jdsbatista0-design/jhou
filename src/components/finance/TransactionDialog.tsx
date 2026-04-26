@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { FinScope, FinTransaction, RecurrenceFreq, TX_KIND_LABELS, TxKind } from '@/types/finance';
 import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
 import { Repeat, Pause, Play, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Props {
   open: boolean;
