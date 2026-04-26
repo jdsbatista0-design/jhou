@@ -129,26 +129,65 @@ function FinanceInner() {
 
       {/* Section nav */}
       {(scope === 'pf' || activeCompanies.length > 0) && (
-        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-          {sections.map(s => {
-            const Icon = s.icon;
-            const active = section === s.id;
-            return (
-              <button
-                key={s.id}
-                onClick={() => setSection(s.id)}
-                className={cn(
-                  'shrink-0 h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors',
-                  active
-                    ? 'bg-primary/10 text-primary border-primary/30'
-                    : 'bg-card text-muted-foreground border-border hover:text-foreground',
-                )}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {s.label}
-              </button>
-            );
-          })}
+        <div className="space-y-2">
+          <div className="flex gap-1.5">
+            {mainSections.map(s => {
+              const Icon = s.icon;
+              const active = section === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => { setSection(s.id); setShowConfig(false); }}
+                  className={cn(
+                    'flex-1 h-10 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors',
+                    active
+                      ? 'bg-primary/10 text-primary border-primary/30'
+                      : 'bg-card text-muted-foreground border-border hover:text-foreground',
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {s.label}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setShowConfig(v => !v)}
+              className={cn(
+                'h-10 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1 transition-colors',
+                showConfig || configSections.some(s => s.id === section)
+                  ? 'bg-primary/10 text-primary border-primary/30'
+                  : 'bg-card text-muted-foreground border-border hover:text-foreground',
+              )}
+              title="Configurações: contas, cartões, categorias…"
+            >
+              <SettingsIcon className="h-3.5 w-3.5" />
+              <ChevronDown className={cn('h-3 w-3 transition-transform', showConfig && 'rotate-180')} />
+            </button>
+          </div>
+
+          {showConfig && (
+            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+              {configSections.map(s => {
+                const Icon = s.icon;
+                const active = section === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSection(s.id)}
+                    className={cn(
+                      'shrink-0 h-8 px-3 rounded-lg border text-[11px] font-medium flex items-center gap-1.5 transition-colors',
+                      active
+                        ? 'bg-foreground text-background border-foreground'
+                        : 'bg-card text-muted-foreground border-border hover:text-foreground',
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -166,7 +205,6 @@ function FinanceInner() {
       <div className="pt-1">
         {section === 'overview' && <FinanceOverview scope={scope} companyId={effectiveCompanyId} />}
         {section === 'transactions' && <TransactionsList scope={scope} companyId={effectiveCompanyId} />}
-        {section === 'recurrences' && <RecurrencesManager scope={scope} companyId={effectiveCompanyId} />}
         {section === 'accounts' && <AccountsManager scope={scope} companyId={effectiveCompanyId} />}
         {section === 'cards' && <CardsManager scope={scope} companyId={effectiveCompanyId} />}
         {section === 'categories' && <CategoriesManager scope={scope} />}
