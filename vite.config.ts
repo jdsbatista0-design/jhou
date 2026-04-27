@@ -20,9 +20,8 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
   optimizeDeps: {
-    // Pre-bundle explícito: evita Vite servir centenas de módulos ESM individuais em dev.
-    // Em prod, o tree-shake do Rollup remove o que não é usado.
-    include: ["lucide-react", "date-fns", "date-fns/locale"],
+    // Pre-bundle explícito + força usar SÓ o pt-BR (em vez do barrel de 132KB com todos locales).
+    include: ["lucide-react", "date-fns", "date-fns/locale/pt-BR"],
   },
   build: {
     rollupOptions: {
