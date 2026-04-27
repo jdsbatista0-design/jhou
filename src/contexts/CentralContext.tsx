@@ -273,10 +273,12 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshSettings]);
 
-  // Auto-pull do Google Calendar a cada 2 minutos quando a aba está visível
+  // Auto-pull do Google Calendar a cada 5 minutos quando a aba está visível.
+  // Adiamos a 1ª verificação em 30s para não competir com o boot inicial.
   useEffect(() => {
+    let cancelled = false;
     const tick = async () => {
-      if (document.hidden) return;
+      if (cancelled || document.hidden) return;
       try {
         const { data: state } = await (supabase as any)
           .from('gcal_state')
@@ -288,9 +290,10 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
         console.warn('gcal pull periódico falhou', e);
       }
     };
-    const initial = window.setTimeout(tick, 15000);
-    const timer = window.setInterval(tick, 120_000);
+    const initial = window.setTimeout(tick, 30_000);
+    const timer = window.setInterval(tick, 300_000);
     return () => {
+      cancelled = true;
       window.clearTimeout(initial);
       window.clearInterval(timer);
     };
@@ -701,14 +704,21 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     });
   }, [getUserId]);
 
+  const ctxValue = useMemo<CentralContextType>(() => ({
+    inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
+    items, addItem, updateItem, deleteItem, addComment, deleteComment,
+    memories, addMemory, deleteMemory,
+    events, addEvent, deleteEvent, agendaEntries,
+    settings, updateSettings,
+  }), [
+    inbox, items, memories, events, agendaEntries, settings,
+    addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
+    addItem, updateItem, deleteItem, addComment, deleteComment,
+    addMemory, deleteMemory, addEvent, deleteEvent, updateSettings,
+  ]);
+
   return (
-    <CentralContext.Provider value={{
-      inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
-      items, addItem, updateItem, deleteItem, addComment, deleteComment,
-      memories, addMemory, deleteMemory,
-      events, addEvent, deleteEvent, agendaEntries,
-      settings, updateSettings,
-    }}>
+    <CentralContext.Provider value={ctxValue}>
       {children}
     </CentralContext.Provider>
   );
