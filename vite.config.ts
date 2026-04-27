@@ -19,4 +19,22 @@ export default defineConfig(({ mode }) => ({
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
+  optimizeDeps: {
+    // Evita o pre-bundle gigante de lucide-react (157KB com TODOS os ícones).
+    // Em dev, o Vite carrega só os ícones realmente usados via ESM nativo.
+    exclude: ["lucide-react"],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separa libs grandes em chunks dedicados → cache mais eficiente
+          react: ["react", "react-dom", "react-router-dom"],
+          supabase: ["@supabase/supabase-js"],
+          icons: ["lucide-react"],
+          dates: ["date-fns"],
+        },
+      },
+    },
+  },
 }));
