@@ -20,9 +20,9 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
   },
   optimizeDeps: {
-    // Evita o pre-bundle gigante de lucide-react (157KB com TODOS os ícones).
-    // Em dev, o Vite carrega só os ícones realmente usados via ESM nativo.
-    exclude: ["lucide-react"],
+    // Pre-bundle explícito: evita Vite servir centenas de módulos ESM individuais em dev.
+    // Em prod, o tree-shake do Rollup remove o que não é usado.
+    include: ["lucide-react", "date-fns", "date-fns/locale"],
   },
   build: {
     rollupOptions: {
