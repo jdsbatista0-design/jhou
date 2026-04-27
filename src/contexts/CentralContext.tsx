@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { InboxEntry, Item, ItemComment, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDateTime } from '@/lib/dates';
@@ -228,9 +228,16 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     }
   }, [getUserId]);
 
-  // Initial load + realtime
+  // Initial load + realtime (com debounce para evitar refetch em cascata)
+  const debounceTimers = useRef<Record<string, number>>({});
+  const debouncedRefresh = useCallback((key: string, fn: () => Promise<void>, ms = 800) => {
+    const timers = debounceTimers.current;
+    if (timers[key]) window.clearTimeout(timers[key]);
+    timers[key] = window.setTimeout(() => { fn().catch(() => {}); }, ms);
+  }, []);
+
   useEffect(() => {
-    // Carrega tudo em paralelo (não em série) — reduz tempo de boot drasticamente
+    // Carrega tudo em paralelo — boot rápido
     Promise.all([
       refreshInbox(),
       refreshItems(),
@@ -239,31 +246,41 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       refreshSettings(),
     ]).catch(e => console.warn('boot load falhou parcialmente', e));
 
+    // Realtime serve apenas como "safety net" para sync entre dispositivos.
+    // Mutations locais já fazem optimistic update — então aqui usamos debounce
+    // pesado (1.5s) para evitar refetch a cada toque do usuário.
     const inboxCh = supabase.channel('inbox_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' }, () => refreshInbox())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' },
+        () => debouncedRefresh('inbox', refreshInbox, 1500))
       .subscribe();
 
     const itemsCh = supabase.channel('items_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' }, () => refreshItems())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items' },
+        () => debouncedRefresh('items', refreshItems, 1500))
       .subscribe();
 
     const commentsCh = supabase.channel('comments_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'item_comments' }, () => refreshItems())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'item_comments' },
+        () => debouncedRefresh('items', refreshItems, 1500))
       .subscribe();
 
     const memoriesCh = supabase.channel('memories_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'memories' }, () => refreshMemories())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'memories' },
+        () => debouncedRefresh('memories', refreshMemories, 1500))
       .subscribe();
 
     const eventsCh = supabase.channel('events_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => refreshEvents())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' },
+        () => debouncedRefresh('events', refreshEvents, 1500))
       .subscribe();
 
     const settingsCh = supabase.channel('settings_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => refreshSettings())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' },
+        () => debouncedRefresh('settings', refreshSettings, 1500))
       .subscribe();
 
     return () => {
+      Object.values(debounceTimers.current).forEach(t => window.clearTimeout(t));
       supabase.removeChannel(inboxCh);
       supabase.removeChannel(itemsCh);
       supabase.removeChannel(commentsCh);
@@ -271,7 +288,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       supabase.removeChannel(eventsCh);
       supabase.removeChannel(settingsCh);
     };
-  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshSettings]);
+  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshSettings, debouncedRefresh]);
 
   // Auto-pull do Google Calendar a cada 5 minutos quando a aba está visível.
   // Adiamos a 1ª verificação em 30s para não competir com o boot inicial.
