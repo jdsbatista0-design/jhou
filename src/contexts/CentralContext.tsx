@@ -273,10 +273,12 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshSettings]);
 
-  // Auto-pull do Google Calendar a cada 2 minutos quando a aba está visível
+  // Auto-pull do Google Calendar a cada 5 minutos quando a aba está visível.
+  // Adiamos a 1ª verificação em 30s para não competir com o boot inicial.
   useEffect(() => {
+    let cancelled = false;
     const tick = async () => {
-      if (document.hidden) return;
+      if (cancelled || document.hidden) return;
       try {
         const { data: state } = await (supabase as any)
           .from('gcal_state')
@@ -288,9 +290,10 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
         console.warn('gcal pull periódico falhou', e);
       }
     };
-    const initial = window.setTimeout(tick, 15000);
-    const timer = window.setInterval(tick, 120_000);
+    const initial = window.setTimeout(tick, 30_000);
+    const timer = window.setInterval(tick, 300_000);
     return () => {
+      cancelled = true;
       window.clearTimeout(initial);
       window.clearInterval(timer);
     };
@@ -359,25 +362,32 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   }, [getUserId]);
 
   const archiveInboxEntry = useCallback(async (id: string) => {
-    const prevInbox = inbox;
-    setInbox(prev => prev.map(e => (e.id === id ? { ...e, status: 'archived' } : e)));
+    let snapshot: InboxEntry[] = [];
+    setInbox(prev => {
+      snapshot = prev;
+      return prev.map(e => (e.id === id ? { ...e, status: 'archived' } : e));
+    });
     const { error } = await supabase.from('inbox_entries').update({ status: 'archived' }).eq('id', id);
-    if (error) setInbox(prevInbox);
-  }, [inbox]);
+    if (error) setInbox(snapshot);
+  }, []);
 
   const deleteInboxEntry = useCallback(async (id: string) => {
-    const prevInbox = inbox;
-    setInbox(prev => prev.filter(e => e.id !== id));
+    let snapshot: InboxEntry[] = [];
+    setInbox(prev => {
+      snapshot = prev;
+      return prev.filter(e => e.id !== id);
+    });
     const { error } = await supabase.from('inbox_entries').delete().eq('id', id);
-    if (error) setInbox(prevInbox);
-  }, [inbox]);
+    if (error) setInbox(snapshot);
+  }, []);
 
   // ---- CONVERT INBOX ----
   const convertInboxToItem = useCallback(async (id: string, title?: string) => {
-    const entry = inbox.find(e => e.id === id);
-    if (!entry) return;
     const userId = await getUserId();
     if (!userId) return;
+    let entry: InboxEntry | undefined;
+    setInbox(prev => { entry = prev.find(e => e.id === id); return prev; });
+    if (!entry) return;
     const { error } = await supabase.from('items').insert({
       title: title || entry.content.slice(0, 100),
       description: entry.content,
@@ -390,13 +400,14 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     if (!error) {
       await supabase.from('inbox_entries').update({ status: 'processed' }).eq('id', id);
     }
-  }, [inbox, settings, getUserId]);
+  }, [settings, getUserId]);
 
   const convertInboxToMemory = useCallback(async (id: string, title?: string) => {
-    const entry = inbox.find(e => e.id === id);
-    if (!entry) return;
     const userId = await getUserId();
     if (!userId) return;
+    let entry: InboxEntry | undefined;
+    setInbox(prev => { entry = prev.find(e => e.id === id); return prev; });
+    if (!entry) return;
     const { error } = await supabase.from('memories').insert({
       title: title || entry.content.slice(0, 100),
       content: entry.content,
@@ -406,7 +417,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     if (!error) {
       await supabase.from('inbox_entries').update({ status: 'processed' }).eq('id', id);
     }
-  }, [inbox, getUserId]);
+  }, [getUserId]);
 
   // ---- GOOGLE CALENDAR PUSH ----
   const pushToGoogle = useCallback(async (itemId: string, op: 'upsert' | 'delete') => {
@@ -528,12 +539,15 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   }, [pushToGoogle]);
 
   const deleteItem = useCallback(async (id: string) => {
-    const prevItems = items;
-    setItems(prev => prev.filter(i => i.id !== id));
+    let snapshot: Item[] = [];
+    setItems(prev => {
+      snapshot = prev;
+      return prev.filter(i => i.id !== id);
+    });
     pushToGoogle(id, 'delete');
     const { error } = await supabase.from('items').delete().eq('id', id);
-    if (error) setItems(prevItems);
-  }, [items, pushToGoogle]);
+    if (error) setItems(snapshot);
+  }, [pushToGoogle]);
 
   const addComment = useCallback(async (itemId: string, text: string) => {
     const userId = await getUserId();
@@ -620,11 +634,14 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   }, [getUserId]);
 
   const deleteMemory = useCallback(async (id: string) => {
-    const prev = memories;
-    setMemories(curr => curr.filter(m => m.id !== id));
+    let snapshot: Memory[] = [];
+    setMemories(curr => {
+      snapshot = curr;
+      return curr.filter(m => m.id !== id);
+    });
     const { error } = await supabase.from('memories').delete().eq('id', id);
-    if (error) setMemories(prev);
-  }, [memories]);
+    if (error) setMemories(snapshot);
+  }, []);
 
   // ---- EVENT ACTIONS ----
   const addEvent = useCallback(async (event: Omit<AgendaEvent, 'id' | 'createdAt'>) => {
@@ -660,11 +677,14 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   }, [getUserId]);
 
   const deleteEvent = useCallback(async (id: string) => {
-    const prev = events;
-    setEvents(curr => curr.filter(e => e.id !== id));
+    let snapshot: AgendaEvent[] = [];
+    setEvents(curr => {
+      snapshot = curr;
+      return curr.filter(e => e.id !== id);
+    });
     const { error } = await supabase.from('events').delete().eq('id', id);
-    if (error) setEvents(prev);
-  }, [events]);
+    if (error) setEvents(snapshot);
+  }, []);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {
     setSettings(prev => {
@@ -684,14 +704,21 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     });
   }, [getUserId]);
 
+  const ctxValue = useMemo<CentralContextType>(() => ({
+    inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
+    items, addItem, updateItem, deleteItem, addComment, deleteComment,
+    memories, addMemory, deleteMemory,
+    events, addEvent, deleteEvent, agendaEntries,
+    settings, updateSettings,
+  }), [
+    inbox, items, memories, events, agendaEntries, settings,
+    addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
+    addItem, updateItem, deleteItem, addComment, deleteComment,
+    addMemory, deleteMemory, addEvent, deleteEvent, updateSettings,
+  ]);
+
   return (
-    <CentralContext.Provider value={{
-      inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
-      items, addItem, updateItem, deleteItem, addComment, deleteComment,
-      memories, addMemory, deleteMemory,
-      events, addEvent, deleteEvent, agendaEntries,
-      settings, updateSettings,
-    }}>
+    <CentralContext.Provider value={ctxValue}>
       {children}
     </CentralContext.Provider>
   );

@@ -1,6 +1,6 @@
 import { useCentral } from '@/contexts/CentralContext';
 import { differenceInDays, isThisWeek, format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { ptBR } from 'date-fns/locale/pt-BR';
 import VisionSection from '@/components/VisionSection';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';

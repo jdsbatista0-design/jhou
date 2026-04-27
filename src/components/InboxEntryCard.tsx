@@ -8,7 +8,7 @@ import { useCentral } from '@/contexts/CentralContext';
 import { InboxEntry } from '@/types/central';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { ptBR } from 'date-fns/locale/pt-BR';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getDatePart } from '@/lib/dates';

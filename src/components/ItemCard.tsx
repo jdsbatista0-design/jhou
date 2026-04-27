@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Item } from '@/types/central';
 import { useNavigate } from 'react-router-dom';
 import { format, isToday, isPast } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { ptBR } from 'date-fns/locale/pt-BR';
 import { cn } from '@/lib/utils';
 import { useCentral } from '@/contexts/CentralContext';
 import { Check, MessageCircle } from 'lucide-react';
