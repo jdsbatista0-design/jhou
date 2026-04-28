@@ -63,6 +63,10 @@ interface CentralContextType {
   addEvent: (event: Omit<AgendaEvent, 'id' | 'createdAt'>) => void;
   deleteEvent: (id: string) => void;
   agendaEntries: AgendaEntry[];
+  recurrences: Recurrence[];
+  addRecurrence: (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>) => Promise<void>;
+  updateRecurrence: (id: string, updates: Partial<Recurrence>) => Promise<void>;
+  deleteRecurrence: (id: string, alsoDeleteFutureItems: boolean) => Promise<void>;
   settings: Settings;
   updateSettings: (updates: Partial<Settings>) => void;
 }
@@ -113,8 +117,27 @@ function dbRowToItem(row: any, comments: ItemComment[]): Item {
     tags: Array.isArray(row.tags) ? row.tags : [],
     linkedAgendaIds: Array.isArray(row.linked_agenda_ids) ? row.linked_agenda_ids : [],
     comments,
+    recurrenceId: row.recurrence_id || undefined,
+    reminderMinutes: row.reminder_minutes != null ? Number(row.reminder_minutes) : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function dbRowToRecurrence(row: any): Recurrence {
+  return {
+    id: row.id,
+    title: row.title,
+    area: row.area,
+    type: row.type,
+    time: row.time,
+    weekdays: Array.isArray(row.weekdays) ? (row.weekdays as Weekday[]) : [],
+    startDate: row.start_date,
+    endDate: row.end_date || undefined,
+    reminderMinutes: row.reminder_minutes ?? 30,
+    lastMaterializedUntil: row.last_materialized_until || undefined,
+    active: !!row.active,
+    createdAt: row.created_at,
   };
 }
 
