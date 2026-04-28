@@ -522,6 +522,8 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       tags: item.tags || [],
       linkedAgendaIds: item.linkedAgendaIds || [],
       comments: item.comments || [],
+      recurrenceId: item.recurrenceId,
+      reminderMinutes: item.reminderMinutes,
       createdAt: now,
       updatedAt: now,
     };
@@ -542,8 +544,10 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       value: item.value ?? null,
       tags: item.tags || [],
       linked_agenda_ids: item.linkedAgendaIds || [],
+      recurrence_id: item.recurrenceId || null,
+      reminder_minutes: item.reminderMinutes ?? null,
       user_id: userId,
-    }).select('*').single();
+    } as any).select('*').single();
 
     if (error) {
       // Rollback optimistic add
