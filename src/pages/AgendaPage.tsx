@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, Repeat, Bell } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -7,17 +7,30 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { format, isToday, isTomorrow, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { parseLocalDateTime } from '@/lib/dates';
+import { REMINDER_OPTIONS, WEEKDAY_LABELS, Weekday } from '@/types/central';
 
 export default function AgendaPage() {
-  const { agendaEntries, addItem, updateItem, deleteEvent, settings } = useCentral();
+  const { agendaEntries, addItem, addRecurrence, updateItem, deleteEvent, settings } = useCentral();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', date: '', time: '', area: settings.areas[0], type: settings.agendaTypes[0] });
+  const [form, setForm] = useState({
+    title: '',
+    date: '',
+    time: '',
+    area: settings.areas[0],
+    type: settings.agendaTypes[0],
+    repeat: false,
+    weekdays: [] as Weekday[],
+    endDate: '',
+    reminderMinutes: 30,
+  });
   const entryDate = (entry: AgendaEntry) => parseLocalDateTime(entry.datetime) || new Date(entry.datetime);
 
   const today = agendaEntries.filter(e => isToday(entryDate(e)));
@@ -33,21 +46,52 @@ export default function AgendaPage() {
     !isThisWeek(entryDate(e), { weekStartsOn: 1 })
   );
 
-  const handleAdd = () => {
-    if (!form.title.trim() || !form.date) { toast.error('Preencha título e data'); return; }
-    // Cria como Item para que apareça em Items/Início também
-    addItem({
-      title: form.title.trim(),
-      tipo: 'Ação',
-      fase: 'Inbox',
-      area: form.area,
-      deadline: form.date,
-      deadlineTime: form.time || undefined,
-      tags: [form.type],
-    });
-    setForm({ title: '', date: '', time: '', area: settings.areas[0], type: settings.agendaTypes[0] });
+  const resetForm = () => setForm({
+    title: '', date: '', time: '', area: settings.areas[0], type: settings.agendaTypes[0],
+    repeat: false, weekdays: [], endDate: '', reminderMinutes: 30,
+  });
+
+  const handleAdd = async () => {
+    if (!form.title.trim()) { toast.error('Preencha o título'); return; }
+
+    if (form.repeat) {
+      if (form.weekdays.length === 0) { toast.error('Escolha ao menos 1 dia da semana'); return; }
+      if (!form.time) { toast.error('Escolha um horário'); return; }
+      await addRecurrence({
+        title: form.title.trim(),
+        area: form.area,
+        type: form.type,
+        time: form.time,
+        weekdays: form.weekdays,
+        startDate: form.date || new Date().toISOString().slice(0, 10),
+        endDate: form.endDate || undefined,
+        reminderMinutes: form.reminderMinutes,
+        active: true,
+      });
+      toast.success('Recorrência criada — ocorrências geradas na agenda 🔁');
+    } else {
+      if (!form.date) { toast.error('Preencha a data'); return; }
+      addItem({
+        title: form.title.trim(),
+        tipo: 'Ação',
+        fase: 'Inbox',
+        area: form.area,
+        deadline: form.date,
+        deadlineTime: form.time || undefined,
+        tags: [form.type],
+        reminderMinutes: form.reminderMinutes,
+      });
+      toast.success('Compromisso criado ✅');
+    }
+    resetForm();
     setOpen(false);
-    toast.success('Compromisso criado como Item ✅');
+  };
+
+  const toggleWeekday = (d: Weekday) => {
+    setForm(f => ({
+      ...f,
+      weekdays: f.weekdays.includes(d) ? f.weekdays.filter(x => x !== d) : [...f.weekdays, d],
+    }));
   };
 
   const handleConclude = (entry: AgendaEntry, e: React.MouseEvent) => {
