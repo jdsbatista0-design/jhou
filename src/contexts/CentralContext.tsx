@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { InboxEntry, Item, ItemComment, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS } from '@/types/central';
+import { InboxEntry, Item, ItemComment, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS, Recurrence, Weekday } from '@/types/central';
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDateTime } from '@/lib/dates';
 import { encryptString, decryptString } from '@/lib/crypto';
+import { expandRecurrence, nextHorizonDate, todayYMD } from '@/lib/recurrence';
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
