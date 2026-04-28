@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, Repeat, Bell } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -7,17 +7,30 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { format, isToday, isTomorrow, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { parseLocalDateTime } from '@/lib/dates';
+import { REMINDER_OPTIONS, WEEKDAY_LABELS, Weekday } from '@/types/central';
 
 export default function AgendaPage() {
-  const { agendaEntries, addItem, updateItem, deleteEvent, settings } = useCentral();
+  const { agendaEntries, addItem, addRecurrence, updateItem, deleteEvent, settings } = useCentral();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', date: '', time: '', area: settings.areas[0], type: settings.agendaTypes[0] });
+  const [form, setForm] = useState({
+    title: '',
+    date: '',
+    time: '',
+    area: settings.areas[0],
+    type: settings.agendaTypes[0],
+    repeat: false,
+    weekdays: [] as Weekday[],
+    endDate: '',
+    reminderMinutes: 30,
+  });
   const entryDate = (entry: AgendaEntry) => parseLocalDateTime(entry.datetime) || new Date(entry.datetime);
 
   const today = agendaEntries.filter(e => isToday(entryDate(e)));
@@ -33,21 +46,52 @@ export default function AgendaPage() {
     !isThisWeek(entryDate(e), { weekStartsOn: 1 })
   );
 
-  const handleAdd = () => {
-    if (!form.title.trim() || !form.date) { toast.error('Preencha título e data'); return; }
-    // Cria como Item para que apareça em Items/Início também
-    addItem({
-      title: form.title.trim(),
-      tipo: 'Ação',
-      fase: 'Inbox',
-      area: form.area,
-      deadline: form.date,
-      deadlineTime: form.time || undefined,
-      tags: [form.type],
-    });
-    setForm({ title: '', date: '', time: '', area: settings.areas[0], type: settings.agendaTypes[0] });
+  const resetForm = () => setForm({
+    title: '', date: '', time: '', area: settings.areas[0], type: settings.agendaTypes[0],
+    repeat: false, weekdays: [], endDate: '', reminderMinutes: 30,
+  });
+
+  const handleAdd = async () => {
+    if (!form.title.trim()) { toast.error('Preencha o título'); return; }
+
+    if (form.repeat) {
+      if (form.weekdays.length === 0) { toast.error('Escolha ao menos 1 dia da semana'); return; }
+      if (!form.time) { toast.error('Escolha um horário'); return; }
+      await addRecurrence({
+        title: form.title.trim(),
+        area: form.area,
+        type: form.type,
+        time: form.time,
+        weekdays: form.weekdays,
+        startDate: form.date || new Date().toISOString().slice(0, 10),
+        endDate: form.endDate || undefined,
+        reminderMinutes: form.reminderMinutes,
+        active: true,
+      });
+      toast.success('Recorrência criada — ocorrências geradas na agenda 🔁');
+    } else {
+      if (!form.date) { toast.error('Preencha a data'); return; }
+      addItem({
+        title: form.title.trim(),
+        tipo: 'Ação',
+        fase: 'Inbox',
+        area: form.area,
+        deadline: form.date,
+        deadlineTime: form.time || undefined,
+        tags: [form.type],
+        reminderMinutes: form.reminderMinutes,
+      });
+      toast.success('Compromisso criado ✅');
+    }
+    resetForm();
     setOpen(false);
-    toast.success('Compromisso criado como Item ✅');
+  };
+
+  const toggleWeekday = (d: Weekday) => {
+    setForm(f => ({
+      ...f,
+      weekdays: f.weekdays.includes(d) ? f.weekdays.filter(x => x !== d) : [...f.weekdays, d],
+    }));
   };
 
   const handleConclude = (entry: AgendaEntry, e: React.MouseEvent) => {
@@ -96,6 +140,12 @@ export default function AgendaPage() {
                 <Badge variant="secondary" className="text-[9px]">{entry.item.area}</Badge>
                 <Badge variant="outline" className="text-[9px]">{entry.item.fase}</Badge>
                 {entry.item.person && <Badge variant="outline" className="text-[9px]">👤 {entry.item.person}</Badge>}
+                {entry.item.recurrenceId && (
+                  <Badge variant="outline" className="text-[9px] gap-0.5"><Repeat className="h-2.5 w-2.5" /> recorrente</Badge>
+                )}
+                {entry.item.reminderMinutes && (
+                  <Badge variant="outline" className="text-[9px] gap-0.5"><Bell className="h-2.5 w-2.5" /> {entry.item.reminderMinutes}min</Badge>
+                )}
               </div>
             )}
             <Badge variant={entry.source === 'item' ? 'secondary' : 'outline'} className="text-[9px] mt-1">
@@ -130,14 +180,60 @@ export default function AgendaPage() {
           <DialogTrigger asChild>
             <Button size="sm" className="rounded-full gap-1"><Plus className="h-4 w-4" /> Compromisso</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Novo Compromisso</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <Input placeholder="Título" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl" />
-              <div className="grid grid-cols-2 gap-2">
-                <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="rounded-xl" />
-                <Input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="rounded-xl" />
+              <Input placeholder="Título (ex: Pilates)" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl" />
+
+              <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Repeat className="h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="repeat" className="text-sm cursor-pointer">Repete toda semana</Label>
+                </div>
+                <Switch id="repeat" checked={form.repeat} onCheckedChange={v => setForm(f => ({ ...f, repeat: v }))} />
               </div>
+
+              {form.repeat ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] text-muted-foreground">Dias da semana</Label>
+                    <div className="flex gap-1 justify-between">
+                      {WEEKDAY_LABELS.map(w => (
+                        <button
+                          key={w.value}
+                          type="button"
+                          onClick={() => toggleWeekday(w.value)}
+                          className={cn(
+                            'h-9 w-9 rounded-full text-xs font-semibold border transition-colors',
+                            form.weekdays.includes(w.value)
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background text-muted-foreground border-border hover:border-primary/50'
+                          )}
+                          aria-label={w.long}
+                        >
+                          {w.short}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Hora</Label>
+                      <Input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="rounded-xl" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Termina em (opcional)</Label>
+                      <Input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className="rounded-xl" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="rounded-xl" />
+                  <Input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="rounded-xl" />
+                </div>
+              )}
+
               <Select value={form.area} onValueChange={v => setForm(f => ({ ...f, area: v }))}>
                 <SelectTrigger className="rounded-xl"><SelectValue placeholder="Área" /></SelectTrigger>
                 <SelectContent>{settings.areas.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
@@ -146,17 +242,30 @@ export default function AgendaPage() {
                 <SelectTrigger className="rounded-xl"><SelectValue placeholder="Tipo" /></SelectTrigger>
                 <SelectContent>{settings.agendaTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
-              <p className="text-[11px] text-muted-foreground">
-                Cria um Item com data — aparece também em Items e Início.
-              </p>
-              <Button onClick={handleAdd} className="w-full rounded-xl">Criar</Button>
+
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground flex items-center gap-1"><Bell className="h-3 w-3" /> Lembrete</Label>
+                <Select value={String(form.reminderMinutes)} onValueChange={v => setForm(f => ({ ...f, reminderMinutes: Number(v) }))}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {REMINDER_OPTIONS.map(o => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  Notificações no celular requerem ativar push em Configurações (próxima etapa).
+                </p>
+              </div>
+
+              <Button onClick={handleAdd} className="w-full rounded-xl">
+                {form.repeat ? 'Criar recorrência' : 'Criar compromisso'}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Items com data aparecem aqui automaticamente. Tudo criado na agenda também vira Item.
+        Items com data aparecem aqui automaticamente. Compromissos recorrentes geram ocorrências dos próximos 60 dias.
       </p>
 
       {renderGroup('Hoje', today)}

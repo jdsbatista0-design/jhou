@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { GoogleCalendarCard } from '@/components/GoogleCalendarCard';
+import { RecurrencesManager } from '@/components/RecurrencesManager';
 
 function reorder<T>(arr: T[], idx: number, dir: -1 | 1): T[] {
   const next = [...arr];
@@ -384,6 +385,8 @@ export default function SettingsPage() {
           </Button>
         </div>
       </div>
+
+      <RecurrencesManager />
 
       <div className="space-y-2">
         <Button variant="outline" className="w-full rounded-xl justify-start gap-2" onClick={() => navigate('/memory')}>

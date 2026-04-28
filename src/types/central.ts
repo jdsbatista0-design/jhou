@@ -35,9 +35,47 @@ export interface Item {
   tags: string[];
   linkedAgendaIds: string[];
   comments: ItemComment[];
+  recurrenceId?: string;
+  reminderMinutes?: number;
   createdAt: string;
   updatedAt: string;
 }
+
+// ISO weekdays: 1=Mon ... 7=Sun
+export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export interface Recurrence {
+  id: string;
+  title: string;
+  area: string;
+  type: string;
+  time: string; // HH:mm
+  weekdays: Weekday[];
+  startDate: string; // YYYY-MM-DD
+  endDate?: string;
+  reminderMinutes: number;
+  lastMaterializedUntil?: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export const REMINDER_OPTIONS = [
+  { value: 10, label: '10 min antes' },
+  { value: 30, label: '30 min antes' },
+  { value: 60, label: '1 hora antes' },
+  { value: 120, label: '2 horas antes' },
+  { value: 1440, label: '1 dia antes' },
+];
+
+export const WEEKDAY_LABELS: { value: Weekday; short: string; long: string }[] = [
+  { value: 1, short: 'S', long: 'Seg' },
+  { value: 2, short: 'T', long: 'Ter' },
+  { value: 3, short: 'Q', long: 'Qua' },
+  { value: 4, short: 'Q', long: 'Qui' },
+  { value: 5, short: 'S', long: 'Sex' },
+  { value: 6, short: 'S', long: 'Sáb' },
+  { value: 7, short: 'D', long: 'Dom' },
+];
 
 export type MemoryCategory = 
   | 'senhas'
