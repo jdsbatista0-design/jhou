@@ -1,76 +1,117 @@
-## Notas de Reuniões na Memória/HD
+# Compromissos recorrentes + lembretes push no celular
 
-Adicionar suporte a **notas de reuniões e eventos** dentro da Memória existente, com campos próprios e vínculo opcional com a Agenda/Item.
+Hoje a Agenda só aceita compromisso único e o sistema não envia nenhum tipo de notificação. Vou adicionar duas coisas:
 
-### 1. Nova categoria "Reuniões" 📋
+1. **Recorrência**: você cria "Pilates - seg/qua às 7h" uma vez e o sistema materializa as próximas ocorrências como Items na agenda (cada uma marcável como feita/faltei).
+2. **Push real no celular**: instalando o Central na tela inicial, você passa a receber notificação mesmo com o app fechado, X minutos antes de cada compromisso (configurável por compromisso).
 
-Adicionar `'reunioes'` em `MemoryCategory` e `MEMORY_CATEGORIES` (`src/types/central.ts`), com ícone 📋.
+---
 
-### 2. Campos extras da categoria
+## 1. Recorrência de compromissos
 
-Estender `Memory` (e tabela `memories`) com colunas opcionais usadas só nessa categoria:
+### Banco
+Nova tabela `recurrences`:
+- `id, user_id`
+- `title, area, type` (Pilates, Reunião, etc.)
+- `time` (HH:mm)
+- `weekdays` (jsonb: `[1,3]` = seg/qua, padrão ISO 1-7)
+- `start_date`, `end_date` (opcional)
+- `reminder_minutes` (int, ex: 30) — antecedência padrão dessa recorrência
+- `last_materialized_until` (date) — até onde já gerou ocorrências
+- `active` (bool)
 
-- `meeting_date` (data da reunião)
-- `participants` (texto livre, separado por vírgula)
-- `decisions` (texto)
-- `next_steps` (texto)
-- `linked_item_id` (uuid, opcional — vincula ao Item da agenda correspondente)
+Itens gerados ganham 2 colunas novas em `items`:
+- `recurrence_id` (uuid, nullable) — link para a regra-mãe
+- `reminder_minutes` (int, nullable) — override por ocorrência
+- `reminder_sent_at` (timestamptz) — para o worker não disparar duas vezes
 
-Migration adiciona essas 5 colunas em `memories` (nullable). Sem mudança de RLS.
+### Materialização
+- Ao criar/editar uma recorrência: gera ocorrências dos próximos **60 dias** como Items (`tipo: 'Compromisso'`, `fase: 'Em andamento'`, `deadline`, `deadlineTime`).
+- Cron diário (pg_cron + pg_net) chama edge function `materialize-recurrences` que estende a janela para sempre manter 60 dias à frente.
+- Editar a regra → regenera só as ocorrências futuras ainda não concluídas.
+- Cada ocorrência pode ser concluída, remarcada ou apagada individualmente sem afetar a regra.
 
-### 3. Formulário no `MemoryPage.tsx`
+### UI
+- Em **Agenda** > botão "Novo Compromisso" ganha aba **"Repete"** com:
+  - Toggle "Repetir"
+  - Chips de dias da semana (S T Q Q S S D)
+  - Hora
+  - Duração da regra (data fim opcional)
+  - Antecedência do lembrete (10/30/60/1440 min)
+- Nova seção **Configurações > Recorrências**: lista, editar, pausar, apagar.
+- Cada Item gerado mostra um chip "🔁 Pilates" linkando para a regra.
 
-Quando categoria = "Reuniões", o dialog mostra:
+---
 
-- Data da reunião (default: hoje)
-- Título (ex: "Reunião com Stone — comercial")
-- Participantes
-- Conteúdo / Notas (campo principal, multiline)
-- Decisões
-- Próximos passos
-- Seletor opcional "Vincular a Item da agenda" (lista os Items com `deadline` recente/futuro)
-- Tags
+## 2. Notificações push (PWA)
 
-### 4. Card especializado
+### Stack
+- `vite-plugin-pwa` com `manifest.json` (nome "Central", ícone, `display: standalone`, `theme_color`).
+- Service worker próprio (`public/sw.js`) registrado **só fora de iframe e fora de host de preview Lovable** (proteção obrigatória — preview do editor não receberá push, só o app publicado/instalado).
+- Web Push API com VAPID keys.
 
-Renderização própria para reuniões (similar ao bloco de Senhas):
+### Banco
+Tabela `push_subscriptions`:
+- `id, user_id, endpoint (unique), p256dh, auth, user_agent, created_at`
 
-- Cabeçalho com 📋 + título + data formatada
-- Badge de participantes (contagem)
-- Seções colapsáveis: Notas / Decisões / Próximos passos
-- Se vinculado a Item: chip "→ Ver Item" navegando para `/item/:id`
+### Edge functions
+- `push-subscribe` — salva a subscription do navegador.
+- `push-send` — recebe `{ title, body, url }` e dispara via Web Push (lib `web-push` no Deno).
+- `dispatch-reminders` — roda a cada **1 minuto** via pg_cron:
+  - busca Items com `deadline+deadlineTime` entre `now + reminder_minutes - 1min` e `now + reminder_minutes`,
+  - que tenham `reminder_minutes IS NOT NULL` e `reminder_sent_at IS NULL`,
+  - dispara push para todas as subscriptions do `user_id`,
+  - marca `reminder_sent_at = now()`.
 
-### 5. Próximos passos viram Itens (1 clique)
+### Secrets necessários
+- `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` — vou gerar no setup e te pedir para adicionar (uma vez só).
+- `VAPID_SUBJECT` — seu email (`mailto:`).
 
-Botão **"Criar Item a partir destes passos"** no card. Abre prompt simples: cada linha de `next_steps` vira um Item novo com:
+### UI
+- Em **Configurações** > nova seção **"Notificações"**:
+  - Status: "Push ativo neste dispositivo" / "Ativar push".
+  - Botão "Ativar" → pede permissão → registra subscription.
+  - Botão "Testar lembrete" (dispara push em 10s).
+  - Aviso claro: "Para funcionar com app fechado: instale o Central na tela inicial (Compartilhar → Adicionar à Tela de Início no iPhone, ou menu do navegador no Android). Requer iOS 16.4+ no iPhone."
+- Banner discreto no Início se push não estiver ativo e tiver compromissos próximos.
 
-- `tipo: 'Ação'`
-- `fase: 'Em andamento'`
-- `area`: herdada do Item vinculado (ou "Pessoal")
-- Título = a linha
-- Descrição = referência à reunião ("De: <título da reunião> em <data>")
+### Limitações que eu vou comunicar na UI
+- Push não funciona dentro do preview do editor Lovable — só no app publicado e instalado.
+- iPhone exige iOS 16.4+ E o app instalado via "Adicionar à Tela de Início" (Apple não permite push em Safari normal).
+- Se o celular estiver desligado/sem rede, push chega quando voltar online.
 
-### 6. Atalho a partir da Agenda
+---
 
-Em `AgendaPage.tsx` / `ItemDetail.tsx`, adicionar botão **"📋 Adicionar nota da reunião"** nos eventos/Items com data. Pré-preenche título, data e `linked_item_id` ao abrir o dialog da Memória.
+## Arquivos afetados
 
-### 7. Filtro e busca
+**Novos**
+- `supabase/migrations/...` (recurrences, push_subscriptions, colunas novas em items, cron jobs)
+- `supabase/functions/materialize-recurrences/index.ts`
+- `supabase/functions/push-subscribe/index.ts`
+- `supabase/functions/push-send/index.ts`
+- `supabase/functions/dispatch-reminders/index.ts`
+- `public/sw.js`, `public/manifest.json`, ícones
+- `src/lib/push.ts` (registro/permissão/guard de iframe e preview)
+- `src/components/RecurrenceForm.tsx`
+- `src/pages/NotificationsSettings.tsx` (ou seção dentro de SettingsPage)
 
-A categoria "Reuniões" entra na barra de tabs já existente. Busca também procura em `participants`, `decisions`, `next_steps`.
+**Editados**
+- `src/types/central.ts` — tipos `Recurrence`, novos campos em `Item`.
+- `src/contexts/CentralContext.tsx` — CRUD de recurrences, leitura.
+- `src/pages/AgendaPage.tsx` — formulário com toggle "Repete".
+- `src/pages/SettingsPage.tsx` — seções Recorrências e Notificações.
+- `src/components/ItemCard.tsx` — chip "🔁" e antecedência do lembrete.
+- `vite.config.ts` — `vite-plugin-pwa` com `devOptions.enabled: false` e denylist do `/~oauth`.
+- `package.json` — `vite-plugin-pwa`.
 
-### Arquivos afetados
+---
 
-- `src/types/central.ts` — categoria + tipo
-- migration: `ALTER TABLE memories ADD COLUMN ...` (5 colunas)
-- `src/contexts/CentralContext.tsx` — mapear novos campos no fetch/insert de memórias
-- `src/pages/MemoryPage.tsx` — formulário condicional + card de reuniões + botão "criar Itens"
-- `src/pages/AgendaPage.tsx` e `src/pages/ItemDetail.tsx` — botão "Adicionar nota"
-- `mem://features/memory-knowledge-base` — atualizar com nova categoria
+## Ordem de execução
+1. Migration (recurrences + push_subscriptions + colunas em items + cron diário materialização).
+2. Edge function `materialize-recurrences` + UI de criar/listar recorrência na Agenda e Settings.
+3. PWA (manifest, ícones, vite-plugin-pwa, guard anti-iframe).
+4. Geração das VAPID keys + pedido para você colar como secrets.
+5. Edge functions `push-subscribe` / `push-send` / `dispatch-reminders` + cron de 1 minuto.
+6. Tela de Notificações em Settings com botão Ativar e Testar.
 
-### Fora de escopo (pode vir depois)
-
-- Transcrição de áudio da reunião
-- IA extraindo automaticamente decisões/próximos passos do texto bruto
-- Compartilhar ata por link
-
-Posso seguir?
+Confirma que posso seguir assim?
