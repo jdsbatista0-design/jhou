@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Plus, Search, Trash2, Eye, EyeOff, Copy, ExternalLink, ChevronRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Search, Trash2, Eye, EyeOff, Copy, ExternalLink, ListChecks, Link as LinkIcon } from 'lucide-react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,28 +8,46 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { toast } from 'sonner';
-import { MemoryCategory, MEMORY_CATEGORIES } from '@/types/central';
+import { MemoryCategory, MEMORY_CATEGORIES, Memory } from '@/types/central';
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function MemoryPage() {
-  const { memories, addMemory, deleteMemory } = useCentral();
+  const { memories, addMemory, deleteMemory, items, addItem, settings } = useCentral();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<MemoryCategory | 'all'>('all');
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     title: '', content: '', tags: '', category: 'geral' as MemoryCategory,
     login: '', password: '', url: '', city: '',
+    meetingDate: todayISO(), participants: '', decisions: '', nextSteps: '',
+    linkedItemId: '__none__',
   });
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
 
+  const agendaItemOptions = useMemo(() => {
+    return items
+      .filter(i => i.deadline && i.fase !== 'Concluído')
+      .sort((a, b) => (a.deadline || '').localeCompare(b.deadline || ''));
+  }, [items]);
+
   const filtered = memories.filter(m => {
-    const matchSearch = !search || 
-      m.title.toLowerCase().includes(search.toLowerCase()) ||
-      m.content.toLowerCase().includes(search.toLowerCase()) ||
-      m.tags.some(t => t.toLowerCase().includes(search.toLowerCase())) ||
-      (m.city && m.city.toLowerCase().includes(search.toLowerCase()));
+    const matchSearch = !search || (() => {
+      const q = search.toLowerCase();
+      return (
+        m.title.toLowerCase().includes(q) ||
+        m.content.toLowerCase().includes(q) ||
+        m.tags.some(t => t.toLowerCase().includes(q)) ||
+        (m.city && m.city.toLowerCase().includes(q)) ||
+        (m.participants && m.participants.toLowerCase().includes(q)) ||
+        (m.decisions && m.decisions.toLowerCase().includes(q)) ||
+        (m.nextSteps && m.nextSteps.toLowerCase().includes(q))
+      );
+    })();
     const matchCategory = activeCategory === 'all' || m.category === activeCategory;
     return matchSearch && matchCategory;
   });
@@ -44,8 +63,18 @@ export default function MemoryPage() {
       password: form.password || undefined,
       url: form.url || undefined,
       city: form.city || undefined,
+      meetingDate: form.category === 'reunioes' ? (form.meetingDate || undefined) : undefined,
+      participants: form.category === 'reunioes' ? (form.participants || undefined) : undefined,
+      decisions: form.category === 'reunioes' ? (form.decisions || undefined) : undefined,
+      nextSteps: form.category === 'reunioes' ? (form.nextSteps || undefined) : undefined,
+      linkedItemId: form.category === 'reunioes' && form.linkedItemId !== '__none__' ? form.linkedItemId : undefined,
     });
-    setForm({ title: '', content: '', tags: '', category: form.category, login: '', password: '', url: '', city: '' });
+    setForm({
+      title: '', content: '', tags: '', category: form.category,
+      login: '', password: '', url: '', city: '',
+      meetingDate: todayISO(), participants: '', decisions: '', nextSteps: '',
+      linkedItemId: '__none__',
+    });
     setOpen(false);
     toast.success('Memória salva');
   };
@@ -63,6 +92,26 @@ export default function MemoryPage() {
     toast.success('Copiado!');
   };
 
+  const createItemsFromNextSteps = (m: Memory) => {
+    if (!m.nextSteps?.trim()) { toast.error('Sem próximos passos'); return; }
+    const lines = m.nextSteps.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) { toast.error('Sem próximos passos'); return; }
+    const linkedItem = m.linkedItemId ? items.find(i => i.id === m.linkedItemId) : undefined;
+    const area = linkedItem?.area || settings.areas[0] || 'Pessoal';
+    const dateRef = m.meetingDate ? format(new Date(m.meetingDate + 'T00:00:00'), "dd/MM/yyyy") : '';
+    lines.forEach(line => {
+      addItem({
+        title: line.replace(/^[-•*]\s*/, ''),
+        description: `De: ${m.title}${dateRef ? ` (${dateRef})` : ''}`,
+        tipo: 'Ação',
+        fase: 'Em andamento',
+        area,
+        tags: [],
+      });
+    });
+    toast.success(`${lines.length} ${lines.length === 1 ? 'item criado' : 'itens criados'}`);
+  };
+
   const getCategoryFields = () => {
     switch (form.category) {
       case 'senhas':
@@ -77,14 +126,40 @@ export default function MemoryPage() {
         return (
           <Input placeholder="Cidade" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="rounded-xl" />
         );
+      case 'reunioes':
+        return (
+          <>
+            <div>
+              <label className="text-[11px] text-muted-foreground">Data da reunião</label>
+              <Input type="date" value={form.meetingDate} onChange={e => setForm(f => ({ ...f, meetingDate: e.target.value }))} className="rounded-xl" />
+            </div>
+            <Input placeholder="Participantes (vírgula)" value={form.participants} onChange={e => setForm(f => ({ ...f, participants: e.target.value }))} className="rounded-xl" />
+            <Textarea placeholder="Decisões tomadas" value={form.decisions} onChange={e => setForm(f => ({ ...f, decisions: e.target.value }))} className="rounded-xl" rows={3} />
+            <Textarea placeholder="Próximos passos (1 por linha)" value={form.nextSteps} onChange={e => setForm(f => ({ ...f, nextSteps: e.target.value }))} className="rounded-xl" rows={3} />
+            <Select value={form.linkedItemId} onValueChange={(v) => setForm(f => ({ ...f, linkedItemId: v }))}>
+              <SelectTrigger className="rounded-xl">
+                <SelectValue placeholder="Vincular a um Item da agenda (opcional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Sem vínculo</SelectItem>
+                {agendaItemOptions.map(i => (
+                  <SelectItem key={i.id} value={i.id}>
+                    {i.title} {i.deadline ? `— ${i.deadline.slice(0, 10).split('-').reverse().join('/')}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        );
       default:
         return null;
     }
   };
 
-  const renderCard = (m: typeof memories[0]) => {
+  const renderCard = (m: Memory) => {
     const cat = m.category || 'geral';
     const catInfo = MEMORY_CATEGORIES.find(c => c.value === cat);
+    const linkedItem = m.linkedItemId ? items.find(i => i.id === m.linkedItemId) : undefined;
 
     return (
       <div key={m.id} className="bg-card border border-border rounded-xl p-3 space-y-1.5">
@@ -97,6 +172,61 @@ export default function MemoryPage() {
             <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
           </Button>
         </div>
+
+        {/* Reuniões */}
+        {cat === 'reunioes' && (
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {m.meetingDate && (
+                <Badge variant="outline" className="text-[10px]">
+                  📅 {format(new Date(m.meetingDate + 'T00:00:00'), "dd 'de' MMM, yyyy", { locale: ptBR })}
+                </Badge>
+              )}
+              {m.participants && (
+                <Badge variant="secondary" className="text-[10px]">
+                  👥 {m.participants.split(',').length}
+                </Badge>
+              )}
+              {linkedItem && (
+                <button
+                  onClick={() => navigate(`/item/${linkedItem.id}`)}
+                  className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                >
+                  <LinkIcon className="h-3 w-3" /> {linkedItem.title.slice(0, 24)}
+                </button>
+              )}
+            </div>
+            {m.participants && (
+              <p className="text-[11px] text-muted-foreground"><span className="font-medium">Participantes:</span> {m.participants}</p>
+            )}
+            {m.content && (
+              <div className="bg-muted/50 rounded-lg p-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Notas</p>
+                <p className="text-xs text-foreground whitespace-pre-line">{m.content}</p>
+              </div>
+            )}
+            {m.decisions && (
+              <div className="bg-muted/50 rounded-lg p-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Decisões</p>
+                <p className="text-xs text-foreground whitespace-pre-line">{m.decisions}</p>
+              </div>
+            )}
+            {m.nextSteps && (
+              <div className="bg-muted/50 rounded-lg p-2 space-y-1.5">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Próximos passos</p>
+                <p className="text-xs text-foreground whitespace-pre-line">{m.nextSteps}</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full h-7 text-[11px] gap-1"
+                  onClick={() => createItemsFromNextSteps(m)}
+                >
+                  <ListChecks className="h-3 w-3" /> Criar Itens dos passos
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Senhas - special rendering */}
         {cat === 'senhas' && (
@@ -145,8 +275,10 @@ export default function MemoryPage() {
           <Badge variant="outline" className="text-[10px]">📍 {m.city}</Badge>
         )}
 
-        {/* Content */}
-        {m.content && <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-line">{m.content}</p>}
+        {/* Content for non-reunioes */}
+        {cat !== 'reunioes' && m.content && (
+          <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-line">{m.content}</p>
+        )}
 
         {/* Tags */}
         {m.tags.length > 0 && (
@@ -204,9 +336,20 @@ export default function MemoryPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Input placeholder="Título" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl" />
+              <Input
+                placeholder={form.category === 'reunioes' ? 'Título da reunião' : 'Título'}
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                className="rounded-xl"
+              />
               {getCategoryFields()}
-              <Textarea placeholder="Conteúdo / Notas" value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))} className="rounded-xl" rows={4} />
+              <Textarea
+                placeholder={form.category === 'reunioes' ? 'Notas da reunião' : 'Conteúdo / Notas'}
+                value={form.content}
+                onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+                className="rounded-xl"
+                rows={4}
+              />
               <Input placeholder="Tags (vírgula)" value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} className="rounded-xl text-xs" />
               <Button onClick={handleAdd} className="w-full rounded-xl">Salvar</Button>
             </div>

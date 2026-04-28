@@ -47,10 +47,12 @@ export type MemoryCategory =
   | 'desejos'
   | 'proposito'
   | 'rotina'
+  | 'reunioes'
   | 'geral';
 
 export const MEMORY_CATEGORIES: { value: MemoryCategory; label: string; icon: string }[] = [
   { value: 'geral', label: 'Geral', icon: '📝' },
+  { value: 'reunioes', label: 'Reuniões', icon: '📋' },
   { value: 'senhas', label: 'Senhas', icon: '🔐' },
   { value: 'receitas', label: 'Receitas', icon: '🍳' },
   { value: 'viagens', label: 'Viagens', icon: '✈️' },
@@ -72,6 +74,12 @@ export interface Memory {
   password?: string;
   url?: string;
   city?: string;
+  // Reuniões / eventos
+  meetingDate?: string; // YYYY-MM-DD
+  participants?: string;
+  decisions?: string;
+  nextSteps?: string;
+  linkedItemId?: string;
   createdAt: string;
 }
 

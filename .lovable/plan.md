@@ -1,91 +1,76 @@
-## Unificar os dois "Inbox" em um só
+## Notas de Reuniões na Memória/HD
 
-Hoje há duas caixas com o mesmo nome:
-- **Capturas brutas** (tabela `inbox_entries`) — o que entra pelo `+`/WhatsApp
-- **Items na fase "Inbox"** (coluna `items.fase = 'Inbox'`) — Items já criados mas sem triagem
+Adicionar suporte a **notas de reuniões e eventos** dentro da Memória existente, com campos próprios e vínculo opcional com a Agenda/Item.
 
-Vamos juntar tudo numa **única Inbox** visível no Início e no Painel, com o mesmo número em todo lugar.
+### 1. Nova categoria "Reuniões" 📋
 
----
+Adicionar `'reunioes'` em `MemoryCategory` e `MEMORY_CATEGORIES` (`src/types/central.ts`), com ícone 📋.
 
-## Como vai funcionar
+### 2. Campos extras da categoria
 
-### Regra única
-**Inbox = tudo que ainda precisa ser triado**, vindo de duas origens, mas exibido junto:
-1. Capturas brutas pendentes (`inbox_entries.status = 'pending'`)
-2. Items na fase `Inbox` (`items.fase = 'Inbox'`)
+Estender `Memory` (e tabela `memories`) com colunas opcionais usadas só nessa categoria:
 
-### Onde aparece
-| Lugar | Antes | Depois |
-|---|---|---|
-| Story "Inbox" no Início | 0 (só capturas) | 13 (capturas + Items na fase Inbox) |
-| Chip "Inbox" no Painel "Por fase" | 13 (só Items) | 13 (mesma conta) |
-| Página `/inbox` | só capturas | capturas + Items na fase Inbox |
+- `meeting_date` (data da reunião)
+- `participants` (texto livre, separado por vírgula)
+- `decisions` (texto)
+- `next_steps` (texto)
+- `linked_item_id` (uuid, opcional — vincula ao Item da agenda correspondente)
 
-Os números **vão bater em todas as telas**.
+Migration adiciona essas 5 colunas em `memories` (nullable). Sem mudança de RLS.
 
-### Triagem (o que você faz com cada um)
-- **Captura bruta** → botões "Virar Item" / "Virar Memória" / "Arquivar" (já existem)
-- **Item na fase Inbox** → abre o Item, muda fase para "Em andamento" / "Aguardando" / etc. (fluxo normal)
+### 3. Formulário no `MemoryPage.tsx`
 
----
+Quando categoria = "Reuniões", o dialog mostra:
 
-## O que muda no código
+- Data da reunião (default: hoje)
+- Título (ex: "Reunião com Stone — comercial")
+- Participantes
+- Conteúdo / Notas (campo principal, multiline)
+- Decisões
+- Próximos passos
+- Seletor opcional "Vincular a Item da agenda" (lista os Items com `deadline` recente/futuro)
+- Tags
 
-**3 arquivos editados, sem migração de dados, sem mudança de schema:**
+### 4. Card especializado
 
-### 1. `src/components/DashboardStories.tsx`
-Story "Inbox" passa a somar e exibir as duas origens:
+Renderização própria para reuniões (similar ao bloco de Senhas):
 
-```ts
-const inboxItems = useMemo(
-  () => sortItems(filteredItemsAll.filter(i => i.fase === 'Inbox')),
-  [filteredItemsAll, sortKey]
-);
+- Cabeçalho com 📋 + título + data formatada
+- Badge de participantes (contagem)
+- Seções colapsáveis: Notas / Decisões / Próximos passos
+- Se vinculado a Item: chip "→ Ver Item" navegando para `/item/:id`
 
-inbox: {
-  count: pendingInbox.length + inboxItems.length,
-  render: () => (
-    <div className="space-y-2">
-      {pendingInbox.length > 0 && (
-        <>
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-            Capturas a triar
-          </p>
-          {pendingInbox.map(e => <InboxEntryCard key={e.id} entry={e} />)}
-        </>
-      )}
-      {inboxItems.length > 0 && (
-        <>
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-            Itens sem fase
-          </p>
-          {inboxItems.map(i => <ItemCard key={i.id} item={i} />)}
-        </>
-      )}
-    </div>
-  ),
-}
-```
+### 5. Próximos passos viram Itens (1 clique)
 
-### 2. `src/pages/InboxPage.tsx`
-Mesma lógica: mostra capturas + Items na fase Inbox em duas seções.
+Botão **"Criar Item a partir destes passos"** no card. Abre prompt simples: cada linha de `next_steps` vira um Item novo com:
 
-### 3. `src/components/DashboardStories.tsx` (mesmo arquivo)
-Remover o Item da fase "Inbox" da story **"Em andamento"** caso esteja vazando — manter cada Item em **uma única story** (Inbox OU Em andamento OU Aguardando…), nunca em duas.
+- `tipo: 'Ação'`
+- `fase: 'Em andamento'`
+- `area`: herdada do Item vinculado (ou "Pessoal")
+- Título = a linha
+- Descrição = referência à reunião ("De: <título da reunião> em <data>")
 
----
+### 6. Atalho a partir da Agenda
 
-## O que NÃO muda
-- Tabelas `inbox_entries` e `items` continuam separadas (origens diferentes têm comportamentos diferentes na triagem).
-- A fase `Inbox` continua existindo nos Items (necessária para WhatsApp/IA criar Items que caem direto na triagem).
-- `ReportsPage`, `AgendaPage`, `InboxEntryCard`, contexto: nada muda.
-- Zero risco de perda de dados.
+Em `AgendaPage.tsx` / `ItemDetail.tsx`, adicionar botão **"📋 Adicionar nota da reunião"** nos eventos/Items com data. Pré-preenche título, data e `linked_item_id` ao abrir o dialog da Memória.
 
----
+### 7. Filtro e busca
 
-## Resultado
+A categoria "Reuniões" entra na barra de tabs já existente. Busca também procura em `participants`, `decisions`, `next_steps`.
 
-- Um único contador de "Inbox" em todo o app.
-- Você abre o Início ou o Painel e vê o **mesmo 13** (no seu caso atual).
-- Triagem fica óbvia: capturas viram Items, Items mudam de fase.
+### Arquivos afetados
+
+- `src/types/central.ts` — categoria + tipo
+- migration: `ALTER TABLE memories ADD COLUMN ...` (5 colunas)
+- `src/contexts/CentralContext.tsx` — mapear novos campos no fetch/insert de memórias
+- `src/pages/MemoryPage.tsx` — formulário condicional + card de reuniões + botão "criar Itens"
+- `src/pages/AgendaPage.tsx` e `src/pages/ItemDetail.tsx` — botão "Adicionar nota"
+- `mem://features/memory-knowledge-base` — atualizar com nova categoria
+
+### Fora de escopo (pode vir depois)
+
+- Transcrição de áudio da reunião
+- IA extraindo automaticamente decisões/próximos passos do texto bruto
+- Compartilhar ata por link
+
+Posso seguir?
