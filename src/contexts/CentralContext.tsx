@@ -759,6 +759,24 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     if (error) setEvents(snapshot);
   }, []);
 
+  const updateSettings = useCallback((updates: Partial<Settings>) => {
+    setSettings(prev => {
+      const next = normalizeSettings({ ...prev, ...updates });
+      (async () => {
+        const userId = await getUserId();
+        if (!userId) return;
+        const { error } = await (supabase as any)
+          .from('app_settings')
+          .upsert(
+            { key: 'central_settings', value: next, user_id: userId },
+            { onConflict: 'user_id,key' }
+          );
+        if (error) console.error('Erro ao sincronizar configurações', error);
+      })();
+      return next;
+    });
+  }, [getUserId]);
+
   // ---- RECURRENCE ACTIONS ----
 
   /**
