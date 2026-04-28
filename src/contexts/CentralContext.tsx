@@ -129,6 +129,11 @@ async function dbRowToMemory(row: any): Promise<Memory> {
     password: (await decryptString(row.password)) || undefined,
     url: (await decryptString(row.url)) || undefined,
     city: row.city || undefined,
+    meetingDate: row.meeting_date || undefined,
+    participants: row.participants || undefined,
+    decisions: row.decisions || undefined,
+    nextSteps: row.next_steps || undefined,
+    linkedItemId: row.linked_item_id || undefined,
     createdAt: row.created_at,
   };
 }
