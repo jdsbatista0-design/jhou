@@ -238,10 +238,22 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // ---- RECURRENCES ----
+  const refreshRecurrences = useCallback(async () => {
+    const { data, error } = await (supabase as any)
+      .from('recurrences')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) {
+      setRecurrences(data.map(dbRowToRecurrence));
+    }
+  }, []);
+
   const getUserId = useCallback(async (): Promise<string | null> => {
     const { data: { user } } = await supabase.auth.getUser();
     return user?.id ?? null;
   }, []);
+
 
   const refreshSettings = useCallback(async () => {
     const userId = await getUserId();
