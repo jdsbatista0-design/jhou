@@ -667,6 +667,9 @@ export type Database = {
           photo_url: string | null
           previous_fase: string | null
           priority: string | null
+          recurrence_id: string | null
+          reminder_minutes: number | null
+          reminder_sent_at: string | null
           tags: Json
           tipo: string
           title: string
@@ -688,6 +691,9 @@ export type Database = {
           photo_url?: string | null
           previous_fase?: string | null
           priority?: string | null
+          recurrence_id?: string | null
+          reminder_minutes?: number | null
+          reminder_sent_at?: string | null
           tags?: Json
           tipo?: string
           title: string
@@ -709,6 +715,9 @@ export type Database = {
           photo_url?: string | null
           previous_fase?: string | null
           priority?: string | null
+          recurrence_id?: string | null
+          reminder_minutes?: number | null
+          reminder_sent_at?: string | null
           tags?: Json
           tipo?: string
           title?: string
@@ -802,6 +811,87 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      recurrences: {
+        Row: {
+          active: boolean
+          area: string
+          created_at: string
+          end_date: string | null
+          id: string
+          last_materialized_until: string | null
+          reminder_minutes: number
+          start_date: string
+          time: string
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+          weekdays: Json
+        }
+        Insert: {
+          active?: boolean
+          area?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          last_materialized_until?: string | null
+          reminder_minutes?: number
+          start_date?: string
+          time: string
+          title: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+          weekdays?: Json
+        }
+        Update: {
+          active?: boolean
+          area?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          last_materialized_until?: string | null
+          reminder_minutes?: number
+          start_date?: string
+          time?: string
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+          weekdays?: Json
         }
         Relationships: []
       }
