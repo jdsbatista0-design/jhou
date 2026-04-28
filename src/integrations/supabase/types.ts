@@ -725,8 +725,13 @@ export type Database = {
           city: string | null
           content: string
           created_at: string
+          decisions: string | null
           id: string
+          linked_item_id: string | null
           login: string | null
+          meeting_date: string | null
+          next_steps: string | null
+          participants: string | null
           password: string | null
           tags: Json
           title: string
@@ -739,8 +744,13 @@ export type Database = {
           city?: string | null
           content: string
           created_at?: string
+          decisions?: string | null
           id?: string
+          linked_item_id?: string | null
           login?: string | null
+          meeting_date?: string | null
+          next_steps?: string | null
+          participants?: string | null
           password?: string | null
           tags?: Json
           title: string
@@ -753,8 +763,13 @@ export type Database = {
           city?: string | null
           content?: string
           created_at?: string
+          decisions?: string | null
           id?: string
+          linked_item_id?: string | null
           login?: string | null
+          meeting_date?: string | null
+          next_steps?: string | null
+          participants?: string | null
           password?: string | null
           tags?: Json
           title?: string
