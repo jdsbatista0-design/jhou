@@ -623,6 +623,11 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       password: memory.password,
       url: memory.url,
       city: memory.city,
+      meetingDate: memory.meetingDate,
+      participants: memory.participants,
+      decisions: memory.decisions,
+      nextSteps: memory.nextSteps,
+      linkedItemId: memory.linkedItemId,
       createdAt: new Date().toISOString(),
     };
     setMemories(prev => [optimistic, ...prev]);
@@ -641,8 +646,13 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       password: encPassword,
       url: encUrl,
       city: memory.city || null,
+      meeting_date: memory.meetingDate || null,
+      participants: memory.participants || null,
+      decisions: memory.decisions || null,
+      next_steps: memory.nextSteps || null,
+      linked_item_id: memory.linkedItemId || null,
       user_id: userId,
-    }).select('*').single();
+    } as any).select('*').single();
 
     if (error) {
       setMemories(prev => prev.filter(m => m.id !== tempId));
