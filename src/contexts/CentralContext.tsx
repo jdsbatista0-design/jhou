@@ -285,12 +285,10 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       refreshItems(),
       refreshMemories(),
       refreshEvents(),
+      refreshRecurrences(),
       refreshSettings(),
     ]).catch(e => console.warn('boot load falhou parcialmente', e));
 
-    // Realtime serve apenas como "safety net" para sync entre dispositivos.
-    // Mutations locais já fazem optimistic update — então aqui usamos debounce
-    // pesado (1.5s) para evitar refetch a cada toque do usuário.
     const inboxCh = supabase.channel('inbox_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' },
         () => debouncedRefresh('inbox', refreshInbox, 1500))
@@ -316,6 +314,11 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
         () => debouncedRefresh('events', refreshEvents, 1500))
       .subscribe();
 
+    const recurrencesCh = supabase.channel('recurrences_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recurrences' },
+        () => debouncedRefresh('recurrences', refreshRecurrences, 1500))
+      .subscribe();
+
     const settingsCh = supabase.channel('settings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' },
         () => debouncedRefresh('settings', refreshSettings, 1500))
@@ -328,9 +331,10 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       supabase.removeChannel(commentsCh);
       supabase.removeChannel(memoriesCh);
       supabase.removeChannel(eventsCh);
+      supabase.removeChannel(recurrencesCh);
       supabase.removeChannel(settingsCh);
     };
-  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshSettings, debouncedRefresh]);
+  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshRecurrences, refreshSettings, debouncedRefresh]);
 
   // Auto-pull do Google Calendar a cada 5 minutos quando a aba está visível.
   // Adiamos a 1ª verificação em 30s para não competir com o boot inicial.
