@@ -179,6 +179,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<Item[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [events, setEvents] = useState<AgendaEvent[]>([]);
+  const [recurrences, setRecurrences] = useState<Recurrence[]>([]);
   const [settings, setSettings] = useState<Settings>(() => loadFromStorage('central_settings', DEFAULT_SETTINGS));
 
   // ---- INBOX (already DB-backed) ----
