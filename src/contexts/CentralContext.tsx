@@ -174,12 +174,13 @@ function dbRowToEvent(row: any): AgendaEvent {
   };
 }
 
-export function CentralProvider({ children }: { children: React.ReactNode }) {
-  const [inbox, setInbox] = useState<InboxEntry[]>(() => loadFromStorage('central_inbox_cache', []));
-  const [items, setItems] = useState<Item[]>(() => loadFromStorage('central_items_cache', []));
-  const [memories, setMemories] = useState<Memory[]>(() => loadFromStorage('central_memories_cache', []));
-  const [events, setEvents] = useState<AgendaEvent[]>(() => loadFromStorage('central_events_cache', []));
-  const [recurrences, setRecurrences] = useState<Recurrence[]>(() => loadFromStorage('central_recurrences_cache', []));
+export function CentralProvider({ children, userId }: { children: React.ReactNode; userId: string }) {
+  const cachePrefix = `central:${userId}:`;
+  const [inbox, setInbox] = useState<InboxEntry[]>(() => loadFromStorage(`${cachePrefix}inbox`, []));
+  const [items, setItems] = useState<Item[]>(() => loadFromStorage(`${cachePrefix}items`, []));
+  const [memories, setMemories] = useState<Memory[]>(() => loadFromStorage(`${cachePrefix}memories`, []));
+  const [events, setEvents] = useState<AgendaEvent[]>(() => loadFromStorage(`${cachePrefix}events`, []));
+  const [recurrences, setRecurrences] = useState<Recurrence[]>(() => loadFromStorage(`${cachePrefix}recurrences`, []));
   const [settings, setSettings] = useState<Settings>(() => loadFromStorage('central_settings', DEFAULT_SETTINGS));
 
   // ---- INBOX (already DB-backed) ----
@@ -270,11 +271,11 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     }
   }, [getUserId]);
 
-  useEffect(() => saveToStorage('central_inbox_cache', inbox), [inbox]);
-  useEffect(() => saveToStorage('central_items_cache', items), [items]);
-  useEffect(() => saveToStorage('central_memories_cache', memories), [memories]);
-  useEffect(() => saveToStorage('central_events_cache', events), [events]);
-  useEffect(() => saveToStorage('central_recurrences_cache', recurrences), [recurrences]);
+  useEffect(() => saveToStorage(`${cachePrefix}inbox`, inbox), [cachePrefix, inbox]);
+  useEffect(() => saveToStorage(`${cachePrefix}items`, items), [cachePrefix, items]);
+  useEffect(() => saveToStorage(`${cachePrefix}memories`, memories), [cachePrefix, memories]);
+  useEffect(() => saveToStorage(`${cachePrefix}events`, events), [cachePrefix, events]);
+  useEffect(() => saveToStorage(`${cachePrefix}recurrences`, recurrences), [cachePrefix, recurrences]);
 
   // Initial load + realtime (com debounce para evitar refetch em cascata)
   const debounceTimers = useRef<Record<string, number>>({});

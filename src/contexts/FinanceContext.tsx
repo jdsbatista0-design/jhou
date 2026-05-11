@@ -133,15 +133,16 @@ async function getUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
-export function FinanceProvider({ children }: { children: React.ReactNode }) {
+export function FinanceProvider({ children, userId }: { children: React.ReactNode; userId: string }) {
+  const cachePrefix = `fin:${userId}:`;
   const [loading, setLoading] = useState(false);
-  const [companies, setCompanies] = useState<FinCompany[]>(() => loadCache('fin_companies_cache', []));
-  const [accounts, setAccounts] = useState<FinAccount[]>(() => loadCache('fin_accounts_cache', []));
-  const [cards, setCards] = useState<FinCard[]>(() => loadCache('fin_cards_cache', []));
-  const [categories, setCategories] = useState<FinCategory[]>(() => loadCache('fin_categories_cache', []));
-  const [people, setPeople] = useState<FinPerson[]>(() => loadCache('fin_people_cache', []));
-  const [recurrences, setRecurrences] = useState<FinRecurrence[]>(() => loadCache('fin_recurrences_cache', []));
-  const [transactions, setTransactions] = useState<FinTransaction[]>(() => loadCache('fin_transactions_cache', []));
+  const [companies, setCompanies] = useState<FinCompany[]>(() => loadCache(`${cachePrefix}companies`, []));
+  const [accounts, setAccounts] = useState<FinAccount[]>(() => loadCache(`${cachePrefix}accounts`, []));
+  const [cards, setCards] = useState<FinCard[]>(() => loadCache(`${cachePrefix}cards`, []));
+  const [categories, setCategories] = useState<FinCategory[]>(() => loadCache(`${cachePrefix}categories`, []));
+  const [people, setPeople] = useState<FinPerson[]>(() => loadCache(`${cachePrefix}people`, []));
+  const [recurrences, setRecurrences] = useState<FinRecurrence[]>(() => loadCache(`${cachePrefix}recurrences`, []));
+  const [transactions, setTransactions] = useState<FinTransaction[]>(() => loadCache(`${cachePrefix}transactions`, []));
 
   const [scope, setScopeState] = useState<FinScope>(() => (localStorage.getItem('fin_scope') as FinScope) || 'pf');
   const [selectedCompanyId, setSelectedCompanyIdState] = useState<string | null>(
@@ -189,13 +190,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     if (data) setTransactions(data.map(rowTransaction));
   }, []);
 
-  useEffect(() => saveCache('fin_companies_cache', companies), [companies]);
-  useEffect(() => saveCache('fin_accounts_cache', accounts), [accounts]);
-  useEffect(() => saveCache('fin_cards_cache', cards), [cards]);
-  useEffect(() => saveCache('fin_categories_cache', categories), [categories]);
-  useEffect(() => saveCache('fin_people_cache', people), [people]);
-  useEffect(() => saveCache('fin_recurrences_cache', recurrences), [recurrences]);
-  useEffect(() => saveCache('fin_transactions_cache', transactions), [transactions]);
+  useEffect(() => saveCache(`${cachePrefix}companies`, companies), [cachePrefix, companies]);
+  useEffect(() => saveCache(`${cachePrefix}accounts`, accounts), [cachePrefix, accounts]);
+  useEffect(() => saveCache(`${cachePrefix}cards`, cards), [cachePrefix, cards]);
+  useEffect(() => saveCache(`${cachePrefix}categories`, categories), [cachePrefix, categories]);
+  useEffect(() => saveCache(`${cachePrefix}people`, people), [cachePrefix, people]);
+  useEffect(() => saveCache(`${cachePrefix}recurrences`, recurrences), [cachePrefix, recurrences]);
+  useEffect(() => saveCache(`${cachePrefix}transactions`, transactions), [cachePrefix, transactions]);
 
   // Debounce helper — agrupa eventos realtime em rajadas
   const debouncedRef = React.useRef<Record<string, number>>({});

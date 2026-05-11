@@ -68,8 +68,8 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <CentralProvider>
-          <FinanceProvider>
+        <CentralProvider userId={session.user.id}>
+          <FinanceProvider userId={session.user.id}>
           <Toaster />
           <Sonner />
           <BrowserRouter>
