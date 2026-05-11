@@ -142,6 +142,12 @@ function dbRowToRecurrence(row: any): Recurrence {
 }
 
 async function dbRowToMemory(row: any): Promise<Memory> {
+  const [login, password, url] = await Promise.all([
+    decryptString(row.login),
+    decryptString(row.password),
+    decryptString(row.url),
+  ]);
+
   return {
     id: row.id,
     title: row.title,
@@ -149,9 +155,9 @@ async function dbRowToMemory(row: any): Promise<Memory> {
     tags: Array.isArray(row.tags) ? row.tags : [],
     category: row.category || 'geral',
     area: row.area || undefined,
-    login: (await decryptString(row.login)) || undefined,
-    password: (await decryptString(row.password)) || undefined,
-    url: (await decryptString(row.url)) || undefined,
+    login: login || undefined,
+    password: password || undefined,
+    url: url || undefined,
     city: row.city || undefined,
     meetingDate: row.meeting_date || undefined,
     participants: row.participants || undefined,
@@ -202,10 +208,14 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       .order('created_at', { ascending: false });
     if (error || !itemRows) return;
 
-    const { data: commentRows } = await supabase
-      .from('item_comments')
-      .select('*')
-      .order('created_at', { ascending: true });
+    const itemIds = itemRows.map((r: any) => r.id);
+    const { data: commentRows } = itemIds.length
+      ? await supabase
+        .from('item_comments')
+        .select('*')
+        .in('item_id', itemIds)
+        .order('created_at', { ascending: true })
+      : { data: [] };
 
     const commentsByItem: Record<string, ItemComment[]> = {};
     (commentRows || []).forEach((c: any) => {
@@ -273,7 +283,9 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
   useEffect(() => saveToStorage(`${cachePrefix}inbox`, inbox), [cachePrefix, inbox]);
   useEffect(() => saveToStorage(`${cachePrefix}items`, items), [cachePrefix, items]);
-  useEffect(() => saveToStorage(`${cachePrefix}memories`, memories), [cachePrefix, memories]);
+  useEffect(() => {
+    saveToStorage(`${cachePrefix}memories`, memories.map(m => ({ ...m, login: undefined, password: undefined, url: undefined })));
+  }, [cachePrefix, memories]);
   useEffect(() => saveToStorage(`${cachePrefix}events`, events), [cachePrefix, events]);
   useEffect(() => saveToStorage(`${cachePrefix}recurrences`, recurrences), [cachePrefix, recurrences]);
 
