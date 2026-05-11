@@ -1,0 +1,22 @@
+CREATE INDEX IF NOT EXISTS idx_items_user_created_at ON public.items (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_items_user_deadline ON public.items (user_id, deadline, deadline_time) WHERE deadline IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_items_user_fase ON public.items (user_id, fase);
+CREATE INDEX IF NOT EXISTS idx_item_comments_user_item_created ON public.item_comments (user_id, item_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_inbox_entries_user_created_at ON public.inbox_entries (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inbox_entries_user_status ON public.inbox_entries (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_memories_user_created_at ON public.memories (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_events_user_datetime ON public.events (user_id, datetime ASC);
+CREATE INDEX IF NOT EXISTS idx_recurrences_user_created_at ON public.recurrences (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_app_settings_user_key ON public.app_settings (user_id, key);
+
+CREATE INDEX IF NOT EXISTS idx_fin_companies_user_created ON public.fin_companies (user_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_fin_accounts_user_created ON public.fin_accounts (user_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_fin_cards_user_created ON public.fin_cards (user_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_fin_categories_user_name ON public.fin_categories (user_id, name ASC);
+CREATE INDEX IF NOT EXISTS idx_fin_people_user_name ON public.fin_people (user_id, name ASC);
+CREATE INDEX IF NOT EXISTS idx_fin_recurrences_user_active ON public.fin_recurrences (user_id, active);
+CREATE INDEX IF NOT EXISTS idx_fin_recurrences_user_created ON public.fin_recurrences (user_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_fin_transactions_user_scope_occurred ON public.fin_transactions (user_id, scope, occurred_on DESC);
+CREATE INDEX IF NOT EXISTS idx_fin_transactions_user_account_occurred ON public.fin_transactions (user_id, account_id, occurred_on DESC) WHERE account_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_fin_transactions_user_card_occurred ON public.fin_transactions (user_id, card_id, occurred_on DESC) WHERE card_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_fin_transactions_user_company_occurred ON public.fin_transactions (user_id, company_id, occurred_on DESC) WHERE company_id IS NOT NULL;
