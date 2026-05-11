@@ -23,10 +23,69 @@ const FinancePage = lazy(() => import("@/pages/FinancePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
+const CENTRAL_PIN = "0507";
+
+function PinLock({ onUnlock }: { onUnlock: () => void }) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(false);
+
+  const press = (digit: string) => {
+    setError(false);
+    const next = (pin + digit).slice(0, 4);
+    setPin(next);
+    if (next.length === 4) {
+      if (next === CENTRAL_PIN) {
+        onUnlock();
+      } else {
+        setError(true);
+        window.setTimeout(() => setPin(""), 180);
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center px-6">
+      <div className="w-full max-w-xs space-y-6 text-center">
+        <div className="space-y-2">
+          <div className="text-4xl">🔒</div>
+          <h1 className="text-2xl font-bold text-foreground">Central</h1>
+          <p className="text-xs text-muted-foreground">Digite o PIN para abrir seus dados.</p>
+        </div>
+
+        <div className="flex justify-center gap-2" aria-label="PIN digitado">
+          {[0, 1, 2, 3].map(i => (
+            <span
+              key={i}
+              className={`h-3 w-3 rounded-full border ${pin.length > i ? 'bg-primary border-primary' : error ? 'border-destructive' : 'border-border'}`}
+            />
+          ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {['1','2','3','4','5','6','7','8','9'].map(digit => (
+            <button key={digit} onClick={() => press(digit)} className="h-14 rounded-2xl bg-card border border-border text-xl font-semibold text-foreground active:bg-accent">
+              {digit}
+            </button>
+          ))}
+          <button onClick={() => setPin(pin.slice(0, -1))} className="h-14 rounded-2xl bg-card border border-border text-sm font-semibold text-muted-foreground active:bg-accent">
+            Apagar
+          </button>
+          <button onClick={() => press('0')} className="h-14 rounded-2xl bg-card border border-border text-xl font-semibold text-foreground active:bg-accent">
+            0
+          </button>
+          <button onClick={() => setPin("")} className="h-14 rounded-2xl bg-card border border-border text-sm font-semibold text-muted-foreground active:bg-accent">
+            Limpar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const App = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pinUnlocked, setPinUnlocked] = useState(false);
 
   useEffect(() => {
     // CRITICAL: subscribe BEFORE getSession (per Lovable auth rules)
@@ -60,6 +119,22 @@ const App = () => {
           <Toaster />
           <Sonner />
           <Auth />
+        </TooltipProvider>
+      </QueryClientProvider>
+    );
+  }
+
+  const pinKey = `central_pin_unlocked:${session.user.id}`;
+  const isPinUnlocked = pinUnlocked || sessionStorage.getItem(pinKey) === "true";
+
+  if (!isPinUnlocked) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <PinLock onUnlock={() => {
+            sessionStorage.setItem(pinKey, "true");
+            setPinUnlocked(true);
+          }} />
         </TooltipProvider>
       </QueryClientProvider>
     );
