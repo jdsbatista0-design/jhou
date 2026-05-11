@@ -6,6 +6,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CentralProvider } from "@/contexts/CentralContext";
+import { FinanceProvider } from "@/contexts/FinanceContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
 import CaptureFAB from "@/components/CaptureFAB";
@@ -68,6 +69,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <CentralProvider>
+          <FinanceProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -90,6 +92,7 @@ const App = () => {
               <BottomNav />
             </div>
           </BrowserRouter>
+          </FinanceProvider>
         </CentralProvider>
       </TooltipProvider>
     </QueryClientProvider>

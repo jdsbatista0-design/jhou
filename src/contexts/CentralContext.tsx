@@ -175,11 +175,11 @@ function dbRowToEvent(row: any): AgendaEvent {
 }
 
 export function CentralProvider({ children }: { children: React.ReactNode }) {
-  const [inbox, setInbox] = useState<InboxEntry[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [events, setEvents] = useState<AgendaEvent[]>([]);
-  const [recurrences, setRecurrences] = useState<Recurrence[]>([]);
+  const [inbox, setInbox] = useState<InboxEntry[]>(() => loadFromStorage('central_inbox_cache', []));
+  const [items, setItems] = useState<Item[]>(() => loadFromStorage('central_items_cache', []));
+  const [memories, setMemories] = useState<Memory[]>(() => loadFromStorage('central_memories_cache', []));
+  const [events, setEvents] = useState<AgendaEvent[]>(() => loadFromStorage('central_events_cache', []));
+  const [recurrences, setRecurrences] = useState<Recurrence[]>(() => loadFromStorage('central_recurrences_cache', []));
   const [settings, setSettings] = useState<Settings>(() => loadFromStorage('central_settings', DEFAULT_SETTINGS));
 
   // ---- INBOX (already DB-backed) ----
@@ -269,6 +269,12 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       setSettings(normalizeSettings(data.value));
     }
   }, [getUserId]);
+
+  useEffect(() => saveToStorage('central_inbox_cache', inbox), [inbox]);
+  useEffect(() => saveToStorage('central_items_cache', items), [items]);
+  useEffect(() => saveToStorage('central_memories_cache', memories), [memories]);
+  useEffect(() => saveToStorage('central_events_cache', events), [events]);
+  useEffect(() => saveToStorage('central_recurrences_cache', recurrences), [recurrences]);
 
   // Initial load + realtime (com debounce para evitar refetch em cascata)
   const debounceTimers = useRef<Record<string, number>>({});

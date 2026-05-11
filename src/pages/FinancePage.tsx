@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Building2, User, Plus, Wallet, CreditCard, ListChecks, Users, TrendingUp, Receipt, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
-import { FinanceProvider, useFinance } from '@/contexts/FinanceContext';
+import { useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatBRL, FinScope, TX_KIND_LABELS } from '@/types/finance';
@@ -50,12 +50,12 @@ function FinanceInner() {
       : []),
   ];
 
-  if (loading) {
-    return <div className="text-sm text-muted-foreground p-4">Carregando finanças…</div>;
-  }
-
   return (
     <div className="space-y-3">
+      {loading && (
+        <div className="text-[11px] text-muted-foreground animate-pulse">Atualizando finanças…</div>
+      )}
+
       {/* Header: PF / PJ toggle */}
       <div className="flex gap-2">
         <button
@@ -223,9 +223,5 @@ function FinanceInner() {
 }
 
 export default function FinancePage() {
-  return (
-    <FinanceProvider>
-      <FinanceInner />
-    </FinanceProvider>
-  );
+  return <FinanceInner />;
 }

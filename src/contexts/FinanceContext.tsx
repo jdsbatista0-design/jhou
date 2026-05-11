@@ -111,20 +111,37 @@ interface FinanceContextType {
 
 const FinanceContext = createContext<FinanceContextType | null>(null);
 
+function loadCache<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveCache<T>(key: string, value: T) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Cache is best-effort only.
+  }
+}
+
 async function getUserId(): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser();
   return user?.id ?? null;
 }
 
 export function FinanceProvider({ children }: { children: React.ReactNode }) {
-  const [loading, setLoading] = useState(true);
-  const [companies, setCompanies] = useState<FinCompany[]>([]);
-  const [accounts, setAccounts] = useState<FinAccount[]>([]);
-  const [cards, setCards] = useState<FinCard[]>([]);
-  const [categories, setCategories] = useState<FinCategory[]>([]);
-  const [people, setPeople] = useState<FinPerson[]>([]);
-  const [recurrences, setRecurrences] = useState<FinRecurrence[]>([]);
-  const [transactions, setTransactions] = useState<FinTransaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [companies, setCompanies] = useState<FinCompany[]>(() => loadCache('fin_companies_cache', []));
+  const [accounts, setAccounts] = useState<FinAccount[]>(() => loadCache('fin_accounts_cache', []));
+  const [cards, setCards] = useState<FinCard[]>(() => loadCache('fin_cards_cache', []));
+  const [categories, setCategories] = useState<FinCategory[]>(() => loadCache('fin_categories_cache', []));
+  const [people, setPeople] = useState<FinPerson[]>(() => loadCache('fin_people_cache', []));
+  const [recurrences, setRecurrences] = useState<FinRecurrence[]>(() => loadCache('fin_recurrences_cache', []));
+  const [transactions, setTransactions] = useState<FinTransaction[]>(() => loadCache('fin_transactions_cache', []));
 
   const [scope, setScopeState] = useState<FinScope>(() => (localStorage.getItem('fin_scope') as FinScope) || 'pf');
   const [selectedCompanyId, setSelectedCompanyIdState] = useState<string | null>(
@@ -172,6 +189,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     if (data) setTransactions(data.map(rowTransaction));
   }, []);
 
+  useEffect(() => saveCache('fin_companies_cache', companies), [companies]);
+  useEffect(() => saveCache('fin_accounts_cache', accounts), [accounts]);
+  useEffect(() => saveCache('fin_cards_cache', cards), [cards]);
+  useEffect(() => saveCache('fin_categories_cache', categories), [categories]);
+  useEffect(() => saveCache('fin_people_cache', people), [people]);
+  useEffect(() => saveCache('fin_recurrences_cache', recurrences), [recurrences]);
+  useEffect(() => saveCache('fin_transactions_cache', transactions), [transactions]);
+
   // Debounce helper — agrupa eventos realtime em rajadas
   const debouncedRef = React.useRef<Record<string, number>>({});
   const debouncedRefresh = useCallback((key: string, fn: () => void) => {
@@ -184,7 +209,8 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   // Boot: carrega tudo em paralelo de uma só vez
   const initialLoad = useCallback(async () => {
-    await Promise.all([
+    setLoading(true);
+    await Promise.allSettled([
       refreshCompanies(),
       refreshAccounts(),
       refreshCards(),
