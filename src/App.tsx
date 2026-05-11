@@ -25,6 +25,23 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const queryClient = new QueryClient();
 const CENTRAL_PIN = "0507";
 
+function clearLegacyUnscopedCache() {
+  [
+    "central_inbox_cache",
+    "central_items_cache",
+    "central_memories_cache",
+    "central_events_cache",
+    "central_recurrences_cache",
+    "fin_companies_cache",
+    "fin_accounts_cache",
+    "fin_cards_cache",
+    "fin_categories_cache",
+    "fin_people_cache",
+    "fin_recurrences_cache",
+    "fin_transactions_cache",
+  ].forEach(key => localStorage.removeItem(key));
+}
+
 function PinLock({ onUnlock }: { onUnlock: () => void }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
@@ -133,6 +150,7 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <PinLock onUnlock={() => {
+            clearLegacyUnscopedCache();
             sessionStorage.setItem(pinKey, "true");
             setPinUnlockedUserId(session.user.id);
           }} />
