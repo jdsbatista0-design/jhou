@@ -43,6 +43,7 @@ function normalizeSettings(value: unknown): Settings {
 }
 
 interface CentralContextType {
+  loading: boolean;
   inbox: InboxEntry[];
   addInboxEntry: (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => void;
   archiveInboxEntry: (id: string) => void;
@@ -142,6 +143,12 @@ function dbRowToRecurrence(row: any): Recurrence {
 }
 
 async function dbRowToMemory(row: any): Promise<Memory> {
+  const [login, password, url] = await Promise.all([
+    decryptString(row.login),
+    decryptString(row.password),
+    decryptString(row.url),
+  ]);
+
   return {
     id: row.id,
     title: row.title,
@@ -149,9 +156,9 @@ async function dbRowToMemory(row: any): Promise<Memory> {
     tags: Array.isArray(row.tags) ? row.tags : [],
     category: row.category || 'geral',
     area: row.area || undefined,
-    login: (await decryptString(row.login)) || undefined,
-    password: (await decryptString(row.password)) || undefined,
-    url: (await decryptString(row.url)) || undefined,
+    login: login || undefined,
+    password: password || undefined,
+    url: url || undefined,
     city: row.city || undefined,
     meetingDate: row.meeting_date || undefined,
     participants: row.participants || undefined,
@@ -174,13 +181,15 @@ function dbRowToEvent(row: any): AgendaEvent {
   };
 }
 
-export function CentralProvider({ children }: { children: React.ReactNode }) {
-  const [inbox, setInbox] = useState<InboxEntry[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [events, setEvents] = useState<AgendaEvent[]>([]);
-  const [recurrences, setRecurrences] = useState<Recurrence[]>([]);
+export function CentralProvider({ children, userId }: { children: React.ReactNode; userId: string }) {
+  const cachePrefix = `central:${userId}:`;
+  const [inbox, setInbox] = useState<InboxEntry[]>(() => loadFromStorage(`${cachePrefix}inbox`, []));
+  const [items, setItems] = useState<Item[]>(() => loadFromStorage(`${cachePrefix}items`, []));
+  const [memories, setMemories] = useState<Memory[]>(() => loadFromStorage(`${cachePrefix}memories`, []));
+  const [events, setEvents] = useState<AgendaEvent[]>(() => loadFromStorage(`${cachePrefix}events`, []));
+  const [recurrences, setRecurrences] = useState<Recurrence[]>(() => loadFromStorage(`${cachePrefix}recurrences`, []));
   const [settings, setSettings] = useState<Settings>(() => loadFromStorage('central_settings', DEFAULT_SETTINGS));
+  const [loading, setLoading] = useState(false);
 
   // ---- INBOX (already DB-backed) ----
   const refreshInbox = useCallback(async () => {
@@ -201,10 +210,14 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
       .order('created_at', { ascending: false });
     if (error || !itemRows) return;
 
-    const { data: commentRows } = await supabase
-      .from('item_comments')
-      .select('*')
-      .order('created_at', { ascending: true });
+    const itemIds = itemRows.map((r: any) => r.id);
+    const { data: commentRows } = itemIds.length
+      ? await supabase
+        .from('item_comments')
+        .select('*')
+        .in('item_id', itemIds)
+        .order('created_at', { ascending: true })
+      : { data: [] };
 
     const commentsByItem: Record<string, ItemComment[]> = {};
     (commentRows || []).forEach((c: any) => {
@@ -270,6 +283,14 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     }
   }, [getUserId]);
 
+  useEffect(() => saveToStorage(`${cachePrefix}inbox`, inbox), [cachePrefix, inbox]);
+  useEffect(() => saveToStorage(`${cachePrefix}items`, items), [cachePrefix, items]);
+  useEffect(() => {
+    saveToStorage(`${cachePrefix}memories`, memories.map(m => ({ ...m, login: undefined, password: undefined, url: undefined })));
+  }, [cachePrefix, memories]);
+  useEffect(() => saveToStorage(`${cachePrefix}events`, events), [cachePrefix, events]);
+  useEffect(() => saveToStorage(`${cachePrefix}recurrences`, recurrences), [cachePrefix, recurrences]);
+
   // Initial load + realtime (com debounce para evitar refetch em cascata)
   const debounceTimers = useRef<Record<string, number>>({});
   const debouncedRefresh = useCallback((key: string, fn: () => Promise<void>, ms = 800) => {
@@ -280,14 +301,15 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Carrega tudo em paralelo — boot rápido
-    Promise.all([
+    setLoading(true);
+    Promise.allSettled([
       refreshInbox(),
       refreshItems(),
       refreshMemories(),
       refreshEvents(),
       refreshRecurrences(),
       refreshSettings(),
-    ]).catch(e => console.warn('boot load falhou parcialmente', e));
+    ]).finally(() => setLoading(false));
 
     const inboxCh = supabase.channel('inbox_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' },
@@ -971,6 +993,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
   }, [recurrences.length]);
 
   const ctxValue = useMemo<CentralContextType>(() => ({
+    loading,
     inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
     items, addItem, updateItem, deleteItem, addComment, deleteComment,
     memories, addMemory, deleteMemory,
@@ -978,7 +1001,7 @@ export function CentralProvider({ children }: { children: React.ReactNode }) {
     recurrences, addRecurrence, updateRecurrence, deleteRecurrence,
     settings, updateSettings,
   }), [
-    inbox, items, memories, events, agendaEntries, recurrences, settings,
+    loading, inbox, items, memories, events, agendaEntries, recurrences, settings,
     addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
     addItem, updateItem, deleteItem, addComment, deleteComment,
     addMemory, deleteMemory, addEvent, deleteEvent,
