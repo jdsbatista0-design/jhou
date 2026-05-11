@@ -4,10 +4,11 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 
 export default function Dashboard() {
-  const { items, inbox, agendaEntries } = useCentral();
+  const { items, inbox, agendaEntries, loading } = useCentral();
   const now = new Date();
 
   const isEmpty = items.length === 0 && inbox.length === 0 && agendaEntries.length === 0;
+  const showLoading = loading && isEmpty;
 
   return (
     <div className="space-y-4 pb-4">
@@ -20,7 +21,11 @@ export default function Dashboard() {
         </h1>
       </div>
 
-      {isEmpty ? (
+      {showLoading ? (
+        <div className="text-center py-16">
+          <p className="text-sm text-muted-foreground animate-pulse">Carregando sua Central…</p>
+        </div>
+      ) : isEmpty ? (
         <div className="text-center py-16">
           <p className="text-4xl mb-3">👋</p>
           <p className="text-sm font-medium text-foreground">Bem-vindo à Central</p>
