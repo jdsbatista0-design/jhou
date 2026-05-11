@@ -85,13 +85,14 @@ function PinLock({ onUnlock }: { onUnlock: () => void }) {
 const App = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pinUnlocked, setPinUnlocked] = useState(false);
+  const [pinUnlockedUserId, setPinUnlockedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     // CRITICAL: subscribe BEFORE getSession (per Lovable auth rules)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, newSession) => {
         setSession(newSession);
+        if (!newSession) setPinUnlockedUserId(null);
         setLoading(false);
       }
     );
@@ -125,7 +126,7 @@ const App = () => {
   }
 
   const pinKey = `central_pin_unlocked:${session.user.id}`;
-  const isPinUnlocked = pinUnlocked || sessionStorage.getItem(pinKey) === "true";
+  const isPinUnlocked = pinUnlockedUserId === session.user.id || sessionStorage.getItem(pinKey) === "true";
 
   if (!isPinUnlocked) {
     return (
@@ -133,7 +134,7 @@ const App = () => {
         <TooltipProvider>
           <PinLock onUnlock={() => {
             sessionStorage.setItem(pinKey, "true");
-            setPinUnlocked(true);
+            setPinUnlockedUserId(session.user.id);
           }} />
         </TooltipProvider>
       </QueryClientProvider>
@@ -143,8 +144,8 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <CentralProvider userId={session.user.id}>
-          <FinanceProvider userId={session.user.id}>
+        <CentralProvider key={`central-${session.user.id}`} userId={session.user.id}>
+          <FinanceProvider key={`finance-${session.user.id}`} userId={session.user.id}>
           <Toaster />
           <Sonner />
           <BrowserRouter>
