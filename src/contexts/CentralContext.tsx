@@ -43,6 +43,7 @@ function normalizeSettings(value: unknown): Settings {
 }
 
 interface CentralContextType {
+  loading: boolean;
   inbox: InboxEntry[];
   addInboxEntry: (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => void;
   archiveInboxEntry: (id: string) => void;
@@ -188,6 +189,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   const [events, setEvents] = useState<AgendaEvent[]>(() => loadFromStorage(`${cachePrefix}events`, []));
   const [recurrences, setRecurrences] = useState<Recurrence[]>(() => loadFromStorage(`${cachePrefix}recurrences`, []));
   const [settings, setSettings] = useState<Settings>(() => loadFromStorage('central_settings', DEFAULT_SETTINGS));
+  const [loading, setLoading] = useState(false);
 
   // ---- INBOX (already DB-backed) ----
   const refreshInbox = useCallback(async () => {
@@ -299,14 +301,15 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
   useEffect(() => {
     // Carrega tudo em paralelo — boot rápido
-    Promise.all([
+    setLoading(true);
+    Promise.allSettled([
       refreshInbox(),
       refreshItems(),
       refreshMemories(),
       refreshEvents(),
       refreshRecurrences(),
       refreshSettings(),
-    ]).catch(e => console.warn('boot load falhou parcialmente', e));
+    ]).finally(() => setLoading(false));
 
     const inboxCh = supabase.channel('inbox_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' },
