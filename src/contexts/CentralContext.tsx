@@ -268,15 +268,10 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     }
   }, []);
 
-  const getUserId = useCallback(async (): Promise<string | null> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  }, []);
-
+  // userId vem da prop — evita auth.getUser() (latência de rede) em cada ação
+  const getUserId = useCallback(async (): Promise<string | null> => userId, [userId]);
 
   const refreshSettings = useCallback(async () => {
-    const userId = await getUserId();
-    if (!userId) return;
     const { data, error } = await (supabase as any)
       .from('app_settings')
       .select('value')
@@ -287,15 +282,15 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (!error && data?.value) {
       setSettings(normalizeSettings(data.value));
     }
-  }, [getUserId]);
+  }, [userId]);
 
-  useEffect(() => saveToStorage(`${cachePrefix}inbox`, inbox), [cachePrefix, inbox]);
-  useEffect(() => saveToStorage(`${cachePrefix}items`, items), [cachePrefix, items]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}inbox`, inbox)); }, [cachePrefix, inbox]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}items`, items)); }, [cachePrefix, items]);
   useEffect(() => {
-    saveToStorage(`${cachePrefix}memories`, memories.map(m => ({ ...m, login: undefined, password: undefined, url: undefined })));
+    ric(() => saveToStorage(`${cachePrefix}memories`, memories.map(m => ({ ...m, login: undefined, password: undefined, url: undefined }))));
   }, [cachePrefix, memories]);
-  useEffect(() => saveToStorage(`${cachePrefix}events`, events), [cachePrefix, events]);
-  useEffect(() => saveToStorage(`${cachePrefix}recurrences`, recurrences), [cachePrefix, recurrences]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}events`, events)); }, [cachePrefix, events]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}recurrences`, recurrences)); }, [cachePrefix, recurrences]);
 
   // Initial load + realtime (com debounce para evitar refetch em cascata)
   const debounceTimers = useRef<Record<string, number>>({});
