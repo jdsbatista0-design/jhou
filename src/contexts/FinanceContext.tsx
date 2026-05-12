@@ -310,17 +310,18 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    // Mostra dados o quanto antes; recorrências e seed rodam em background
+    // Mostra dados o quanto antes; recorrências e seed rodam em background bem depois do boot
     initialLoad();
-    // Background: não bloqueia UI
-    (async () => {
-      await seedDefaultCategoriesIfNeeded();
-      await generatePendingRecurrences();
-      // Após gerar recorrências, refresca apenas as tabelas afetadas
-      refreshTransactions();
-      refreshRecurrences();
-      refreshCategories();
-    })();
+    // Background: adiado para não competir com Central + render inicial
+    const bgTimer = window.setTimeout(() => {
+      (async () => {
+        await seedDefaultCategoriesIfNeeded();
+        await generatePendingRecurrences();
+        refreshTransactions();
+        refreshRecurrences();
+        refreshCategories();
+      })();
+    }, 4000);
 
     // Realtime granular + debounced
     const ch = supabase
