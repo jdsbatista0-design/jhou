@@ -26,8 +26,14 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 }
 
 function saveToStorage<T>(key: string, data: T) {
-  localStorage.setItem(key, JSON.stringify(data));
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
 }
+
+// Persistência adiada — nunca bloqueia o thread principal
+const ric: (cb: () => void) => number =
+  typeof (globalThis as any).requestIdleCallback === 'function'
+    ? (cb) => (globalThis as any).requestIdleCallback(cb, { timeout: 1500 })
+    : (cb) => window.setTimeout(cb, 200) as unknown as number;
 
 function normalizeSettings(value: unknown): Settings {
   const parsed = (value && typeof value === 'object' ? value : {}) as Partial<Settings>;
