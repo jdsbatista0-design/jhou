@@ -342,7 +342,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
         () => debouncedRefresh('transactions', refreshTransactions))
       .subscribe();
 
-    return () => { supabase.removeChannel(ch); };
+    return () => { window.clearTimeout(bgTimer); supabase.removeChannel(ch); };
   }, [initialLoad, seedDefaultCategoriesIfNeeded, generatePendingRecurrences,
       refreshCompanies, refreshAccounts, refreshCards, refreshCategories,
       refreshPeople, refreshRecurrences, refreshTransactions, debouncedRefresh]);
