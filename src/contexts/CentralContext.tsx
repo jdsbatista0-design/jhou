@@ -386,7 +386,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   }, []);
 
   // Settings still localStorage (personal preferences)
-  useEffect(() => saveToStorage('central_settings', settings), [settings]);
+  useEffect(() => { ric(() => saveToStorage('central_settings', settings)); }, [settings]);
 
   const agendaEntries = useMemo<AgendaEntry[]>(() => {
     const fromItems: AgendaEntry[] = items
