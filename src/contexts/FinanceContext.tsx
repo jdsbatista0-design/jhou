@@ -128,13 +128,16 @@ function saveCache<T>(key: string, value: T) {
   }
 }
 
-async function getUserId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.id ?? null;
-}
+// Idle-deferred persistence — never blocks the main thread
+const ric: (cb: () => void) => number =
+  typeof (globalThis as any).requestIdleCallback === 'function'
+    ? (cb) => (globalThis as any).requestIdleCallback(cb, { timeout: 1500 })
+    : (cb) => window.setTimeout(cb, 200) as unknown as number;
 
 export function FinanceProvider({ children, userId }: { children: React.ReactNode; userId: string }) {
   const cachePrefix = `fin:${userId}:`;
+  // userId vem da prop — não chamamos auth.getUser() em cada ação
+  const getUserId = useCallback(async (): Promise<string | null> => userId, [userId]);
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<FinCompany[]>(() => loadCache(`${cachePrefix}companies`, []));
   const [accounts, setAccounts] = useState<FinAccount[]>(() => loadCache(`${cachePrefix}accounts`, []));
