@@ -142,22 +142,7 @@ const App = () => {
     );
   }
 
-  const pinKey = `central_pin_unlocked:${session.user.id}`;
-  const isPinUnlocked = pinUnlockedUserId === session.user.id || sessionStorage.getItem(pinKey) === "true";
-
-  if (!isPinUnlocked) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <PinLock onUnlock={() => {
-            clearLegacyUnscopedCache();
-            sessionStorage.setItem(pinKey, "true");
-            setPinUnlockedUserId(session.user.id);
-          }} />
-        </TooltipProvider>
-      </QueryClientProvider>
-    );
-  }
+  void pinUnlockedUserId;
 
   return (
     <QueryClientProvider client={queryClient}>
