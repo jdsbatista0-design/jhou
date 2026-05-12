@@ -26,8 +26,14 @@ function loadFromStorage<T>(key: string, fallback: T): T {
 }
 
 function saveToStorage<T>(key: string, data: T) {
-  localStorage.setItem(key, JSON.stringify(data));
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
 }
+
+// Persistência adiada — nunca bloqueia o thread principal
+const ric: (cb: () => void) => number =
+  typeof (globalThis as any).requestIdleCallback === 'function'
+    ? (cb) => (globalThis as any).requestIdleCallback(cb, { timeout: 1500 })
+    : (cb) => window.setTimeout(cb, 200) as unknown as number;
 
 function normalizeSettings(value: unknown): Settings {
   const parsed = (value && typeof value === 'object' ? value : {}) as Partial<Settings>;
@@ -262,15 +268,10 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     }
   }, []);
 
-  const getUserId = useCallback(async (): Promise<string | null> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id ?? null;
-  }, []);
-
+  // userId vem da prop — evita auth.getUser() (latência de rede) em cada ação
+  const getUserId = useCallback(async (): Promise<string | null> => userId, [userId]);
 
   const refreshSettings = useCallback(async () => {
-    const userId = await getUserId();
-    if (!userId) return;
     const { data, error } = await (supabase as any)
       .from('app_settings')
       .select('value')
@@ -281,15 +282,15 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (!error && data?.value) {
       setSettings(normalizeSettings(data.value));
     }
-  }, [getUserId]);
+  }, [userId]);
 
-  useEffect(() => saveToStorage(`${cachePrefix}inbox`, inbox), [cachePrefix, inbox]);
-  useEffect(() => saveToStorage(`${cachePrefix}items`, items), [cachePrefix, items]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}inbox`, inbox)); }, [cachePrefix, inbox]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}items`, items)); }, [cachePrefix, items]);
   useEffect(() => {
-    saveToStorage(`${cachePrefix}memories`, memories.map(m => ({ ...m, login: undefined, password: undefined, url: undefined })));
+    ric(() => saveToStorage(`${cachePrefix}memories`, memories.map(m => ({ ...m, login: undefined, password: undefined, url: undefined }))));
   }, [cachePrefix, memories]);
-  useEffect(() => saveToStorage(`${cachePrefix}events`, events), [cachePrefix, events]);
-  useEffect(() => saveToStorage(`${cachePrefix}recurrences`, recurrences), [cachePrefix, recurrences]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}events`, events)); }, [cachePrefix, events]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}recurrences`, recurrences)); }, [cachePrefix, recurrences]);
 
   // Initial load + realtime (com debounce para evitar refetch em cascata)
   const debounceTimers = useRef<Record<string, number>>({});
@@ -385,7 +386,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   }, []);
 
   // Settings still localStorage (personal preferences)
-  useEffect(() => saveToStorage('central_settings', settings), [settings]);
+  useEffect(() => { ric(() => saveToStorage('central_settings', settings)); }, [settings]);
 
   const agendaEntries = useMemo<AgendaEntry[]>(() => {
     const fromItems: AgendaEntry[] = items

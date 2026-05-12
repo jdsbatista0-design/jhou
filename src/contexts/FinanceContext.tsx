@@ -128,13 +128,16 @@ function saveCache<T>(key: string, value: T) {
   }
 }
 
-async function getUserId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.id ?? null;
-}
+// Idle-deferred persistence — never blocks the main thread
+const ric: (cb: () => void) => number =
+  typeof (globalThis as any).requestIdleCallback === 'function'
+    ? (cb) => (globalThis as any).requestIdleCallback(cb, { timeout: 1500 })
+    : (cb) => window.setTimeout(cb, 200) as unknown as number;
 
 export function FinanceProvider({ children, userId }: { children: React.ReactNode; userId: string }) {
   const cachePrefix = `fin:${userId}:`;
+  // userId vem da prop — não chamamos auth.getUser() em cada ação
+  const getUserId = useCallback(async (): Promise<string | null> => userId, [userId]);
   const [loading, setLoading] = useState(false);
   const [companies, setCompanies] = useState<FinCompany[]>(() => loadCache(`${cachePrefix}companies`, []));
   const [accounts, setAccounts] = useState<FinAccount[]>(() => loadCache(`${cachePrefix}accounts`, []));
@@ -190,13 +193,13 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     if (data) setTransactions(data.map(rowTransaction));
   }, []);
 
-  useEffect(() => saveCache(`${cachePrefix}companies`, companies), [cachePrefix, companies]);
-  useEffect(() => saveCache(`${cachePrefix}accounts`, accounts), [cachePrefix, accounts]);
-  useEffect(() => saveCache(`${cachePrefix}cards`, cards), [cachePrefix, cards]);
-  useEffect(() => saveCache(`${cachePrefix}categories`, categories), [cachePrefix, categories]);
-  useEffect(() => saveCache(`${cachePrefix}people`, people), [cachePrefix, people]);
-  useEffect(() => saveCache(`${cachePrefix}recurrences`, recurrences), [cachePrefix, recurrences]);
-  useEffect(() => saveCache(`${cachePrefix}transactions`, transactions), [cachePrefix, transactions]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}companies`, companies)); }, [cachePrefix, companies]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}accounts`, accounts)); }, [cachePrefix, accounts]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}cards`, cards)); }, [cachePrefix, cards]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}categories`, categories)); }, [cachePrefix, categories]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}people`, people)); }, [cachePrefix, people]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}recurrences`, recurrences)); }, [cachePrefix, recurrences]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}transactions`, transactions)); }, [cachePrefix, transactions]);
 
   // Debounce helper — agrupa eventos realtime em rajadas
   const debouncedRef = React.useRef<Record<string, number>>({});
@@ -307,17 +310,18 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    // Mostra dados o quanto antes; recorrências e seed rodam em background
+    // Mostra dados o quanto antes; recorrências e seed rodam em background bem depois do boot
     initialLoad();
-    // Background: não bloqueia UI
-    (async () => {
-      await seedDefaultCategoriesIfNeeded();
-      await generatePendingRecurrences();
-      // Após gerar recorrências, refresca apenas as tabelas afetadas
-      refreshTransactions();
-      refreshRecurrences();
-      refreshCategories();
-    })();
+    // Background: adiado para não competir com Central + render inicial
+    const bgTimer = window.setTimeout(() => {
+      (async () => {
+        await seedDefaultCategoriesIfNeeded();
+        await generatePendingRecurrences();
+        refreshTransactions();
+        refreshRecurrences();
+        refreshCategories();
+      })();
+    }, 4000);
 
     // Realtime granular + debounced
     const ch = supabase
@@ -338,7 +342,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
         () => debouncedRefresh('transactions', refreshTransactions))
       .subscribe();
 
-    return () => { supabase.removeChannel(ch); };
+    return () => { window.clearTimeout(bgTimer); supabase.removeChannel(ch); };
   }, [initialLoad, seedDefaultCategoriesIfNeeded, generatePendingRecurrences,
       refreshCompanies, refreshAccounts, refreshCards, refreshCategories,
       refreshPeople, refreshRecurrences, refreshTransactions, debouncedRefresh]);
