@@ -193,13 +193,13 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     if (data) setTransactions(data.map(rowTransaction));
   }, []);
 
-  useEffect(() => saveCache(`${cachePrefix}companies`, companies), [cachePrefix, companies]);
-  useEffect(() => saveCache(`${cachePrefix}accounts`, accounts), [cachePrefix, accounts]);
-  useEffect(() => saveCache(`${cachePrefix}cards`, cards), [cachePrefix, cards]);
-  useEffect(() => saveCache(`${cachePrefix}categories`, categories), [cachePrefix, categories]);
-  useEffect(() => saveCache(`${cachePrefix}people`, people), [cachePrefix, people]);
-  useEffect(() => saveCache(`${cachePrefix}recurrences`, recurrences), [cachePrefix, recurrences]);
-  useEffect(() => saveCache(`${cachePrefix}transactions`, transactions), [cachePrefix, transactions]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}companies`, companies)); }, [cachePrefix, companies]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}accounts`, accounts)); }, [cachePrefix, accounts]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}cards`, cards)); }, [cachePrefix, cards]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}categories`, categories)); }, [cachePrefix, categories]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}people`, people)); }, [cachePrefix, people]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}recurrences`, recurrences)); }, [cachePrefix, recurrences]);
+  useEffect(() => { ric(() => saveCache(`${cachePrefix}transactions`, transactions)); }, [cachePrefix, transactions]);
 
   // Debounce helper — agrupa eventos realtime em rajadas
   const debouncedRef = React.useRef<Record<string, number>>({});
