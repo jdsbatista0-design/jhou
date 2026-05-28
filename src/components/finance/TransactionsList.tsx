@@ -357,7 +357,19 @@ export function TransactionsList({ scope, companyId }: Props) {
       {renderGroup('Esta semana', groups.semana, 'warning')}
       {renderGroup('Ainda este mês', groups.mes)}
       {renderGroup('Próximas', groups.proximas, 'muted')}
-      {renderGroup(filter === 'pagas' ? 'Histórico' : 'Já pagas / recebidas', groups.passadas, 'muted')}
+      {renderGroup(
+        filter === 'pagas' ? 'Histórico' : 'Já pagas / recebidas',
+        showAllPast ? groups.passadas : groups.passadas.slice(0, PAST_LIMIT),
+        'muted',
+      )}
+      {!showAllPast && groups.passadas.length > PAST_LIMIT && (
+        <button
+          onClick={() => setShowAllPast(true)}
+          className="w-full h-9 rounded-xl border border-border bg-card text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Ver mais {groups.passadas.length - PAST_LIMIT} lançamentos
+        </button>
+      )}
 
       <TransactionDialog
         open={!!editing}
