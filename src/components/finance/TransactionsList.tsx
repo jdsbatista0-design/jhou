@@ -34,16 +34,26 @@ const endOfWeekYMD = () => {
   return end.toISOString().slice(0, 10);
 };
 
+const PAST_LIMIT = 80;
+
 export function TransactionsList({ scope, companyId }: Props) {
   const { transactions, accounts, cards, categories, people, companies, deleteTransaction, updateTransaction } = useFinance();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<QuickFilter>('todo_mes');
   const [editing, setEditing] = useState<FinTransaction | null>(null);
+  const [showAllPast, setShowAllPast] = useState(false);
 
   const today = todayYMD();
   const monthStart = startOfMonthYMD();
   const monthEnd = endOfMonthYMD();
   const weekEnd = endOfWeekYMD();
+
+  // Lookup maps O(1) — evita find() por linha (era O(n*m) em listas grandes)
+  const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
+  const cardMap = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
+  const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
+  const personMap = useMemo(() => new Map(people.map(p => [p.id, p])), [people]);
+  const companyMap = useMemo(() => new Map(companies.map(c => [c.id, c])), [companies]);
 
   // Scope-filtered base
   const baseScoped = useMemo(() => transactions
@@ -153,11 +163,11 @@ export function TransactionsList({ scope, companyId }: Props) {
   const renderRow = (t: FinTransaction, isOverdue = false) => {
     const incoming = INCOMING_KINDS.has(t.kind);
     const transfer = TRANSFER_KINDS.has(t.kind);
-    const cat = t.categoryId ? categories.find(c => c.id === t.categoryId) : null;
-    const acc = t.accountId ? accounts.find(a => a.id === t.accountId) : null;
-    const card = t.cardId ? cards.find(c => c.id === t.cardId) : null;
-    const person = t.personId ? people.find(p => p.id === t.personId) : null;
-    const company = t.companyId ? companies.find(c => c.id === t.companyId) : null;
+    const cat = t.categoryId ? categoryMap.get(t.categoryId) : null;
+    const acc = t.accountId ? accountMap.get(t.accountId) : null;
+    const card = t.cardId ? cardMap.get(t.cardId) : null;
+    const person = t.personId ? personMap.get(t.personId) : null;
+    const company = t.companyId ? companyMap.get(t.companyId) : null;
     const Icon = transfer ? ArrowLeftRight : incoming ? ArrowDown : ArrowUp;
     const color = transfer ? '#64748b' : incoming ? '#10b981' : '#ef4444';
     const sign = transfer ? '' : incoming ? '+' : '−';
@@ -347,7 +357,19 @@ export function TransactionsList({ scope, companyId }: Props) {
       {renderGroup('Esta semana', groups.semana, 'warning')}
       {renderGroup('Ainda este mês', groups.mes)}
       {renderGroup('Próximas', groups.proximas, 'muted')}
-      {renderGroup(filter === 'pagas' ? 'Histórico' : 'Já pagas / recebidas', groups.passadas, 'muted')}
+      {renderGroup(
+        filter === 'pagas' ? 'Histórico' : 'Já pagas / recebidas',
+        showAllPast ? groups.passadas : groups.passadas.slice(0, PAST_LIMIT),
+        'muted',
+      )}
+      {!showAllPast && groups.passadas.length > PAST_LIMIT && (
+        <button
+          onClick={() => setShowAllPast(true)}
+          className="w-full h-9 rounded-xl border border-border bg-card text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Ver mais {groups.passadas.length - PAST_LIMIT} lançamentos
+        </button>
+      )}
 
       <TransactionDialog
         open={!!editing}
