@@ -163,11 +163,11 @@ export function TransactionsList({ scope, companyId }: Props) {
   const renderRow = (t: FinTransaction, isOverdue = false) => {
     const incoming = INCOMING_KINDS.has(t.kind);
     const transfer = TRANSFER_KINDS.has(t.kind);
-    const cat = t.categoryId ? categories.find(c => c.id === t.categoryId) : null;
-    const acc = t.accountId ? accounts.find(a => a.id === t.accountId) : null;
-    const card = t.cardId ? cards.find(c => c.id === t.cardId) : null;
-    const person = t.personId ? people.find(p => p.id === t.personId) : null;
-    const company = t.companyId ? companies.find(c => c.id === t.companyId) : null;
+    const cat = t.categoryId ? categoryMap.get(t.categoryId) : null;
+    const acc = t.accountId ? accountMap.get(t.accountId) : null;
+    const card = t.cardId ? cardMap.get(t.cardId) : null;
+    const person = t.personId ? personMap.get(t.personId) : null;
+    const company = t.companyId ? companyMap.get(t.companyId) : null;
     const Icon = transfer ? ArrowLeftRight : incoming ? ArrowDown : ArrowUp;
     const color = transfer ? '#64748b' : incoming ? '#10b981' : '#ef4444';
     const sign = transfer ? '' : incoming ? '+' : '−';
