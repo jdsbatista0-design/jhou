@@ -1,19 +1,24 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { Building2, User, Plus, Wallet, CreditCard, ListChecks, Users, TrendingUp, Receipt, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { formatBRL, FinScope, TX_KIND_LABELS } from '@/types/finance';
-import { CompaniesManager } from '@/components/finance/CompaniesManager';
-import { AccountsManager } from '@/components/finance/AccountsManager';
-import { CardsManager } from '@/components/finance/CardsManager';
-import { TransactionsList } from '@/components/finance/TransactionsList';
-import { TransactionDialog } from '@/components/finance/TransactionDialog';
-import { CategoriesManager } from '@/components/finance/CategoriesManager';
-import { PeopleManager } from '@/components/finance/PeopleManager';
-import { FinanceOverview } from '@/components/finance/FinanceOverview';
+
+// Lazy-load every section — só baixa o JS quando o usuário abre a aba
+const TransactionsList = lazy(() => import('@/components/finance/TransactionsList').then(m => ({ default: m.TransactionsList })));
+const FinanceOverview = lazy(() => import('@/components/finance/FinanceOverview').then(m => ({ default: m.FinanceOverview })));
+const AccountsManager = lazy(() => import('@/components/finance/AccountsManager').then(m => ({ default: m.AccountsManager })));
+const CardsManager = lazy(() => import('@/components/finance/CardsManager').then(m => ({ default: m.CardsManager })));
+const CategoriesManager = lazy(() => import('@/components/finance/CategoriesManager').then(m => ({ default: m.CategoriesManager })));
+const PeopleManager = lazy(() => import('@/components/finance/PeopleManager').then(m => ({ default: m.PeopleManager })));
+const CompaniesManager = lazy(() => import('@/components/finance/CompaniesManager').then(m => ({ default: m.CompaniesManager })));
+const TransactionDialog = lazy(() => import('@/components/finance/TransactionDialog').then(m => ({ default: m.TransactionDialog })));
 
 type Section = 'overview' | 'transactions' | 'accounts' | 'cards' | 'categories' | 'people' | 'companies';
+
+const SectionFallback = () => (
+  <div className="text-[11px] text-muted-foreground animate-pulse pt-3">Carregando…</div>
+);
 
 function FinanceInner() {
   const { scope, setScope, companies, selectedCompanyId, setSelectedCompanyId, loading } = useFinance();
@@ -21,9 +26,8 @@ function FinanceInner() {
   const [txOpen, setTxOpen] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
 
-  const activeCompanies = companies.filter(c => !c.archived);
+  const activeCompanies = useMemo(() => companies.filter(c => !c.archived), [companies]);
 
-  // Auto-pick first company when entering PJ for the first time
   const effectiveCompanyId = useMemo(() => {
     if (scope !== 'pj') return null;
     if (selectedCompanyId === 'all') return 'all';
@@ -31,13 +35,11 @@ function FinanceInner() {
     return activeCompanies[0]?.id || null;
   }, [scope, selectedCompanyId, activeCompanies]);
 
-  // Main sections (always visible)
   const mainSections: { id: Section; label: string; icon: any }[] = [
     { id: 'transactions', label: 'Movimentações', icon: ListChecks },
     { id: 'overview', label: 'Resumo', icon: TrendingUp },
   ];
 
-  // Config sections (under "⚙ Configurações" expandable)
   const configSections: { id: Section; label: string; icon: any }[] = [
     { id: 'accounts', label: 'Contas', icon: Wallet },
     { id: 'cards', label: 'Cartões', icon: CreditCard },
@@ -191,7 +193,6 @@ function FinanceInner() {
         </div>
       )}
 
-      {/* Quick add button (transactions) */}
       {(scope === 'pf' || (scope === 'pj' && activeCompanies.length > 0)) && (
         <Button
           onClick={() => setTxOpen(true)}
@@ -201,23 +202,30 @@ function FinanceInner() {
         </Button>
       )}
 
-      {/* Body */}
+      {/* Body — só monta a seção ativa */}
       <div className="pt-1">
-        {section === 'overview' && <FinanceOverview scope={scope} companyId={effectiveCompanyId} />}
-        {section === 'transactions' && <TransactionsList scope={scope} companyId={effectiveCompanyId} />}
-        {section === 'accounts' && <AccountsManager scope={scope} companyId={effectiveCompanyId} />}
-        {section === 'cards' && <CardsManager scope={scope} companyId={effectiveCompanyId} />}
-        {section === 'categories' && <CategoriesManager scope={scope} />}
-        {section === 'people' && scope === 'pj' && <PeopleManager companyId={effectiveCompanyId} />}
-        {section === 'companies' && scope === 'pj' && <CompaniesManager />}
+        <Suspense fallback={<SectionFallback />}>
+          {section === 'overview' && <FinanceOverview scope={scope} companyId={effectiveCompanyId} />}
+          {section === 'transactions' && <TransactionsList scope={scope} companyId={effectiveCompanyId} />}
+          {section === 'accounts' && <AccountsManager scope={scope} companyId={effectiveCompanyId} />}
+          {section === 'cards' && <CardsManager scope={scope} companyId={effectiveCompanyId} />}
+          {section === 'categories' && <CategoriesManager scope={scope} />}
+          {section === 'people' && scope === 'pj' && <PeopleManager companyId={effectiveCompanyId} />}
+          {section === 'companies' && scope === 'pj' && <CompaniesManager />}
+        </Suspense>
       </div>
 
-      <TransactionDialog
-        open={txOpen}
-        onClose={() => setTxOpen(false)}
-        scope={scope}
-        companyId={effectiveCompanyId === 'all' ? null : effectiveCompanyId}
-      />
+      {/* Dialog também só carrega quando abrir */}
+      {txOpen && (
+        <Suspense fallback={null}>
+          <TransactionDialog
+            open={txOpen}
+            onClose={() => setTxOpen(false)}
+            scope={scope}
+            companyId={effectiveCompanyId === 'all' ? null : effectiveCompanyId}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
