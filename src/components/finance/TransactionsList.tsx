@@ -34,16 +34,26 @@ const endOfWeekYMD = () => {
   return end.toISOString().slice(0, 10);
 };
 
+const PAST_LIMIT = 80;
+
 export function TransactionsList({ scope, companyId }: Props) {
   const { transactions, accounts, cards, categories, people, companies, deleteTransaction, updateTransaction } = useFinance();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<QuickFilter>('todo_mes');
   const [editing, setEditing] = useState<FinTransaction | null>(null);
+  const [showAllPast, setShowAllPast] = useState(false);
 
   const today = todayYMD();
   const monthStart = startOfMonthYMD();
   const monthEnd = endOfMonthYMD();
   const weekEnd = endOfWeekYMD();
+
+  // Lookup maps O(1) — evita find() por linha (era O(n*m) em listas grandes)
+  const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
+  const cardMap = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
+  const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
+  const personMap = useMemo(() => new Map(people.map(p => [p.id, p])), [people]);
+  const companyMap = useMemo(() => new Map(companies.map(c => [c.id, c])), [companies]);
 
   // Scope-filtered base
   const baseScoped = useMemo(() => transactions
