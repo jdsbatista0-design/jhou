@@ -1,117 +1,117 @@
-# Compromissos recorrentes + lembretes push no celular
 
-Hoje a Agenda só aceita compromisso único e o sistema não envia nenhum tipo de notificação. Vou adicionar duas coisas:
+# Refactor visual + UX do Central — Camada A
 
-1. **Recorrência**: você cria "Pilates - seg/qua às 7h" uma vez e o sistema materializa as próximas ocorrências como Items na agenda (cada uma marcável como feita/faltei).
-2. **Push real no celular**: instalando o Central na tela inicial, você passa a receber notificação mesmo com o app fechado, X minutos antes de cada compromisso (configurável por compromisso).
+Foco: redesenhar a interface, navegação e captura conforme o prompt enviado, **sem alterar o schema do banco** nem remover funcionalidades existentes (Finanças PF/PJ, Memory, tags, Agenda derivada, AI inbox via Gemini, Google Calendar, recorrências).
+
+## Decisões confirmadas
+- Escopo: **só Camada A** (visual + navegação + captura). Backend permanece intacto.
+- 4 abas no bottom nav: **Hoje, Inbox, Agenda, Financeiro** (sem aba "Projetos").
+- QuickCapture mantém pipeline atual com **Gemini (`interpret-content`)** + UX nova (bottom sheet Vaul, mic, chips, undo).
+- Memory/Painel/Relatórios/Configurações continuam acessíveis (via menu de perfil no header), só saem do bottom nav.
+
+## Etapas
+
+### Etapa 1 — Design system OLED
+- Atualizar `src/index.css` com tokens HSL semânticos:
+  - `--background` (#0B0F14), `--surface` (#141A22), `--surface-2` (#1C2530)
+  - `--foreground` (#E8EEF5), `--muted-foreground` (#8A97A8)
+  - `--primary` (#3B82F6), `--success` (#10B981), `--warning` (#F59E0B), `--destructive` (#EF4444)
+  - Tokens de business unit: `--bu-badin` (gold), `--bu-bj7-midia` (blue), `--bu-izi` (green), `--bu-bj7-consultoria` (purple) — só para chips.
+- Atualizar `tailwind.config.ts` com as novas cores, radius (12 cards, 8 chips), font families.
+- Importar **Inter** (UI) e **JetBrains Mono** (valores/datas/IDs) via `<link>` no `index.html`.
+- Substituir `box-shadow` por `border: 1px solid hsl(var(--surface-2))` nos cards.
+- Garantir `prefers-reduced-motion` no `index.css`.
+- Forçar dark como padrão (já é o caso); deixar plumbing para toggle futuro.
+
+### Etapa 2 — AppShell + Navegação
+- Criar `src/components/AppShell.tsx`: header sticky 56px (saudação + data + avatar/menu de perfil), conteúdo com `px-4 pb-24`, slot para bottom nav e FAB.
+- Refatorar `src/components/BottomNav.tsx` para 4 abas: **Hoje (`/`), Inbox (`/inbox`), Agenda (`/agenda`), Financeiro (`/financas`)**. Altura 64px, ícones Lucide, label curto, ativo em `--primary`, alvo ≥44px.
+- Avatar no header abre um dropdown com: Painel, Memória, Relatórios, Configurações, Logout (mantém acesso ao que sai do nav).
+- Refatorar `src/App.tsx` para envolver as rotas com `<AppShell>`. Manter todas as rotas existentes funcionais.
+
+### Etapa 3 — FAB + QuickCapture (Vaul bottom sheet)
+- Instalar `vaul` (drawer mobile-first).
+- Criar `src/components/CaptureFAB.tsx`: botão circular 56px, canto inferior direito, margem 16px, acima do bottom nav (z-index correto).
+- Reescrever `src/components/QuickInput.tsx` como `<QuickCapture>` dentro de um `<Drawer>` Vaul (snap points 50% e 90%):
+  - Textarea autofocus com placeholder "O que precisa ser feito ou pago?"
+  - Botão de microfone (Web Speech API, fallback silencioso)
+  - Heurística local enquanto digita: detecta `R$`/valores → sugere "lançamento financeiro"; "lembrar/avisar" → "lembrete"; senão "tarefa". Detecta datas PT-BR com `date-fns` + parser simples.
+  - Chips abaixo para refinar tipo/área/prazo (multi-tap troca)
+  - Botão "Salvar" full-width 48px no rodapé; Enter também salva
+  - **No salvar**: continua chamando a edge function `interpret-content` (Gemini) com o texto + chips como hints, igual hoje
+  - Toast Sonner com undo de 5s após salvar
+- Remover o input fixo atual em favor do FAB.
+
+### Etapa 4 — Tela Hoje (redesign)
+- Refatorar `src/pages/Dashboard.tsx` (ou criar `HojePage`) como rota `/`:
+  - **Banner alerta** no topo se houver items urgentes vencendo hoje (cor: vencido `--destructive`, hoje `--warning`, importante `--primary`).
+  - **Bloco Matriz Eisenhower** (2x2): Urgente+Importante, Importante, Urgente, Backlog. Até 3 items por quadrante + "ver +N". Mapeia para `priority` existente em `items`.
+  - **Bloco "Vence em 7 dias"**: cards de `fin_transactions` com `kind='expense'` e `status!='paid'` nos próximos 7 dias.
+  - Swipe-right marca feito/pago, swipe-left edita/remarca (`react-swipeable`).
+  - Empty states com CTA apontando para o FAB.
+
+### Etapa 5 — Tela Inbox (polimento)
+- Refatorar `src/pages/InboxPage.tsx`:
+  - Lista cronológica reversa de items sem `deadline` OU sem `area` clara.
+  - Filtro fixo no topo: [Todos] [Tarefas] [Compromissos] [Lembretes] (mapeia para `tipo`).
+  - Ação rápida "Triar" abre bottom sheet curto com chips (urgente, área, data).
+
+### Etapa 6 — Tela Financeiro (polimento, **sem mexer no schema**)
+- Refatorar `src/pages/FinancePage.tsx`:
+  - Segmented control: [Vence em breve] [Pagas] [Calendário] **como visão principal**, mantendo as abas atuais (Contas, Cartões, Categorias, Pessoas, Empresas, Novo lançamento) em um menu "Gerenciar".
+  - "Vence em breve": 3 totalizadores (semana, próxima, resto do mês) usando `fin_transactions` `kind='expense'` não pagas.
+  - Cards com vendor (description), chip de BU (mapeado de `scope`/`company_id`), valor em **JetBrains Mono**, dias para vencer com cor por urgência.
+  - Swipe-right = `status='paid'`, swipe-left = remarcar (date picker).
+  - "Pagas": últimas 30 com `status='paid'`.
+  - "Calendário": grid mensal com pontos coloridos por dia com vencimento.
+
+### Etapa 7 — Agenda (polimento leve)
+- Manter `src/pages/AgendaPage.tsx` derivada de items, só aplicar novos tokens visuais, swipe e empty state.
+
+### Etapa 8 — Qualidade & PWA
+- Adicionar skeleton loaders em todas as queries (substituir spinners).
+- Garantir empty state com CTA em toda lista vazia.
+- Verificar contraste 4.5:1, foco visível keyboard, alvo tátil ≥44px.
+- Adicionar `public/manifest.json` simples (sem service worker) para "Adicionar à tela inicial". **Não** adicionar `vite-plugin-pwa` (causa problemas no preview Lovable, conforme guidelines).
+- Sweep final removendo emojis usados como ícone (substituir por Lucide).
+
+## Detalhes técnicos
+
+```text
+src/
+  components/
+    AppShell.tsx           (novo: header + outlet + bottom nav + FAB)
+    BottomNav.tsx          (refatorado: 4 abas)
+    CaptureFAB.tsx         (novo)
+    QuickCapture.tsx       (novo, substitui QuickInput)
+    ProfileMenu.tsx        (novo: dropdown do avatar)
+  pages/
+    Dashboard.tsx          (refatorado: Matriz + 7 dias)
+    InboxPage.tsx          (refatorado: filtros + triar)
+    FinancePage.tsx        (refatorado: segmented control + swipe)
+    AgendaPage.tsx         (polimento visual)
+  index.css                (novos tokens HSL)
+tailwind.config.ts         (novas cores/fonts/radius)
+index.html                 (fonts + manifest link)
+public/manifest.json       (novo)
+```
+
+Dependências novas: `vaul`, `react-swipeable` (se ainda não estiver). `sonner` já existe.
+
+## Riscos & mitigações
+- **Risco**: trocar tokens de cor pode quebrar componentes shadcn existentes. **Mitigação**: manter todos os nomes semânticos shadcn (`background`, `foreground`, `primary`, etc.) e só ajustar os valores HSL — nenhuma classe `bg-foo-500` direta vai precisar mudar.
+- **Risco**: swipe em mobile conflitar com scroll. **Mitigação**: usar `react-swipeable` com `delta` mínimo e threshold horizontal.
+- **Risco**: Vaul + bottom nav fixo competirem por gestos. **Mitigação**: drawer cobre tela inteira quando aberto, sem conflito.
+
+## Fora desta rodada (Camada B, exige decisão de produto)
+- Entidade "Projetos" agrupando items + transações.
+- Substituir `fin_transactions` por `bills`.
+- Remover Memory/HD ou tags controladas.
+- Edge function `send_reminders` + Web Push + VAPID (deixar para fase seguinte; o prompt original menciona, mas é Etapa B no seu próprio roadmap de memória).
+
+## Sobre commits semânticos
+O Lovable já versiona automaticamente após cada batch de mudanças. Não tenho acesso ao `git` para fazer commits manuais — você verá o histórico no painel do projeto. Se quiser eu agrupo as etapas em mensagens claras de chat para servir como changelog.
 
 ---
 
-## 1. Recorrência de compromissos
-
-### Banco
-Nova tabela `recurrences`:
-- `id, user_id`
-- `title, area, type` (Pilates, Reunião, etc.)
-- `time` (HH:mm)
-- `weekdays` (jsonb: `[1,3]` = seg/qua, padrão ISO 1-7)
-- `start_date`, `end_date` (opcional)
-- `reminder_minutes` (int, ex: 30) — antecedência padrão dessa recorrência
-- `last_materialized_until` (date) — até onde já gerou ocorrências
-- `active` (bool)
-
-Itens gerados ganham 2 colunas novas em `items`:
-- `recurrence_id` (uuid, nullable) — link para a regra-mãe
-- `reminder_minutes` (int, nullable) — override por ocorrência
-- `reminder_sent_at` (timestamptz) — para o worker não disparar duas vezes
-
-### Materialização
-- Ao criar/editar uma recorrência: gera ocorrências dos próximos **60 dias** como Items (`tipo: 'Compromisso'`, `fase: 'Em andamento'`, `deadline`, `deadlineTime`).
-- Cron diário (pg_cron + pg_net) chama edge function `materialize-recurrences` que estende a janela para sempre manter 60 dias à frente.
-- Editar a regra → regenera só as ocorrências futuras ainda não concluídas.
-- Cada ocorrência pode ser concluída, remarcada ou apagada individualmente sem afetar a regra.
-
-### UI
-- Em **Agenda** > botão "Novo Compromisso" ganha aba **"Repete"** com:
-  - Toggle "Repetir"
-  - Chips de dias da semana (S T Q Q S S D)
-  - Hora
-  - Duração da regra (data fim opcional)
-  - Antecedência do lembrete (10/30/60/1440 min)
-- Nova seção **Configurações > Recorrências**: lista, editar, pausar, apagar.
-- Cada Item gerado mostra um chip "🔁 Pilates" linkando para a regra.
-
----
-
-## 2. Notificações push (PWA)
-
-### Stack
-- `vite-plugin-pwa` com `manifest.json` (nome "Central", ícone, `display: standalone`, `theme_color`).
-- Service worker próprio (`public/sw.js`) registrado **só fora de iframe e fora de host de preview Lovable** (proteção obrigatória — preview do editor não receberá push, só o app publicado/instalado).
-- Web Push API com VAPID keys.
-
-### Banco
-Tabela `push_subscriptions`:
-- `id, user_id, endpoint (unique), p256dh, auth, user_agent, created_at`
-
-### Edge functions
-- `push-subscribe` — salva a subscription do navegador.
-- `push-send` — recebe `{ title, body, url }` e dispara via Web Push (lib `web-push` no Deno).
-- `dispatch-reminders` — roda a cada **1 minuto** via pg_cron:
-  - busca Items com `deadline+deadlineTime` entre `now + reminder_minutes - 1min` e `now + reminder_minutes`,
-  - que tenham `reminder_minutes IS NOT NULL` e `reminder_sent_at IS NULL`,
-  - dispara push para todas as subscriptions do `user_id`,
-  - marca `reminder_sent_at = now()`.
-
-### Secrets necessários
-- `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` — vou gerar no setup e te pedir para adicionar (uma vez só).
-- `VAPID_SUBJECT` — seu email (`mailto:`).
-
-### UI
-- Em **Configurações** > nova seção **"Notificações"**:
-  - Status: "Push ativo neste dispositivo" / "Ativar push".
-  - Botão "Ativar" → pede permissão → registra subscription.
-  - Botão "Testar lembrete" (dispara push em 10s).
-  - Aviso claro: "Para funcionar com app fechado: instale o Central na tela inicial (Compartilhar → Adicionar à Tela de Início no iPhone, ou menu do navegador no Android). Requer iOS 16.4+ no iPhone."
-- Banner discreto no Início se push não estiver ativo e tiver compromissos próximos.
-
-### Limitações que eu vou comunicar na UI
-- Push não funciona dentro do preview do editor Lovable — só no app publicado e instalado.
-- iPhone exige iOS 16.4+ E o app instalado via "Adicionar à Tela de Início" (Apple não permite push em Safari normal).
-- Se o celular estiver desligado/sem rede, push chega quando voltar online.
-
----
-
-## Arquivos afetados
-
-**Novos**
-- `supabase/migrations/...` (recurrences, push_subscriptions, colunas novas em items, cron jobs)
-- `supabase/functions/materialize-recurrences/index.ts`
-- `supabase/functions/push-subscribe/index.ts`
-- `supabase/functions/push-send/index.ts`
-- `supabase/functions/dispatch-reminders/index.ts`
-- `public/sw.js`, `public/manifest.json`, ícones
-- `src/lib/push.ts` (registro/permissão/guard de iframe e preview)
-- `src/components/RecurrenceForm.tsx`
-- `src/pages/NotificationsSettings.tsx` (ou seção dentro de SettingsPage)
-
-**Editados**
-- `src/types/central.ts` — tipos `Recurrence`, novos campos em `Item`.
-- `src/contexts/CentralContext.tsx` — CRUD de recurrences, leitura.
-- `src/pages/AgendaPage.tsx` — formulário com toggle "Repete".
-- `src/pages/SettingsPage.tsx` — seções Recorrências e Notificações.
-- `src/components/ItemCard.tsx` — chip "🔁" e antecedência do lembrete.
-- `vite.config.ts` — `vite-plugin-pwa` com `devOptions.enabled: false` e denylist do `/~oauth`.
-- `package.json` — `vite-plugin-pwa`.
-
----
-
-## Ordem de execução
-1. Migration (recurrences + push_subscriptions + colunas em items + cron diário materialização).
-2. Edge function `materialize-recurrences` + UI de criar/listar recorrência na Agenda e Settings.
-3. PWA (manifest, ícones, vite-plugin-pwa, guard anti-iframe).
-4. Geração das VAPID keys + pedido para você colar como secrets.
-5. Edge functions `push-subscribe` / `push-send` / `dispatch-reminders` + cron de 1 minuto.
-6. Tela de Notificações em Settings com botão Ativar e Testar.
-
-Confirma que posso seguir assim?
+**Sobre "isso melhora seu sistema?"**: sim, a Camada A melhora muito — identidade visual, captura mais rápida, foco operacional na Hoje, navegação mais limpa. A Camada B do prompt eu **não recomendo** porque jogaria fora o módulo Finanças PF/PJ, a Memory e o pipeline de AI que você já tem funcionando.
