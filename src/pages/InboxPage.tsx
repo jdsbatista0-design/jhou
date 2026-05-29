@@ -1,9 +1,9 @@
 import { useCentral } from '@/contexts/CentralContext';
-import QuickInput from '@/components/QuickInput';
 import InboxEntryCard from '@/components/InboxEntryCard';
 import ItemCard from '@/components/ItemCard';
 import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { Inbox as InboxIcon } from 'lucide-react';
 
 type Filter = 'pending' | 'all';
 
@@ -24,10 +24,9 @@ export default function InboxPage() {
   return (
     <div className="space-y-4 pb-4">
       <div className="flex items-end justify-between">
-        <h1 className="text-xl font-bold text-foreground">Inbox</h1>
-        <span className="text-xs text-muted-foreground">{total} a triar</span>
+        <h1 className="text-2xl font-bold text-foreground">Inbox</h1>
+        <span className="text-xs text-muted-foreground" data-mono>{total} a triar</span>
       </div>
-      <QuickInput />
 
       <div className="flex gap-2">
         {(['pending', 'all'] as const).map(f => (
@@ -35,8 +34,10 @@ export default function InboxPage() {
             key={f}
             onClick={() => setFilter(f)}
             className={cn(
-              'text-xs px-3 py-1.5 rounded-full transition-colors',
-              filter === f ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              'tap-target text-xs px-3 rounded-chip border transition-colors cursor-pointer',
+              filter === f
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-surface text-muted-foreground border-surface-2 hover:text-foreground'
             )}
           >
             {f === 'pending' ? 'Pendentes' : 'Todas as capturas'}
@@ -66,9 +67,12 @@ export default function InboxPage() {
 
       {total === 0 && (
         <div className="text-center py-12">
-          <p className="text-3xl mb-2">📭</p>
-          <p className="text-sm text-muted-foreground">
-            {filter === 'pending' ? 'Nada para triar. Tudo limpo!' : 'Inbox vazio.'}
+          <InboxIcon className="h-10 w-10 mx-auto text-muted-foreground/60 mb-3" aria-hidden />
+          <p className="text-sm font-medium text-foreground">
+            {filter === 'pending' ? 'Nada para triar' : 'Inbox vazio'}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Toque no <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold align-middle">+</span> para capturar.
           </p>
         </div>
       )}
