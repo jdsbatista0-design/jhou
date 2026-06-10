@@ -211,7 +211,9 @@ function FinanceInner() {
       {/* Body — só monta a seção ativa */}
       <div className="pt-1">
         <Suspense fallback={<SectionFallback />}>
+          {section === 'bills' && <BillsToPay scope={scope} companyId={effectiveCompanyId} />}
           {section === 'overview' && <FinanceOverview scope={scope} companyId={effectiveCompanyId} />}
+
           {section === 'transactions' && <TransactionsList scope={scope} companyId={effectiveCompanyId} />}
           {section === 'accounts' && <AccountsManager scope={scope} companyId={effectiveCompanyId} />}
           {section === 'cards' && <CardsManager scope={scope} companyId={effectiveCompanyId} />}
