@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Trash2, Check, Repeat, Bell } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Trash2, Check, Repeat, Bell, CalendarDays, List } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { format, isToday, isTomorrow, isThisWeek } from 'date-fns';
+import { format, isSameDay, isToday, isTomorrow, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import AgendaCalendar from '@/components/agenda/AgendaCalendar';
 import { parseLocalDateTime } from '@/lib/dates';
 import { REMINDER_OPTIONS, WEEKDAY_LABELS, Weekday } from '@/types/central';
 
