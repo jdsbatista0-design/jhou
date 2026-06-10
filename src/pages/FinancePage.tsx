@@ -79,7 +79,7 @@ function FinanceInner() {
           Pessoa Física
         </button>
         <button
-          onClick={() => { setScope('pj'); setSection('overview'); }}
+          onClick={() => { setScope('pj'); setSection('bills'); }}
           className={cn(
             'flex-1 h-12 rounded-2xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all',
             scope === 'pj'
