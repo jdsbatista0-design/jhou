@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Trash2, Check, Repeat, Bell } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Trash2, Check, Repeat, Bell, CalendarDays, List } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { format, isToday, isTomorrow, isThisWeek } from 'date-fns';
+import { format, isSameDay, isToday, isTomorrow, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import AgendaCalendar from '@/components/agenda/AgendaCalendar';
 import { parseLocalDateTime } from '@/lib/dates';
 import { REMINDER_OPTIONS, WEEKDAY_LABELS, Weekday } from '@/types/central';
 
@@ -20,6 +21,8 @@ export default function AgendaPage() {
   const { agendaEntries, addItem, addRecurrence, updateItem, deleteEvent, settings } = useCentral();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<'calendar' | 'list'>('calendar');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [form, setForm] = useState({
     title: '',
     date: '',
@@ -264,20 +267,63 @@ export default function AgendaPage() {
         </Dialog>
       </div>
 
-      <p className="text-[11px] text-muted-foreground">
-        Items com data aparecem aqui automaticamente. Compromissos recorrentes geram ocorrências dos próximos 60 dias.
-      </p>
+      <div className="flex gap-1 bg-surface rounded-chip p-0.5 w-fit">
+        {([
+          { id: 'calendar', label: 'Mês', icon: CalendarDays },
+          { id: 'list', label: 'Lista', icon: List },
+        ] as const).map(opt => {
+          const Icon = opt.icon;
+          return (
+            <button
+              key={opt.id}
+              onClick={() => setView(opt.id)}
+              className={cn(
+                'tap-target text-xs px-3 rounded-chip inline-flex items-center gap-1.5 transition-colors',
+                view === opt.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" /> {opt.label}
+            </button>
+          );
+        })}
+      </div>
 
-      {renderGroup('Hoje', today)}
-      {renderGroup('Amanhã', tomorrow)}
-      {renderGroup('Esta semana', week)}
-      {renderGroup('Próximos', later)}
-
-      {agendaEntries.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-3xl mb-2">📅</p>
-          <p className="text-sm text-muted-foreground">Nada na agenda. Items com data aparecerão aqui.</p>
+      {view === 'calendar' ? (
+        <div className="space-y-3">
+          <AgendaCalendar
+            entries={agendaEntries}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+          />
+          <div className="space-y-2">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+            </h2>
+            {(() => {
+              const list = agendaEntries.filter(e => isSameDay(entryDate(e), selectedDate));
+              if (list.length === 0) {
+                return <p className="text-xs text-muted-foreground py-4 text-center">Nada para este dia.</p>;
+              }
+              return list.map(renderEntry);
+            })()}
+          </div>
         </div>
+      ) : (
+        <>
+          <p className="text-[11px] text-muted-foreground">
+            Items com data aparecem aqui automaticamente. Recorrentes geram ocorrências dos próximos 60 dias.
+          </p>
+          {renderGroup('Hoje', today)}
+          {renderGroup('Amanhã', tomorrow)}
+          {renderGroup('Esta semana', week)}
+          {renderGroup('Próximos', later)}
+          {agendaEntries.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-3xl mb-2">📅</p>
+              <p className="text-sm text-muted-foreground">Nada na agenda.</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
