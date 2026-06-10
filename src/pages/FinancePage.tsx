@@ -67,7 +67,7 @@ function FinanceInner() {
       {/* Header: PF / PJ toggle */}
       <div className="flex gap-2">
         <button
-          onClick={() => { setScope('pf'); setSection('overview'); }}
+          onClick={() => { setScope('pf'); setSection('bills'); }}
           className={cn(
             'flex-1 h-12 rounded-2xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all',
             scope === 'pf'
