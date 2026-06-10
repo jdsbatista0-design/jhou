@@ -21,6 +21,8 @@ export default function AgendaPage() {
   const { agendaEntries, addItem, addRecurrence, updateItem, deleteEvent, settings } = useCentral();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<'calendar' | 'list'>('calendar');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [form, setForm] = useState({
     title: '',
     date: '',
