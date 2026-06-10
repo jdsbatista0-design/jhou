@@ -24,11 +24,13 @@ const SectionFallback = () => (
 
 function FinanceInner() {
   const { scope, setScope, companies, selectedCompanyId, setSelectedCompanyId, loading } = useFinance();
-  const [section, setSection] = useState<Section>('transactions');
+  const [section, setSection] = useState<Section>('bills');
   const [txOpen, setTxOpen] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
 
   const activeCompanies = useMemo(() => companies.filter(c => !c.archived), [companies]);
+
+
 
   const effectiveCompanyId = useMemo(() => {
     if (scope !== 'pj') return null;
