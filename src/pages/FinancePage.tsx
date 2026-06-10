@@ -1,10 +1,11 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { Building2, User, Plus, Wallet, CreditCard, ListChecks, Users, TrendingUp, Receipt, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
+import { Building2, User, Plus, Wallet, CreditCard, ListChecks, Users, TrendingUp, Receipt, Settings as SettingsIcon, ChevronDown, CheckSquare } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 // Lazy-load every section — só baixa o JS quando o usuário abre a aba
+const BillsToPay = lazy(() => import('@/components/finance/BillsToPay').then(m => ({ default: m.BillsToPay })));
 const TransactionsList = lazy(() => import('@/components/finance/TransactionsList').then(m => ({ default: m.TransactionsList })));
 const FinanceOverview = lazy(() => import('@/components/finance/FinanceOverview').then(m => ({ default: m.FinanceOverview })));
 const AccountsManager = lazy(() => import('@/components/finance/AccountsManager').then(m => ({ default: m.AccountsManager })));
@@ -14,7 +15,8 @@ const PeopleManager = lazy(() => import('@/components/finance/PeopleManager').th
 const CompaniesManager = lazy(() => import('@/components/finance/CompaniesManager').then(m => ({ default: m.CompaniesManager })));
 const TransactionDialog = lazy(() => import('@/components/finance/TransactionDialog').then(m => ({ default: m.TransactionDialog })));
 
-type Section = 'overview' | 'transactions' | 'accounts' | 'cards' | 'categories' | 'people' | 'companies';
+type Section = 'bills' | 'overview' | 'transactions' | 'accounts' | 'cards' | 'categories' | 'people' | 'companies';
+
 
 const SectionFallback = () => (
   <div className="text-[11px] text-muted-foreground animate-pulse pt-3">Carregando…</div>
@@ -22,11 +24,13 @@ const SectionFallback = () => (
 
 function FinanceInner() {
   const { scope, setScope, companies, selectedCompanyId, setSelectedCompanyId, loading } = useFinance();
-  const [section, setSection] = useState<Section>('transactions');
+  const [section, setSection] = useState<Section>('bills');
   const [txOpen, setTxOpen] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
 
   const activeCompanies = useMemo(() => companies.filter(c => !c.archived), [companies]);
+
+
 
   const effectiveCompanyId = useMemo(() => {
     if (scope !== 'pj') return null;
@@ -36,9 +40,11 @@ function FinanceInner() {
   }, [scope, selectedCompanyId, activeCompanies]);
 
   const mainSections: { id: Section; label: string; icon: any }[] = [
-    { id: 'transactions', label: 'Movimentações', icon: ListChecks },
+    { id: 'bills', label: 'A Pagar', icon: CheckSquare },
+    { id: 'transactions', label: 'Tudo', icon: ListChecks },
     { id: 'overview', label: 'Resumo', icon: TrendingUp },
   ];
+
 
   const configSections: { id: Section; label: string; icon: any }[] = [
     { id: 'accounts', label: 'Contas', icon: Wallet },
@@ -61,7 +67,7 @@ function FinanceInner() {
       {/* Header: PF / PJ toggle */}
       <div className="flex gap-2">
         <button
-          onClick={() => { setScope('pf'); setSection('overview'); }}
+          onClick={() => { setScope('pf'); setSection('bills'); }}
           className={cn(
             'flex-1 h-12 rounded-2xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all',
             scope === 'pf'
@@ -73,7 +79,7 @@ function FinanceInner() {
           Pessoa Física
         </button>
         <button
-          onClick={() => { setScope('pj'); setSection('overview'); }}
+          onClick={() => { setScope('pj'); setSection('bills'); }}
           className={cn(
             'flex-1 h-12 rounded-2xl border flex items-center justify-center gap-2 text-sm font-semibold transition-all',
             scope === 'pj'
@@ -205,7 +211,9 @@ function FinanceInner() {
       {/* Body — só monta a seção ativa */}
       <div className="pt-1">
         <Suspense fallback={<SectionFallback />}>
+          {section === 'bills' && <BillsToPay scope={scope} companyId={effectiveCompanyId} />}
           {section === 'overview' && <FinanceOverview scope={scope} companyId={effectiveCompanyId} />}
+
           {section === 'transactions' && <TransactionsList scope={scope} companyId={effectiveCompanyId} />}
           {section === 'accounts' && <AccountsManager scope={scope} companyId={effectiveCompanyId} />}
           {section === 'cards' && <CardsManager scope={scope} companyId={effectiveCompanyId} />}
