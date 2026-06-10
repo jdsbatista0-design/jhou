@@ -1,10 +1,11 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { Building2, User, Plus, Wallet, CreditCard, ListChecks, Users, TrendingUp, Receipt, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
+import { Building2, User, Plus, Wallet, CreditCard, ListChecks, Users, TrendingUp, Receipt, Settings as SettingsIcon, ChevronDown, CheckSquare } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 // Lazy-load every section — só baixa o JS quando o usuário abre a aba
+const BillsToPay = lazy(() => import('@/components/finance/BillsToPay').then(m => ({ default: m.BillsToPay })));
 const TransactionsList = lazy(() => import('@/components/finance/TransactionsList').then(m => ({ default: m.TransactionsList })));
 const FinanceOverview = lazy(() => import('@/components/finance/FinanceOverview').then(m => ({ default: m.FinanceOverview })));
 const AccountsManager = lazy(() => import('@/components/finance/AccountsManager').then(m => ({ default: m.AccountsManager })));
@@ -14,7 +15,8 @@ const PeopleManager = lazy(() => import('@/components/finance/PeopleManager').th
 const CompaniesManager = lazy(() => import('@/components/finance/CompaniesManager').then(m => ({ default: m.CompaniesManager })));
 const TransactionDialog = lazy(() => import('@/components/finance/TransactionDialog').then(m => ({ default: m.TransactionDialog })));
 
-type Section = 'overview' | 'transactions' | 'accounts' | 'cards' | 'categories' | 'people' | 'companies';
+type Section = 'bills' | 'overview' | 'transactions' | 'accounts' | 'cards' | 'categories' | 'people' | 'companies';
+
 
 const SectionFallback = () => (
   <div className="text-[11px] text-muted-foreground animate-pulse pt-3">Carregando…</div>
