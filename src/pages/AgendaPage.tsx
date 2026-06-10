@@ -267,20 +267,63 @@ export default function AgendaPage() {
         </Dialog>
       </div>
 
-      <p className="text-[11px] text-muted-foreground">
-        Items com data aparecem aqui automaticamente. Compromissos recorrentes geram ocorrências dos próximos 60 dias.
-      </p>
+      <div className="flex gap-1 bg-surface rounded-chip p-0.5 w-fit">
+        {([
+          { id: 'calendar', label: 'Mês', icon: CalendarDays },
+          { id: 'list', label: 'Lista', icon: List },
+        ] as const).map(opt => {
+          const Icon = opt.icon;
+          return (
+            <button
+              key={opt.id}
+              onClick={() => setView(opt.id)}
+              className={cn(
+                'tap-target text-xs px-3 rounded-chip inline-flex items-center gap-1.5 transition-colors',
+                view === opt.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" /> {opt.label}
+            </button>
+          );
+        })}
+      </div>
 
-      {renderGroup('Hoje', today)}
-      {renderGroup('Amanhã', tomorrow)}
-      {renderGroup('Esta semana', week)}
-      {renderGroup('Próximos', later)}
-
-      {agendaEntries.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-3xl mb-2">📅</p>
-          <p className="text-sm text-muted-foreground">Nada na agenda. Items com data aparecerão aqui.</p>
+      {view === 'calendar' ? (
+        <div className="space-y-3">
+          <AgendaCalendar
+            entries={agendaEntries}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+          />
+          <div className="space-y-2">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+            </h2>
+            {(() => {
+              const list = agendaEntries.filter(e => isSameDay(entryDate(e), selectedDate));
+              if (list.length === 0) {
+                return <p className="text-xs text-muted-foreground py-4 text-center">Nada para este dia.</p>;
+              }
+              return list.map(renderEntry);
+            })()}
+          </div>
         </div>
+      ) : (
+        <>
+          <p className="text-[11px] text-muted-foreground">
+            Items com data aparecem aqui automaticamente. Recorrentes geram ocorrências dos próximos 60 dias.
+          </p>
+          {renderGroup('Hoje', today)}
+          {renderGroup('Amanhã', tomorrow)}
+          {renderGroup('Esta semana', week)}
+          {renderGroup('Próximos', later)}
+          {agendaEntries.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-3xl mb-2">📅</p>
+              <p className="text-sm text-muted-foreground">Nada na agenda.</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
