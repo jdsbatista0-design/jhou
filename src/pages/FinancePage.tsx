@@ -40,9 +40,11 @@ function FinanceInner() {
   }, [scope, selectedCompanyId, activeCompanies]);
 
   const mainSections: { id: Section; label: string; icon: any }[] = [
-    { id: 'transactions', label: 'Movimentações', icon: ListChecks },
+    { id: 'bills', label: 'A Pagar', icon: CheckSquare },
+    { id: 'transactions', label: 'Tudo', icon: ListChecks },
     { id: 'overview', label: 'Resumo', icon: TrendingUp },
   ];
+
 
   const configSections: { id: Section; label: string; icon: any }[] = [
     { id: 'accounts', label: 'Contas', icon: Wallet },
