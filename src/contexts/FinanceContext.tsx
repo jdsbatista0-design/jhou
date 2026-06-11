@@ -32,6 +32,7 @@ const rowCard = (r: any): FinCard => ({
 const rowCategory = (r: any): FinCategory => ({
   id: r.id, scope: r.scope, name: r.name, kind: r.kind, color: r.color,
   icon: r.icon || undefined, archived: r.archived,
+  monthlyBudget: r.monthly_budget != null ? Number(r.monthly_budget) : undefined,
 });
 const rowPerson = (r: any): FinPerson => ({
   id: r.id, companyId: r.company_id || undefined, name: r.name, role: r.role,
