@@ -37,6 +37,7 @@ export interface Item {
   comments: ItemComment[];
   recurrenceId?: string;
   reminderMinutes?: number;
+  origin?: 'manual' | 'inbox' | 'finance' | 'recurrence';
   createdAt: string;
   updatedAt: string;
 }
