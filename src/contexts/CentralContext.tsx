@@ -570,6 +570,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       linked_agenda_ids: item.linkedAgendaIds || [],
       recurrence_id: item.recurrenceId || null,
       reminder_minutes: item.reminderMinutes ?? null,
+      origin: item.origin || 'manual',
       user_id: userId,
     } as any).select('*').single();
 
