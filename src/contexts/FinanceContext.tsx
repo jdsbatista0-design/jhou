@@ -32,6 +32,7 @@ const rowCard = (r: any): FinCard => ({
 const rowCategory = (r: any): FinCategory => ({
   id: r.id, scope: r.scope, name: r.name, kind: r.kind, color: r.color,
   icon: r.icon || undefined, archived: r.archived,
+  monthlyBudget: r.monthly_budget != null ? Number(r.monthly_budget) : undefined,
 });
 const rowPerson = (r: any): FinPerson => ({
   id: r.id, companyId: r.company_id || undefined, name: r.name, role: r.role,
@@ -417,8 +418,8 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     const userId = await getUserId(); if (!userId) return;
     await supabase.from('fin_categories').insert({
       scope: c.scope, name: c.name, kind: c.kind, color: c.color || '#64748b',
-      icon: c.icon || null, user_id: userId,
-    });
+      icon: c.icon || null, monthly_budget: c.monthlyBudget ?? null, user_id: userId,
+    } as any);
   };
   const updateCategory: FinanceContextType['updateCategory'] = async (id, data) => {
     await supabase.from('fin_categories').update({
@@ -427,7 +428,8 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
       ...(data.color !== undefined ? { color: data.color } : {}),
       ...(data.icon !== undefined ? { icon: data.icon || null } : {}),
       ...(data.archived !== undefined ? { archived: data.archived } : {}),
-    }).eq('id', id);
+      ...(data.monthlyBudget !== undefined ? { monthly_budget: data.monthlyBudget ?? null } : {}),
+    } as any).eq('id', id);
   };
   const deleteCategory: FinanceContextType['deleteCategory'] = async (id) => {
     await supabase.from('fin_categories').delete().eq('id', id);

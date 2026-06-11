@@ -29,7 +29,7 @@ export default function ProfileMenu({ email, avatarUrl, fullName }: ProfileMenuP
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Menu de perfil"
-        className="tap-target inline-flex items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="tap-target shrink-0 inline-flex items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Avatar className="h-9 w-9 border border-surface-2">
           {avatarUrl ? <AvatarImage src={avatarUrl} alt={fullName || 'Perfil'} /> : null}

@@ -1,101 +1,37 @@
-import { useMemo, useState } from 'react';
-import { Plus, Trash2, Check, Repeat, Bell, CalendarDays, List } from 'lucide-react';
+import { useState } from 'react';
+import { Trash2, Check, Repeat, Bell, CalendarDays, List } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { format, isSameDay, isToday, isTomorrow, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import AgendaCalendar from '@/components/agenda/AgendaCalendar';
 import { parseLocalDateTime } from '@/lib/dates';
-import { REMINDER_OPTIONS, WEEKDAY_LABELS, Weekday } from '@/types/central';
+import { RecurrencesManager } from '@/components/RecurrencesManager';
+
+type View = 'calendar' | 'list' | 'recurrences';
 
 export default function AgendaPage() {
-  const { agendaEntries, addItem, addRecurrence, updateItem, deleteEvent, settings } = useCentral();
+  const { agendaEntries, updateItem, deleteEvent } = useCentral();
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [view, setView] = useState<'calendar' | 'list'>('calendar');
+  const [view, setView] = useState<View>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [form, setForm] = useState({
-    title: '',
-    date: '',
-    time: '',
-    area: settings.areas[0],
-    type: settings.agendaTypes[0],
-    repeat: false,
-    weekdays: [] as Weekday[],
-    endDate: '',
-    reminderMinutes: 30,
-  });
+
   const entryDate = (entry: AgendaEntry) => parseLocalDateTime(entry.datetime) || new Date(entry.datetime);
 
   const today = agendaEntries.filter(e => isToday(entryDate(e)));
   const tomorrow = agendaEntries.filter(e => isTomorrow(entryDate(e)));
   const week = agendaEntries.filter(e =>
     isThisWeek(entryDate(e), { weekStartsOn: 1 }) &&
-    !isToday(entryDate(e)) &&
-    !isTomorrow(entryDate(e))
+    !isToday(entryDate(e)) && !isTomorrow(entryDate(e))
   );
   const later = agendaEntries.filter(e =>
-    !isToday(entryDate(e)) &&
-    !isTomorrow(entryDate(e)) &&
+    !isToday(entryDate(e)) && !isTomorrow(entryDate(e)) &&
     !isThisWeek(entryDate(e), { weekStartsOn: 1 })
   );
-
-  const resetForm = () => setForm({
-    title: '', date: '', time: '', area: settings.areas[0], type: settings.agendaTypes[0],
-    repeat: false, weekdays: [], endDate: '', reminderMinutes: 30,
-  });
-
-  const handleAdd = async () => {
-    if (!form.title.trim()) { toast.error('Preencha o título'); return; }
-
-    if (form.repeat) {
-      if (form.weekdays.length === 0) { toast.error('Escolha ao menos 1 dia da semana'); return; }
-      if (!form.time) { toast.error('Escolha um horário'); return; }
-      await addRecurrence({
-        title: form.title.trim(),
-        area: form.area,
-        type: form.type,
-        time: form.time,
-        weekdays: form.weekdays,
-        startDate: form.date || new Date().toISOString().slice(0, 10),
-        endDate: form.endDate || undefined,
-        reminderMinutes: form.reminderMinutes,
-        active: true,
-      });
-      toast.success('Recorrência criada — ocorrências geradas na agenda 🔁');
-    } else {
-      if (!form.date) { toast.error('Preencha a data'); return; }
-      addItem({
-        title: form.title.trim(),
-        tipo: 'Ação',
-        fase: 'Inbox',
-        area: form.area,
-        deadline: form.date,
-        deadlineTime: form.time || undefined,
-        tags: [form.type],
-        reminderMinutes: form.reminderMinutes,
-      });
-      toast.success('Compromisso criado ✅');
-    }
-    resetForm();
-    setOpen(false);
-  };
-
-  const toggleWeekday = (d: Weekday) => {
-    setForm(f => ({
-      ...f,
-      weekdays: f.weekdays.includes(d) ? f.weekdays.filter(x => x !== d) : [...f.weekdays, d],
-    }));
-  };
 
   const handleConclude = (entry: AgendaEntry, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -111,11 +47,18 @@ export default function AgendaPage() {
 
   const renderEntry = (entry: AgendaEntry) => {
     const isConcluido = entry.source === 'item' && entry.item?.fase === 'Concluído';
+    const origin = entry.item?.origin || 'manual';
+    const originColor =
+      origin === 'finance' ? 'border-l-amber-500' :
+      origin === 'inbox' ? 'border-l-blue-500' :
+      origin === 'recurrence' ? 'border-l-violet-500' :
+      'border-l-primary/40';
     return (
       <div
         key={entry.id}
         className={cn(
-          "bg-card border border-border rounded-xl p-3 flex items-start justify-between cursor-pointer hover:border-primary/30 transition-colors",
+          "bg-card border border-border border-l-4 rounded-xl p-3 flex items-start justify-between cursor-pointer hover:border-primary/30 transition-colors",
+          originColor,
           isConcluido && "opacity-60"
         )}
         onClick={() => entry.source === 'item' ? navigate(`/items/${entry.sourceId}`) : undefined}
@@ -142,7 +85,6 @@ export default function AgendaPage() {
               <div className="flex flex-wrap gap-1 mt-1">
                 <Badge variant="secondary" className="text-[9px]">{entry.item.area}</Badge>
                 <Badge variant="outline" className="text-[9px]">{entry.item.fase}</Badge>
-                {entry.item.person && <Badge variant="outline" className="text-[9px]">👤 {entry.item.person}</Badge>}
                 {entry.item.recurrenceId && (
                   <Badge variant="outline" className="text-[9px] gap-0.5"><Repeat className="h-2.5 w-2.5" /> recorrente</Badge>
                 )}
@@ -151,9 +93,6 @@ export default function AgendaPage() {
                 )}
               </div>
             )}
-            <Badge variant={entry.source === 'item' ? 'secondary' : 'outline'} className="text-[9px] mt-1">
-              {entry.source === 'item' ? '📋 Item' : '📅 Evento'}
-            </Badge>
           </div>
         </div>
         {entry.source === 'event' && (
@@ -177,100 +116,18 @@ export default function AgendaPage() {
 
   return (
     <div className="space-y-4 pb-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-foreground">Agenda</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full gap-1"><Plus className="h-4 w-4" /> Compromisso</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Novo Compromisso</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <Input placeholder="Título (ex: Pilates)" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-xl" />
-
-              <div className="flex items-center justify-between rounded-xl border border-border px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <Repeat className="h-4 w-4 text-muted-foreground" />
-                  <Label htmlFor="repeat" className="text-sm cursor-pointer">Repete toda semana</Label>
-                </div>
-                <Switch id="repeat" checked={form.repeat} onCheckedChange={v => setForm(f => ({ ...f, repeat: v }))} />
-              </div>
-
-              {form.repeat ? (
-                <>
-                  <div className="space-y-1.5">
-                    <Label className="text-[11px] text-muted-foreground">Dias da semana</Label>
-                    <div className="flex gap-1 justify-between">
-                      {WEEKDAY_LABELS.map(w => (
-                        <button
-                          key={w.value}
-                          type="button"
-                          onClick={() => toggleWeekday(w.value)}
-                          className={cn(
-                            'h-9 w-9 rounded-full text-xs font-semibold border transition-colors',
-                            form.weekdays.includes(w.value)
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-background text-muted-foreground border-border hover:border-primary/50'
-                          )}
-                          aria-label={w.long}
-                        >
-                          {w.short}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Hora</Label>
-                      <Input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Termina em (opcional)</Label>
-                      <Input type="date" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className="rounded-xl" />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="rounded-xl" />
-                  <Input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="rounded-xl" />
-                </div>
-              )}
-
-              <Select value={form.area} onValueChange={v => setForm(f => ({ ...f, area: v }))}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Área" /></SelectTrigger>
-                <SelectContent>{settings.areas.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
-              </Select>
-              <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
-                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                <SelectContent>{settings.agendaTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
-
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground flex items-center gap-1"><Bell className="h-3 w-3" /> Lembrete</Label>
-                <Select value={String(form.reminderMinutes)} onValueChange={v => setForm(f => ({ ...f, reminderMinutes: Number(v) }))}>
-                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {REMINDER_OPTIONS.map(o => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">
-                  Notificações no celular requerem ativar push em Configurações (próxima etapa).
-                </p>
-              </div>
-
-              <Button onClick={handleAdd} className="w-full rounded-xl">
-                {form.repeat ? 'Criar recorrência' : 'Criar compromisso'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <p className="text-[10px] text-muted-foreground text-right leading-tight">
+          Use o <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold align-middle">+</span> para criar.
+        </p>
       </div>
 
-      <div className="flex gap-1 bg-surface rounded-chip p-0.5 w-fit">
+      <div className="flex gap-1 bg-surface rounded-chip p-0.5 w-full">
         {([
           { id: 'calendar', label: 'Mês', icon: CalendarDays },
           { id: 'list', label: 'Lista', icon: List },
+          { id: 'recurrences', label: 'Recorrentes', icon: Repeat },
         ] as const).map(opt => {
           const Icon = opt.icon;
           return (
@@ -278,7 +135,7 @@ export default function AgendaPage() {
               key={opt.id}
               onClick={() => setView(opt.id)}
               className={cn(
-                'tap-target text-xs px-3 rounded-chip inline-flex items-center gap-1.5 transition-colors',
+                'tap-target flex-1 text-xs px-2 rounded-chip inline-flex items-center justify-center gap-1.5 transition-colors',
                 view === opt.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -288,7 +145,7 @@ export default function AgendaPage() {
         })}
       </div>
 
-      {view === 'calendar' ? (
+      {view === 'calendar' && (
         <div className="space-y-3">
           <AgendaCalendar
             entries={agendaEntries}
@@ -307,12 +164,17 @@ export default function AgendaPage() {
               return list.map(renderEntry);
             })()}
           </div>
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />Manual</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" />Inbox</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Financeiro</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-violet-500" />Recorrente</span>
+          </div>
         </div>
-      ) : (
+      )}
+
+      {view === 'list' && (
         <>
-          <p className="text-[11px] text-muted-foreground">
-            Items com data aparecem aqui automaticamente. Recorrentes geram ocorrências dos próximos 60 dias.
-          </p>
           {renderGroup('Hoje', today)}
           {renderGroup('Amanhã', tomorrow)}
           {renderGroup('Esta semana', week)}
@@ -325,6 +187,8 @@ export default function AgendaPage() {
           )}
         </>
       )}
+
+      {view === 'recurrences' && <RecurrencesManager />}
     </div>
   );
 }

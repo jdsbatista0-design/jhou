@@ -1,117 +1,75 @@
 
-# Refactor visual + UX do Central — Camada A
+# Plano: Refactor Inbox + Agenda + Financeiro (entrega única)
 
-Foco: redesenhar a interface, navegação e captura conforme o prompt enviado, **sem alterar o schema do banco** nem remover funcionalidades existentes (Finanças PF/PJ, Memory, tags, Agenda derivada, AI inbox via Gemini, Google Calendar, recorrências).
+## 1. Mobile fix urgente (header)
+- Header de 56px hoje quebra em telas estreitas (saudação + data + avatar competem).
+- Trocar para layout compacto: avatar à esquerda (40×40), data à direita em mono pequeno, saudação some em <380px.
+- Garantir `min-w-0` e `truncate` corretos; testar em 320px.
 
-## Decisões confirmadas
-- Escopo: **só Camada A** (visual + navegação + captura). Backend permanece intacto.
-- 4 abas no bottom nav: **Hoje, Inbox, Agenda, Financeiro** (sem aba "Projetos").
-- QuickCapture mantém pipeline atual com **Gemini (`interpret-content`)** + UX nova (bottom sheet Vaul, mic, chips, undo).
-- Memory/Painel/Relatórios/Configurações continuam acessíveis (via menu de perfil no header), só saem do bottom nav.
+## 2. Captura unificada (Compromisso = Item)
+- FAB único cria **Item**. Se o usuário (ou a IA Gemini) informar data/hora, o Item já entra com `dueDate`/`time` preenchidos.
+- Remover qualquer botão/atalho separado de "novo compromisso".
+- Agenda continua sendo **view derivada** dos Items com data (como já está documentado na memória).
 
-## Etapas
+## 3. Inbox — Kanban como visão única
+- Remover filtros "Pendentes / Todas" e o toggle Lista/Kanban. Sempre Kanban.
+- Topo do Kanban: toggle **Agrupar por: Fase | Área**.
+- Colunas "Concluído" e "Arquivado" **ocultas por padrão**. Visíveis só ao abrir ⚙️ no canto do Kanban (mesma lógica da Memória/HD).
+- Capturas brutas (`inbox_entries` ainda sem virar Item) viram uma faixa fina no topo do board, em vez de seção separada.
+- Drag-and-drop e select inline continuam funcionando.
 
-### Etapa 1 — Design system OLED
-- Atualizar `src/index.css` com tokens HSL semânticos:
-  - `--background` (#0B0F14), `--surface` (#141A22), `--surface-2` (#1C2530)
-  - `--foreground` (#E8EEF5), `--muted-foreground` (#8A97A8)
-  - `--primary` (#3B82F6), `--success` (#10B981), `--warning` (#F59E0B), `--destructive` (#EF4444)
-  - Tokens de business unit: `--bu-badin` (gold), `--bu-bj7-midia` (blue), `--bu-izi` (green), `--bu-bj7-consultoria` (purple) — só para chips.
-- Atualizar `tailwind.config.ts` com as novas cores, radius (12 cards, 8 chips), font families.
-- Importar **Inter** (UI) e **JetBrains Mono** (valores/datas/IDs) via `<link>` no `index.html`.
-- Substituir `box-shadow` por `border: 1px solid hsl(var(--surface-2))` nos cards.
-- Garantir `prefers-reduced-motion` no `index.css`.
-- Forçar dark como padrão (já é o caso); deixar plumbing para toggle futuro.
+## 4. Agenda
+- **Recorrências saem de Configurações** e entram dentro da Agenda como uma aba/seção (Calendário | Lista | Recorrências).
+- Calendário passa a marcar também:
+  - Itens criados pelo Financeiro (vencimentos de "A Pagar") — dot âmbar.
+  - Itens criados pelo Inbox com data — dot azul.
+- Tudo isso já existe como Item; só precisamos taggear visualmente por `origin` (inbox/financeiro/manual).
 
-### Etapa 2 — AppShell + Navegação
-- Criar `src/components/AppShell.tsx`: header sticky 56px (saudação + data + avatar/menu de perfil), conteúdo com `px-4 pb-24`, slot para bottom nav e FAB.
-- Refatorar `src/components/BottomNav.tsx` para 4 abas: **Hoje (`/`), Inbox (`/inbox`), Agenda (`/agenda`), Financeiro (`/financas`)**. Altura 64px, ícones Lucide, label curto, ativo em `--primary`, alvo ≥44px.
-- Avatar no header abre um dropdown com: Painel, Memória, Relatórios, Configurações, Logout (mantém acesso ao que sai do nav).
-- Refatorar `src/App.tsx` para envolver as rotas com `<AppShell>`. Manter todas as rotas existentes funcionais.
+## 5. Financeiro — esconder PJ + refatorar PF "super inteligente"
+- **Esconder toggle PF/PJ**: rota mostra só PF. PJ continua no banco mas sem UI nesta fase.
+- **Recorrências financeiras**: tirar de Configurações, mover para o topo de "A Pagar" como aba (A Pagar | Recorrências).
+- **Nova seção "Por Categoria"** (a dor principal): card por categoria mostrando gasto do mês, % do total, e progresso vs. meta.
+- **Metas por categoria**: novo campo `monthly_budget` em `fin_categories`. UI inline para definir/editar a meta direto no card da categoria.
+- **Alerta visual**: barra de progresso fica âmbar em 80% da meta, vermelha quando estoura.
+- **Novo lançamento mais rápido**: dialog repensado — valor em destaque, categoria com chips das mais usadas no topo, data padrão hoje, conta padrão lembrada da última escolha.
+- **Nova conta**: fluxo de 1 tela só (nome + tipo + saldo inicial), sem campos avançados na primeira tela.
 
-### Etapa 3 — FAB + QuickCapture (Vaul bottom sheet)
-- Instalar `vaul` (drawer mobile-first).
-- Criar `src/components/CaptureFAB.tsx`: botão circular 56px, canto inferior direito, margem 16px, acima do bottom nav (z-index correto).
-- Reescrever `src/components/QuickInput.tsx` como `<QuickCapture>` dentro de um `<Drawer>` Vaul (snap points 50% e 90%):
-  - Textarea autofocus com placeholder "O que precisa ser feito ou pago?"
-  - Botão de microfone (Web Speech API, fallback silencioso)
-  - Heurística local enquanto digita: detecta `R$`/valores → sugere "lançamento financeiro"; "lembrar/avisar" → "lembrete"; senão "tarefa". Detecta datas PT-BR com `date-fns` + parser simples.
-  - Chips abaixo para refinar tipo/área/prazo (multi-tap troca)
-  - Botão "Salvar" full-width 48px no rodapé; Enter também salva
-  - **No salvar**: continua chamando a edge function `interpret-content` (Gemini) com o texto + chips como hints, igual hoje
-  - Toast Sonner com undo de 5s após salvar
-- Remover o input fixo atual em favor do FAB.
+## 6. Mudança de schema
+- Adicionar `monthly_budget NUMERIC` em `fin_categories` (nullable, default null).
+- Adicionar `origin TEXT` em `items` (`'inbox' | 'finance' | 'manual' | 'recurrence'`) para o Agenda taggear visualmente. Default `'manual'`.
 
-### Etapa 4 — Tela Hoje (redesign)
-- Refatorar `src/pages/Dashboard.tsx` (ou criar `HojePage`) como rota `/`:
-  - **Banner alerta** no topo se houver items urgentes vencendo hoje (cor: vencido `--destructive`, hoje `--warning`, importante `--primary`).
-  - **Bloco Matriz Eisenhower** (2x2): Urgente+Importante, Importante, Urgente, Backlog. Até 3 items por quadrante + "ver +N". Mapeia para `priority` existente em `items`.
-  - **Bloco "Vence em 7 dias"**: cards de `fin_transactions` com `kind='expense'` e `status!='paid'` nos próximos 7 dias.
-  - Swipe-right marca feito/pago, swipe-left edita/remarca (`react-swipeable`).
-  - Empty states com CTA apontando para o FAB.
-
-### Etapa 5 — Tela Inbox (polimento)
-- Refatorar `src/pages/InboxPage.tsx`:
-  - Lista cronológica reversa de items sem `deadline` OU sem `area` clara.
-  - Filtro fixo no topo: [Todos] [Tarefas] [Compromissos] [Lembretes] (mapeia para `tipo`).
-  - Ação rápida "Triar" abre bottom sheet curto com chips (urgente, área, data).
-
-### Etapa 6 — Tela Financeiro (polimento, **sem mexer no schema**)
-- Refatorar `src/pages/FinancePage.tsx`:
-  - Segmented control: [Vence em breve] [Pagas] [Calendário] **como visão principal**, mantendo as abas atuais (Contas, Cartões, Categorias, Pessoas, Empresas, Novo lançamento) em um menu "Gerenciar".
-  - "Vence em breve": 3 totalizadores (semana, próxima, resto do mês) usando `fin_transactions` `kind='expense'` não pagas.
-  - Cards com vendor (description), chip de BU (mapeado de `scope`/`company_id`), valor em **JetBrains Mono**, dias para vencer com cor por urgência.
-  - Swipe-right = `status='paid'`, swipe-left = remarcar (date picker).
-  - "Pagas": últimas 30 com `status='paid'`.
-  - "Calendário": grid mensal com pontos coloridos por dia com vencimento.
-
-### Etapa 7 — Agenda (polimento leve)
-- Manter `src/pages/AgendaPage.tsx` derivada de items, só aplicar novos tokens visuais, swipe e empty state.
-
-### Etapa 8 — Qualidade & PWA
-- Adicionar skeleton loaders em todas as queries (substituir spinners).
-- Garantir empty state com CTA em toda lista vazia.
-- Verificar contraste 4.5:1, foco visível keyboard, alvo tátil ≥44px.
-- Adicionar `public/manifest.json` simples (sem service worker) para "Adicionar à tela inicial". **Não** adicionar `vite-plugin-pwa` (causa problemas no preview Lovable, conforme guidelines).
-- Sweep final removendo emojis usados como ícone (substituir por Lucide).
-
-## Detalhes técnicos
-
-```text
-src/
-  components/
-    AppShell.tsx           (novo: header + outlet + bottom nav + FAB)
-    BottomNav.tsx          (refatorado: 4 abas)
-    CaptureFAB.tsx         (novo)
-    QuickCapture.tsx       (novo, substitui QuickInput)
-    ProfileMenu.tsx        (novo: dropdown do avatar)
-  pages/
-    Dashboard.tsx          (refatorado: Matriz + 7 dias)
-    InboxPage.tsx          (refatorado: filtros + triar)
-    FinancePage.tsx        (refatorado: segmented control + swipe)
-    AgendaPage.tsx         (polimento visual)
-  index.css                (novos tokens HSL)
-tailwind.config.ts         (novas cores/fonts/radius)
-index.html                 (fonts + manifest link)
-public/manifest.json       (novo)
-```
-
-Dependências novas: `vaul`, `react-swipeable` (se ainda não estiver). `sonner` já existe.
-
-## Riscos & mitigações
-- **Risco**: trocar tokens de cor pode quebrar componentes shadcn existentes. **Mitigação**: manter todos os nomes semânticos shadcn (`background`, `foreground`, `primary`, etc.) e só ajustar os valores HSL — nenhuma classe `bg-foo-500` direta vai precisar mudar.
-- **Risco**: swipe em mobile conflitar com scroll. **Mitigação**: usar `react-swipeable` com `delta` mínimo e threshold horizontal.
-- **Risco**: Vaul + bottom nav fixo competirem por gestos. **Mitigação**: drawer cobre tela inteira quando aberto, sem conflito.
-
-## Fora desta rodada (Camada B, exige decisão de produto)
-- Entidade "Projetos" agrupando items + transações.
-- Substituir `fin_transactions` por `bills`.
-- Remover Memory/HD ou tags controladas.
-- Edge function `send_reminders` + Web Push + VAPID (deixar para fase seguinte; o prompt original menciona, mas é Etapa B no seu próprio roadmap de memória).
-
-## Sobre commits semânticos
-O Lovable já versiona automaticamente após cada batch de mudanças. Não tenho acesso ao `git` para fazer commits manuais — você verá o histórico no painel do projeto. Se quiser eu agrupo as etapas em mensagens claras de chat para servir como changelog.
+## 7. Memória do projeto
+- Atualizar `mem://features/finance-module` e `mem://features/recurrences-and-push` para refletir: PJ oculto nesta fase, recorrências dentro da Agenda/Financeiro, metas por categoria.
+- Atualizar Core: "Compromisso = Item com data; FAB único".
 
 ---
 
-**Sobre "isso melhora seu sistema?"**: sim, a Camada A melhora muito — identidade visual, captura mais rápida, foco operacional na Hoje, navegação mais limpa. A Camada B do prompt eu **não recomendo** porque jogaria fora o módulo Finanças PF/PJ, a Memory e o pipeline de AI que você já tem funcionando.
+## Detalhes técnicos
+
+**Arquivos editados:**
+- `src/components/AppShell.tsx` — header compacto mobile.
+- `src/components/CaptureFAB.tsx` — garantir que crie Item único.
+- `src/pages/InboxPage.tsx` + `src/components/inbox/InboxKanban.tsx` — sempre Kanban, toggle Fase/Área, ⚙️ para mostrar concluído/arquivado, faixa de capturas brutas no topo.
+- `src/pages/AgendaPage.tsx` + `src/components/agenda/AgendaCalendar.tsx` — aba Recorrências, dots por origin.
+- `src/pages/FinancePage.tsx` — remover toggle PF/PJ, remover seção Recorrências do menu config.
+- `src/components/finance/BillsToPay.tsx` — adicionar sub-aba Recorrências.
+- `src/components/finance/CategoriesManager.tsx` — campo meta inline.
+- `src/components/finance/TransactionDialog.tsx` — UX repensada.
+- `src/components/finance/AccountsManager.tsx` — fluxo simples de nova conta.
+- `src/pages/SettingsPage.tsx` — remover entradas que migraram.
+
+**Arquivos criados:**
+- `src/components/finance/CategoryBudgets.tsx` — nova visão "Por Categoria" com metas.
+- `src/components/agenda/RecurrencesPanel.tsx` — recorrências dentro da Agenda.
+
+**Migrações Supabase:**
+1. `ALTER TABLE fin_categories ADD COLUMN monthly_budget NUMERIC;`
+2. `ALTER TABLE items ADD COLUMN origin TEXT DEFAULT 'manual';`
+
+**Fora de escopo desta rodada:**
+- Conciliação bancária / Open Finance.
+- Previsão de saldo futuro com IA.
+- Voltar PJ (volta em fase futura quando pedido).
+- Categorização automática de despesas via IA (pode entrar numa próxima).
+
+Posso seguir?

@@ -66,6 +66,7 @@ export interface FinCategory {
   color: string;
   icon?: string;
   archived: boolean;
+  monthlyBudget?: number; // meta mensal de gastos (null = sem meta)
 }
 
 export interface FinPerson {

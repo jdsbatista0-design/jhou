@@ -85,7 +85,14 @@ export default function AgendaCalendar({ entries, selectedDate, onSelectDate }: 
           const inMonth = isSameMonth(day, cursor);
           const selected = isSameDay(day, selectedDate);
           const today = isToday(day);
-          const count = dayEntries.length;
+          const origins = Array.from(new Set(dayEntries.map(e => e.item?.origin || 'manual'))).slice(0, 3);
+          const dotColor = (o: string) => {
+            if (selected) return 'bg-primary-foreground';
+            if (o === 'inbox') return 'bg-blue-500';
+            if (o === 'finance') return 'bg-amber-500';
+            if (o === 'recurrence') return 'bg-violet-500';
+            return 'bg-primary';
+          };
           return (
             <button
               key={key}
@@ -99,15 +106,12 @@ export default function AgendaCalendar({ entries, selectedDate, onSelectDate }: 
               )}
             >
               <span data-mono>{day.getDate()}</span>
-              {count > 0 && (
+              {origins.length > 0 && (
                 <div className="flex gap-0.5">
-                  {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
+                  {origins.map((o, i) => (
                     <span
                       key={i}
-                      className={cn(
-                        'h-1 w-1 rounded-full',
-                        selected ? 'bg-primary-foreground' : 'bg-primary',
-                      )}
+                      className={cn('h-1 w-1 rounded-full', dotColor(o))}
                     />
                   ))}
                 </div>

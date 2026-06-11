@@ -203,6 +203,7 @@ export type Database = {
           icon: string | null
           id: string
           kind: string
+          monthly_budget: number | null
           name: string
           scope: string
           user_id: string
@@ -214,6 +215,7 @@ export type Database = {
           icon?: string | null
           id?: string
           kind?: string
+          monthly_budget?: number | null
           name: string
           scope: string
           user_id?: string
@@ -225,6 +227,7 @@ export type Database = {
           icon?: string | null
           id?: string
           kind?: string
+          monthly_budget?: number | null
           name?: string
           scope?: string
           user_id?: string
@@ -663,6 +666,7 @@ export type Database = {
           fase: string
           id: string
           linked_agenda_ids: Json
+          origin: string
           person: string | null
           photo_url: string | null
           previous_fase: string | null
@@ -687,6 +691,7 @@ export type Database = {
           fase?: string
           id?: string
           linked_agenda_ids?: Json
+          origin?: string
           person?: string | null
           photo_url?: string | null
           previous_fase?: string | null
@@ -711,6 +716,7 @@ export type Database = {
           fase?: string
           id?: string
           linked_agenda_ids?: Json
+          origin?: string
           person?: string | null
           photo_url?: string | null
           previous_fase?: string | null
