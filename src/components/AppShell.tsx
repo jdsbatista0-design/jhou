@@ -43,7 +43,7 @@ export default function AppShell({ children }: AppShellProps) {
         <div className="max-w-lg mx-auto h-full px-3 flex items-center gap-2">
           <ProfileMenu email={profile.email} fullName={profile.fullName} avatarUrl={profile.avatarUrl} />
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] text-muted-foreground leading-tight truncate hidden xs:block">
+            <p className="text-[10px] text-muted-foreground leading-tight truncate">
               {greeting(now.getHours())}{firstName ? `, ${firstName}` : ''}
             </p>
             <p className="text-[12px] font-medium text-foreground leading-tight truncate" data-mono>
