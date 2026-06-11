@@ -126,6 +126,7 @@ function dbRowToItem(row: any, comments: ItemComment[]): Item {
     comments,
     recurrenceId: row.recurrence_id || undefined,
     reminderMinutes: row.reminder_minutes != null ? Number(row.reminder_minutes) : undefined,
+    origin: row.origin || 'manual',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
