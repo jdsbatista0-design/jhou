@@ -386,7 +386,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <RecurrencesManager />
+      {/* Recorrências agora ficam dentro da Agenda */}
 
       <div className="space-y-2">
         <Button variant="outline" className="w-full rounded-xl justify-start gap-2" onClick={() => navigate('/memory')}>
