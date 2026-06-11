@@ -418,8 +418,8 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     const userId = await getUserId(); if (!userId) return;
     await supabase.from('fin_categories').insert({
       scope: c.scope, name: c.name, kind: c.kind, color: c.color || '#64748b',
-      icon: c.icon || null, user_id: userId,
-    });
+      icon: c.icon || null, monthly_budget: c.monthlyBudget ?? null, user_id: userId,
+    } as any);
   };
   const updateCategory: FinanceContextType['updateCategory'] = async (id, data) => {
     await supabase.from('fin_categories').update({
@@ -428,7 +428,8 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
       ...(data.color !== undefined ? { color: data.color } : {}),
       ...(data.icon !== undefined ? { icon: data.icon || null } : {}),
       ...(data.archived !== undefined ? { archived: data.archived } : {}),
-    }).eq('id', id);
+      ...(data.monthlyBudget !== undefined ? { monthly_budget: data.monthlyBudget ?? null } : {}),
+    } as any).eq('id', id);
   };
   const deleteCategory: FinanceContextType['deleteCategory'] = async (id) => {
     await supabase.from('fin_categories').delete().eq('id', id);
