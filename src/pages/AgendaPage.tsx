@@ -179,7 +179,7 @@ export default function AgendaPage() {
       {view === 'calendar' && (
         <div className="space-y-3">
           <AgendaCalendar
-            entries={agendaEntries}
+            entries={allEntries}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
           />
