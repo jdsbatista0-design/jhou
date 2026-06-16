@@ -15,8 +15,17 @@ import { MemoryCategory, MEMORY_CATEGORIES, Memory } from '@/types/central';
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+function generatePassword(len = 16): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*-_';
+  let out = '';
+  const arr = new Uint32Array(len);
+  crypto.getRandomValues(arr);
+  for (let i = 0; i < len; i++) out += chars[arr[i] % chars.length];
+  return out;
+}
+
 export default function MemoryPage() {
-  const { memories, addMemory, deleteMemory, items, addItem, settings } = useCentral();
+  const { memories, addMemory, updateMemory, deleteMemory, items, addItem, addRecurrence, settings } = useCentral();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<MemoryCategory | 'all'>('all');
@@ -24,6 +33,11 @@ export default function MemoryPage() {
   const [form, setForm] = useState({
     title: '', content: '', tags: '', category: 'geral' as MemoryCategory,
     login: '', password: '', url: '', city: '',
+    travelKind: 'lugar' as 'hotel' | 'restaurante' | 'lugar' | 'dica',
+    address: '', rating: 0, priceRange: '' as '' | '$' | '$$' | '$$$', mapsUrl: '',
+    attachmentUrl: '', comment: '',
+    ingredients: '', steps: '', servings: 0, timeMinutes: 0,
+    weekdays: [] as number[], routineTime: '08:00',
     meetingDate: todayISO(), participants: '', decisions: '', nextSteps: '',
     linkedItemId: '__none__',
   });
