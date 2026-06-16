@@ -188,7 +188,7 @@ export default function AgendaPage() {
               {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
             </h2>
             {(() => {
-              const list = agendaEntries.filter(e => isSameDay(entryDate(e), selectedDate));
+              const list = allEntries.filter(e => isSameDay(entryDate(e), selectedDate));
               if (list.length === 0) {
                 return <p className="text-xs text-muted-foreground py-4 text-center">Nada para este dia.</p>;
               }
