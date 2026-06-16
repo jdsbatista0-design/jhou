@@ -66,26 +66,65 @@ export default function MemoryPage() {
     return matchSearch && matchCategory;
   });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.title.trim()) { toast.error('Título obrigatório'); return; }
-    addMemory({
+    const cat = form.category;
+    let linkedRecurrenceId: string | undefined;
+
+    if (cat === 'rotina' && form.weekdays.length > 0 && form.routineTime) {
+      try {
+        await addRecurrence({
+          title: form.title,
+          area: settings.areas[0] || 'Pessoal',
+          type: 'Rotina',
+          time: form.routineTime,
+          weekdays: form.weekdays as any,
+          startDate: todayISO(),
+          reminderMinutes: 30,
+          active: true,
+        });
+        toast.success('Rotina adicionada à Agenda');
+      } catch (e) {
+        console.error('addRecurrence failed', e);
+      }
+    }
+
+    await addMemory({
       title: form.title,
       content: form.content,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-      category: form.category,
-      login: form.login || undefined,
-      password: form.password || undefined,
-      url: form.url || undefined,
-      city: form.city || undefined,
-      meetingDate: form.category === 'reunioes' ? (form.meetingDate || undefined) : undefined,
-      participants: form.category === 'reunioes' ? (form.participants || undefined) : undefined,
-      decisions: form.category === 'reunioes' ? (form.decisions || undefined) : undefined,
-      nextSteps: form.category === 'reunioes' ? (form.nextSteps || undefined) : undefined,
-      linkedItemId: form.category === 'reunioes' && form.linkedItemId !== '__none__' ? form.linkedItemId : undefined,
+      category: cat,
+      login: cat === 'senhas' ? (form.login || undefined) : undefined,
+      password: cat === 'senhas' ? (form.password || undefined) : undefined,
+      url: cat === 'senhas' ? (form.url || undefined) : undefined,
+      city: cat === 'viagens' ? (form.city || undefined) : undefined,
+      travelKind: cat === 'viagens' ? form.travelKind : undefined,
+      address: cat === 'viagens' ? (form.address || undefined) : undefined,
+      rating: cat === 'viagens' && form.rating > 0 ? form.rating : undefined,
+      priceRange: cat === 'viagens' && form.priceRange ? form.priceRange : undefined,
+      mapsUrl: cat === 'viagens' ? (form.mapsUrl || undefined) : undefined,
+      attachmentUrl: form.attachmentUrl || undefined,
+      comment: cat === 'livro' ? (form.comment || undefined) : undefined,
+      ingredients: cat === 'receitas' ? (form.ingredients || undefined) : undefined,
+      steps: cat === 'receitas' ? (form.steps || undefined) : undefined,
+      servings: cat === 'receitas' && form.servings > 0 ? form.servings : undefined,
+      timeMinutes: cat === 'receitas' && form.timeMinutes > 0 ? form.timeMinutes : undefined,
+      weekdays: cat === 'rotina' ? form.weekdays : undefined,
+      routineTime: cat === 'rotina' ? form.routineTime : undefined,
+      linkedRecurrenceId,
+      meetingDate: cat === 'reunioes' ? (form.meetingDate || undefined) : undefined,
+      participants: cat === 'reunioes' ? (form.participants || undefined) : undefined,
+      decisions: cat === 'reunioes' ? (form.decisions || undefined) : undefined,
+      nextSteps: cat === 'reunioes' ? (form.nextSteps || undefined) : undefined,
+      linkedItemId: cat === 'reunioes' && form.linkedItemId !== '__none__' ? form.linkedItemId : undefined,
     });
     setForm({
-      title: '', content: '', tags: '', category: form.category,
+      title: '', content: '', tags: '', category: cat,
       login: '', password: '', url: '', city: '',
+      travelKind: 'lugar', address: '', rating: 0, priceRange: '', mapsUrl: '',
+      attachmentUrl: '', comment: '',
+      ingredients: '', steps: '', servings: 0, timeMinutes: 0,
+      weekdays: [], routineTime: '08:00',
       meetingDate: todayISO(), participants: '', decisions: '', nextSteps: '',
       linkedItemId: '__none__',
     });
