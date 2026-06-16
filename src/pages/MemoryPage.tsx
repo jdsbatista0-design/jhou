@@ -417,13 +417,70 @@ export default function MemoryPage() {
           </div>
         )}
 
-        {/* Viagens - city badge */}
-        {cat === 'viagens' && m.city && (
-          <Badge variant="outline" className="text-[10px]">📍 {m.city}</Badge>
+        {/* Viagens */}
+        {cat === 'viagens' && (
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {m.city && <Badge variant="outline" className="text-[10px]">📍 {m.city}</Badge>}
+              {m.travelKind && <Badge variant="secondary" className="text-[10px]">{({hotel:'🏨 Hotel',restaurante:'🍽️ Restaurante',lugar:'📍 Lugar',dica:'💡 Dica'} as any)[m.travelKind]}</Badge>}
+              {m.rating ? <Badge variant="outline" className="text-[10px]">{'⭐'.repeat(m.rating)}</Badge> : null}
+              {m.priceRange && <Badge variant="outline" className="text-[10px]">{m.priceRange}</Badge>}
+            </div>
+            {m.address && <p className="text-[11px] text-muted-foreground">{m.address}</p>}
+            {m.mapsUrl && (
+              <a href={m.mapsUrl} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-0.5 hover:underline">
+                Abrir no mapa <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Receitas */}
+        {cat === 'receitas' && (
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-1">
+              {m.timeMinutes ? <Badge variant="outline" className="text-[10px]">⏱ {m.timeMinutes}min</Badge> : null}
+              {m.servings ? <Badge variant="outline" className="text-[10px]">🍽 {m.servings} porções</Badge> : null}
+            </div>
+            {m.ingredients && (
+              <div className="bg-muted/50 rounded-lg p-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Ingredientes</p>
+                <p className="text-xs text-foreground whitespace-pre-line">{m.ingredients}</p>
+              </div>
+            )}
+            {m.steps && (
+              <div className="bg-muted/50 rounded-lg p-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Modo de preparo</p>
+                <p className="text-xs text-foreground whitespace-pre-line">{m.steps}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Livro / anexo + comentário */}
+        {cat === 'livro' && m.comment && (
+          <div className="bg-muted/50 rounded-lg p-2">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Comentário</p>
+            <p className="text-xs text-foreground whitespace-pre-line">{m.comment}</p>
+          </div>
+        )}
+        {m.attachmentUrl && (
+          <Badge variant="outline" className="text-[10px] gap-1">📎 anexo</Badge>
+        )}
+
+        {/* Rotina */}
+        {cat === 'rotina' && (m.weekdays?.length || m.routineTime) && (
+          <div className="flex flex-wrap gap-1">
+            {m.routineTime && <Badge variant="outline" className="text-[10px]" data-mono>⏰ {m.routineTime}</Badge>}
+            {(m.weekdays || []).map(d => (
+              <Badge key={d} variant="secondary" className="text-[10px]">{['S','T','Q','Q','S','S','D'][d-1]}</Badge>
+            ))}
+            {m.linkedRecurrenceId && <Badge variant="outline" className="text-[10px]">na Agenda ✓</Badge>}
+          </div>
         )}
 
         {/* Content for non-reunioes */}
-        {cat !== 'reunioes' && m.content && (
+        {cat !== 'reunioes' && cat !== 'receitas' && m.content && (
           <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-line">{m.content}</p>
         )}
 
