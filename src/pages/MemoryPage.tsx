@@ -12,6 +12,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { toast } from 'sonner';
 import { MemoryCategory, MEMORY_CATEGORIES, Memory } from '@/types/central';
+import AttachmentUploader from '@/components/memory/AttachmentUploader';
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
