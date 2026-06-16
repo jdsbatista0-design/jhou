@@ -698,26 +698,14 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (!userId) return;
     const tempId = `tmp-${crypto.randomUUID()}`;
     const optimistic: Memory = {
+      ...memory,
       id: tempId,
-      title: memory.title,
-      content: memory.content,
       tags: memory.tags || [],
       category: memory.category || 'geral',
-      area: memory.area,
-      login: memory.login,
-      password: memory.password,
-      url: memory.url,
-      city: memory.city,
-      meetingDate: memory.meetingDate,
-      participants: memory.participants,
-      decisions: memory.decisions,
-      nextSteps: memory.nextSteps,
-      linkedItemId: memory.linkedItemId,
       createdAt: new Date().toISOString(),
     };
     setMemories(prev => [optimistic, ...prev]);
 
-    // Criptografa campos sensíveis antes de salvar
     const encLogin = memory.login ? await encryptString(memory.login) : null;
     const encPassword = memory.password ? await encryptString(memory.password) : null;
     const encUrl = memory.url ? await encryptString(memory.url) : null;
@@ -731,6 +719,20 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       password: encPassword,
       url: encUrl,
       city: memory.city || null,
+      travel_kind: memory.travelKind || null,
+      address: memory.address || null,
+      rating: memory.rating ?? null,
+      price_range: memory.priceRange || null,
+      maps_url: memory.mapsUrl || null,
+      attachment_url: memory.attachmentUrl || null,
+      comment: memory.comment || null,
+      ingredients: memory.ingredients || null,
+      steps: memory.steps || null,
+      servings: memory.servings ?? null,
+      time_minutes: memory.timeMinutes ?? null,
+      weekdays: memory.weekdays || null,
+      routine_time: memory.routineTime || null,
+      linked_recurrence_id: memory.linkedRecurrenceId || null,
       meeting_date: memory.meetingDate || null,
       participants: memory.participants || null,
       decisions: memory.decisions || null,
@@ -744,11 +746,41 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       return;
     }
     if (data) {
-      // Replace temp with real (decrypt for plaintext fields)
       const real = await dbRowToMemory(data);
       setMemories(prev => prev.map(m => (m.id === tempId ? real : m)));
+      return real.id;
     }
   }, [getUserId]);
+
+  const updateMemory = useCallback(async (id: string, updates: Partial<Memory>) => {
+    const patch: any = {};
+    if (updates.title !== undefined) patch.title = updates.title;
+    if (updates.content !== undefined) patch.content = updates.content;
+    if (updates.tags !== undefined) patch.tags = updates.tags;
+    if (updates.category !== undefined) patch.category = updates.category;
+    if (updates.area !== undefined) patch.area = updates.area || null;
+    if (updates.login !== undefined) patch.login = updates.login ? await encryptString(updates.login) : null;
+    if (updates.password !== undefined) patch.password = updates.password ? await encryptString(updates.password) : null;
+    if (updates.url !== undefined) patch.url = updates.url ? await encryptString(updates.url) : null;
+    if (updates.city !== undefined) patch.city = updates.city || null;
+    if (updates.travelKind !== undefined) patch.travel_kind = updates.travelKind || null;
+    if (updates.address !== undefined) patch.address = updates.address || null;
+    if (updates.rating !== undefined) patch.rating = updates.rating ?? null;
+    if (updates.priceRange !== undefined) patch.price_range = updates.priceRange || null;
+    if (updates.mapsUrl !== undefined) patch.maps_url = updates.mapsUrl || null;
+    if (updates.attachmentUrl !== undefined) patch.attachment_url = updates.attachmentUrl || null;
+    if (updates.comment !== undefined) patch.comment = updates.comment || null;
+    if (updates.ingredients !== undefined) patch.ingredients = updates.ingredients || null;
+    if (updates.steps !== undefined) patch.steps = updates.steps || null;
+    if (updates.servings !== undefined) patch.servings = updates.servings ?? null;
+    if (updates.timeMinutes !== undefined) patch.time_minutes = updates.timeMinutes ?? null;
+    if (updates.weekdays !== undefined) patch.weekdays = updates.weekdays || null;
+    if (updates.routineTime !== undefined) patch.routine_time = updates.routineTime || null;
+    if (updates.linkedRecurrenceId !== undefined) patch.linked_recurrence_id = updates.linkedRecurrenceId || null;
+    setMemories(prev => prev.map(m => (m.id === id ? { ...m, ...updates } : m)));
+    await supabase.from('memories').update(patch).eq('id', id);
+  }, []);
+
 
   const deleteMemory = useCallback(async (id: string) => {
     let snapshot: Memory[] = [];
