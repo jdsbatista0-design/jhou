@@ -101,6 +101,8 @@ export const MEMORY_CATEGORIES: { value: MemoryCategory; label: string; icon: st
   { value: 'rotina', label: 'Rotina', icon: '⏰' },
 ];
 
+export type TravelKind = 'hotel' | 'restaurante' | 'lugar' | 'dica';
+
 export interface Memory {
   id: string;
   title: string;
@@ -108,13 +110,31 @@ export interface Memory {
   tags: string[];
   category: MemoryCategory;
   area?: string;
-  // Extra fields for specific categories
+  // Senhas
   login?: string;
   password?: string;
   url?: string;
+  // Viagens
   city?: string;
-  // Reuniões / eventos
-  meetingDate?: string; // YYYY-MM-DD
+  travelKind?: TravelKind;
+  address?: string;
+  rating?: number;
+  priceRange?: '$' | '$$' | '$$$';
+  mapsUrl?: string;
+  // Livro / anexos
+  attachmentUrl?: string;
+  comment?: string;
+  // Receitas
+  ingredients?: string;
+  steps?: string;
+  servings?: number;
+  timeMinutes?: number;
+  // Rotina
+  weekdays?: number[];
+  routineTime?: string;
+  linkedRecurrenceId?: string;
+  // Reuniões
+  meetingDate?: string;
   participants?: string;
   decisions?: string;
   nextSteps?: string;

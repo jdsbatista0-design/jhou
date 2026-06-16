@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Trash2, Check, Repeat, Bell, CalendarDays, List } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Trash2, Check, Repeat, Bell, CalendarDays, List, Wallet } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
+import { useFinance } from '@/contexts/FinanceContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,30 +12,60 @@ import { useNavigate } from 'react-router-dom';
 import AgendaCalendar from '@/components/agenda/AgendaCalendar';
 import { parseLocalDateTime } from '@/lib/dates';
 import { RecurrencesManager } from '@/components/RecurrencesManager';
+import { formatBRL } from '@/types/finance';
 
 type View = 'calendar' | 'list' | 'recurrences';
 
 export default function AgendaPage() {
   const { agendaEntries, updateItem, deleteEvent } = useCentral();
+  const { transactions, updateTransaction } = useFinance();
   const navigate = useNavigate();
   const [view, setView] = useState<View>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
+  // Vencimentos financeiros pendentes viram entradas virtuais na agenda
+  const financeEntries = useMemo<AgendaEntry[]>(() => {
+    return transactions
+      .filter(t => t.status === 'pending')
+      .map(t => ({
+        id: `fin-${t.id}`,
+        title: `${t.kind === 'income' || t.kind === 'receivable' ? '↓' : '↑'} ${t.description} · ${formatBRL(t.amount)}`,
+        datetime: `${t.occurredOn}T08:00`,
+        type: t.kind === 'income' || t.kind === 'receivable' ? 'A receber' : 'A pagar',
+        source: 'event' as const,
+        sourceId: t.id,
+        item: { origin: 'finance' } as any,
+      }));
+  }, [transactions]);
+
+  const allEntries = useMemo(() => {
+    return [...agendaEntries, ...financeEntries].sort((a, b) => {
+      const ad = parseLocalDateTime(a.datetime) || new Date(a.datetime);
+      const bd = parseLocalDateTime(b.datetime) || new Date(b.datetime);
+      return ad.getTime() - bd.getTime();
+    });
+  }, [agendaEntries, financeEntries]);
+
   const entryDate = (entry: AgendaEntry) => parseLocalDateTime(entry.datetime) || new Date(entry.datetime);
 
-  const today = agendaEntries.filter(e => isToday(entryDate(e)));
-  const tomorrow = agendaEntries.filter(e => isTomorrow(entryDate(e)));
-  const week = agendaEntries.filter(e =>
+  const today = allEntries.filter(e => isToday(entryDate(e)));
+  const tomorrow = allEntries.filter(e => isTomorrow(entryDate(e)));
+  const week = allEntries.filter(e =>
     isThisWeek(entryDate(e), { weekStartsOn: 1 }) &&
     !isToday(entryDate(e)) && !isTomorrow(entryDate(e))
   );
-  const later = agendaEntries.filter(e =>
+  const later = allEntries.filter(e =>
     !isToday(entryDate(e)) && !isTomorrow(entryDate(e)) &&
     !isThisWeek(entryDate(e), { weekStartsOn: 1 })
   );
 
   const handleConclude = (entry: AgendaEntry, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (entry.id.startsWith('fin-')) {
+      updateTransaction(entry.sourceId, { status: 'confirmed' });
+      toast.success('Marcado como pago ✅');
+      return;
+    }
     if (entry.source === 'item') {
       const isConcluido = entry.item?.fase === 'Concluído';
       updateItem(entry.sourceId, { fase: isConcluido ? 'Inbox' : 'Concluído' });
@@ -81,7 +112,7 @@ export default function AgendaPage() {
             <p className="text-[11px] text-muted-foreground">
               {format(entryDate(entry), "HH:mm · EEEE, dd/MM", { locale: ptBR })} · {entry.type}
             </p>
-            {entry.item && (
+            {entry.item && !entry.id.startsWith('fin-') && (
               <div className="flex flex-wrap gap-1 mt-1">
                 <Badge variant="secondary" className="text-[9px]">{entry.item.area}</Badge>
                 <Badge variant="outline" className="text-[9px]">{entry.item.fase}</Badge>
@@ -93,9 +124,12 @@ export default function AgendaPage() {
                 )}
               </div>
             )}
+            {entry.id.startsWith('fin-') && (
+              <Badge variant="outline" className="text-[9px] gap-0.5 mt-1"><Wallet className="h-2.5 w-2.5" /> Financeiro</Badge>
+            )}
           </div>
         </div>
-        {entry.source === 'event' && (
+        {entry.source === 'event' && !entry.id.startsWith('fin-') && (
           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground shrink-0" onClick={e => { e.stopPropagation(); deleteEvent(entry.sourceId); toast.success('Evento removido'); }}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
@@ -148,7 +182,7 @@ export default function AgendaPage() {
       {view === 'calendar' && (
         <div className="space-y-3">
           <AgendaCalendar
-            entries={agendaEntries}
+            entries={allEntries}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
           />
@@ -157,7 +191,7 @@ export default function AgendaPage() {
               {format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
             </h2>
             {(() => {
-              const list = agendaEntries.filter(e => isSameDay(entryDate(e), selectedDate));
+              const list = allEntries.filter(e => isSameDay(entryDate(e), selectedDate));
               if (list.length === 0) {
                 return <p className="text-xs text-muted-foreground py-4 text-center">Nada para este dia.</p>;
               }
@@ -179,7 +213,7 @@ export default function AgendaPage() {
           {renderGroup('Amanhã', tomorrow)}
           {renderGroup('Esta semana', week)}
           {renderGroup('Próximos', later)}
-          {agendaEntries.length === 0 && (
+          {allEntries.length === 0 && (
             <div className="text-center py-12">
               <p className="text-3xl mb-2">📅</p>
               <p className="text-sm text-muted-foreground">Nada na agenda.</p>

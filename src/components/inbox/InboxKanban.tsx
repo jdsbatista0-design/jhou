@@ -45,7 +45,9 @@ export default function InboxKanban() {
   const grouped = useMemo(() => {
     const map: Record<string, Item[]> = {};
     for (const c of columns) map[c] = [];
-    for (const it of items) {
+    // Recorrências vivem só na Agenda — não poluem o Kanban
+    const filtered = items.filter(i => !i.recurrenceId && i.origin !== 'recurrence');
+    for (const it of filtered) {
       const key = groupBy === 'fase' ? it.fase : it.area;
       if (!map[key]) map[key] = [];
       map[key].push(it);

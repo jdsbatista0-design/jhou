@@ -735,61 +735,103 @@ export type Database = {
       }
       memories: {
         Row: {
+          address: string | null
           area: string | null
+          attachment_url: string | null
           category: string
           city: string | null
+          comment: string | null
           content: string
           created_at: string
           decisions: string | null
           id: string
+          ingredients: string | null
           linked_item_id: string | null
+          linked_recurrence_id: string | null
           login: string | null
+          maps_url: string | null
           meeting_date: string | null
           next_steps: string | null
           participants: string | null
           password: string | null
+          price_range: string | null
+          rating: number | null
+          routine_time: string | null
+          servings: number | null
+          steps: string | null
           tags: Json
+          time_minutes: number | null
           title: string
+          travel_kind: string | null
           url: string | null
           user_id: string
+          weekdays: number[] | null
         }
         Insert: {
+          address?: string | null
           area?: string | null
+          attachment_url?: string | null
           category?: string
           city?: string | null
+          comment?: string | null
           content: string
           created_at?: string
           decisions?: string | null
           id?: string
+          ingredients?: string | null
           linked_item_id?: string | null
+          linked_recurrence_id?: string | null
           login?: string | null
+          maps_url?: string | null
           meeting_date?: string | null
           next_steps?: string | null
           participants?: string | null
           password?: string | null
+          price_range?: string | null
+          rating?: number | null
+          routine_time?: string | null
+          servings?: number | null
+          steps?: string | null
           tags?: Json
+          time_minutes?: number | null
           title: string
+          travel_kind?: string | null
           url?: string | null
           user_id?: string
+          weekdays?: number[] | null
         }
         Update: {
+          address?: string | null
           area?: string | null
+          attachment_url?: string | null
           category?: string
           city?: string | null
+          comment?: string | null
           content?: string
           created_at?: string
           decisions?: string | null
           id?: string
+          ingredients?: string | null
           linked_item_id?: string | null
+          linked_recurrence_id?: string | null
           login?: string | null
+          maps_url?: string | null
           meeting_date?: string | null
           next_steps?: string | null
           participants?: string | null
           password?: string | null
+          price_range?: string | null
+          rating?: number | null
+          routine_time?: string | null
+          servings?: number | null
+          steps?: string | null
           tags?: Json
+          time_minutes?: number | null
           title?: string
+          travel_kind?: string | null
           url?: string | null
           user_id?: string
+          weekdays?: number[] | null
         }
         Relationships: []
       }
