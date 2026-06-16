@@ -210,7 +210,7 @@ export default function AgendaPage() {
           {renderGroup('Amanhã', tomorrow)}
           {renderGroup('Esta semana', week)}
           {renderGroup('Próximos', later)}
-          {agendaEntries.length === 0 && (
+          {allEntries.length === 0 && (
             <div className="text-center py-12">
               <p className="text-3xl mb-2">📅</p>
               <p className="text-sm text-muted-foreground">Nada na agenda.</p>
