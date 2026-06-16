@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Trash2, Check, Repeat, Bell, CalendarDays, List } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Trash2, Check, Repeat, Bell, CalendarDays, List, Wallet } from 'lucide-react';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
+import { useFinance } from '@/contexts/FinanceContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,24 +12,49 @@ import { useNavigate } from 'react-router-dom';
 import AgendaCalendar from '@/components/agenda/AgendaCalendar';
 import { parseLocalDateTime } from '@/lib/dates';
 import { RecurrencesManager } from '@/components/RecurrencesManager';
+import { formatBRL } from '@/types/finance';
 
 type View = 'calendar' | 'list' | 'recurrences';
 
 export default function AgendaPage() {
   const { agendaEntries, updateItem, deleteEvent } = useCentral();
+  const { transactions, updateTransaction } = useFinance();
   const navigate = useNavigate();
   const [view, setView] = useState<View>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
+  // Vencimentos financeiros pendentes viram entradas virtuais na agenda
+  const financeEntries = useMemo<AgendaEntry[]>(() => {
+    return transactions
+      .filter(t => t.status === 'pending')
+      .map(t => ({
+        id: `fin-${t.id}`,
+        title: `${t.kind === 'income' || t.kind === 'receivable' ? '↓' : '↑'} ${t.description} · ${formatBRL(t.amount)}`,
+        datetime: `${t.occurredOn}T08:00`,
+        type: t.kind === 'income' || t.kind === 'receivable' ? 'A receber' : 'A pagar',
+        source: 'event' as const,
+        sourceId: t.id,
+        item: { origin: 'finance' } as any,
+      }));
+  }, [transactions]);
+
+  const allEntries = useMemo(() => {
+    return [...agendaEntries, ...financeEntries].sort((a, b) => {
+      const ad = parseLocalDateTime(a.datetime) || new Date(a.datetime);
+      const bd = parseLocalDateTime(b.datetime) || new Date(b.datetime);
+      return ad.getTime() - bd.getTime();
+    });
+  }, [agendaEntries, financeEntries]);
+
   const entryDate = (entry: AgendaEntry) => parseLocalDateTime(entry.datetime) || new Date(entry.datetime);
 
-  const today = agendaEntries.filter(e => isToday(entryDate(e)));
-  const tomorrow = agendaEntries.filter(e => isTomorrow(entryDate(e)));
-  const week = agendaEntries.filter(e =>
+  const today = allEntries.filter(e => isToday(entryDate(e)));
+  const tomorrow = allEntries.filter(e => isTomorrow(entryDate(e)));
+  const week = allEntries.filter(e =>
     isThisWeek(entryDate(e), { weekStartsOn: 1 }) &&
     !isToday(entryDate(e)) && !isTomorrow(entryDate(e))
   );
-  const later = agendaEntries.filter(e =>
+  const later = allEntries.filter(e =>
     !isToday(entryDate(e)) && !isTomorrow(entryDate(e)) &&
     !isThisWeek(entryDate(e), { weekStartsOn: 1 })
   );
