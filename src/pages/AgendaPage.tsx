@@ -61,6 +61,11 @@ export default function AgendaPage() {
 
   const handleConclude = (entry: AgendaEntry, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (entry.id.startsWith('fin-')) {
+      updateTransaction(entry.sourceId, { status: 'confirmed' });
+      toast.success('Marcado como pago ✅');
+      return;
+    }
     if (entry.source === 'item') {
       const isConcluido = entry.item?.fase === 'Concluído';
       updateItem(entry.sourceId, { fase: isConcluido ? 'Inbox' : 'Concluído' });
