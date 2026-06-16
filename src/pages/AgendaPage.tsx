@@ -112,7 +112,7 @@ export default function AgendaPage() {
             <p className="text-[11px] text-muted-foreground">
               {format(entryDate(entry), "HH:mm · EEEE, dd/MM", { locale: ptBR })} · {entry.type}
             </p>
-            {entry.item && (
+            {entry.item && !entry.id.startsWith('fin-') && (
               <div className="flex flex-wrap gap-1 mt-1">
                 <Badge variant="secondary" className="text-[9px]">{entry.item.area}</Badge>
                 <Badge variant="outline" className="text-[9px]">{entry.item.fase}</Badge>
@@ -124,9 +124,12 @@ export default function AgendaPage() {
                 )}
               </div>
             )}
+            {entry.id.startsWith('fin-') && (
+              <Badge variant="outline" className="text-[9px] gap-0.5 mt-1"><Wallet className="h-2.5 w-2.5" /> Financeiro</Badge>
+            )}
           </div>
         </div>
-        {entry.source === 'event' && (
+        {entry.source === 'event' && !entry.id.startsWith('fin-') && (
           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground shrink-0" onClick={e => { e.stopPropagation(); deleteEvent(entry.sourceId); toast.success('Evento removido'); }}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
