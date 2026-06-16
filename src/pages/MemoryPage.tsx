@@ -165,19 +165,112 @@ export default function MemoryPage() {
     toast.success(`${lines.length} ${lines.length === 1 ? 'item criado' : 'itens criados'}`);
   };
 
+  const WEEKDAYS = [
+    { v: 1, l: 'S' }, { v: 2, l: 'T' }, { v: 3, l: 'Q' }, { v: 4, l: 'Q' },
+    { v: 5, l: 'S' }, { v: 6, l: 'S' }, { v: 7, l: 'D' },
+  ];
+
+  const toggleWeekday = (d: number) => {
+    setForm(f => ({
+      ...f,
+      weekdays: f.weekdays.includes(d) ? f.weekdays.filter(x => x !== d) : [...f.weekdays, d].sort(),
+    }));
+  };
+
   const getCategoryFields = () => {
     switch (form.category) {
       case 'senhas':
         return (
           <>
             <Input placeholder="Login / email" value={form.login} onChange={e => setForm(f => ({ ...f, login: e.target.value }))} className="rounded-xl" />
-            <Input placeholder="Senha" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="rounded-xl" />
+            <div className="flex gap-2">
+              <Input placeholder="Senha" type="text" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} className="rounded-xl font-mono flex-1" />
+              <Button type="button" variant="outline" size="sm" className="rounded-xl whitespace-nowrap" onClick={() => setForm(f => ({ ...f, password: generatePassword() }))}>
+                Gerar
+              </Button>
+            </div>
             <Input placeholder="URL do site/sistema" value={form.url} onChange={e => setForm(f => ({ ...f, url: e.target.value }))} className="rounded-xl" />
+            <p className="text-[10px] text-muted-foreground">🔒 Login, senha e URL são criptografados com o PIN antes de salvar.</p>
           </>
         );
       case 'viagens':
         return (
-          <Input placeholder="Cidade" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="rounded-xl" />
+          <>
+            <Input placeholder="Cidade / destino" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} className="rounded-xl" />
+            <Select value={form.travelKind} onValueChange={(v: any) => setForm(f => ({ ...f, travelKind: v }))}>
+              <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hotel">🏨 Hotel</SelectItem>
+                <SelectItem value="restaurante">🍽️ Restaurante</SelectItem>
+                <SelectItem value="lugar">📍 Lugar para conhecer</SelectItem>
+                <SelectItem value="dica">💡 Dica geral</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input placeholder="Endereço" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} className="rounded-xl" />
+            <div className="flex gap-2">
+              <Select value={form.rating ? String(form.rating) : '0'} onValueChange={v => setForm(f => ({ ...f, rating: Number(v) }))}>
+                <SelectTrigger className="rounded-xl flex-1"><SelectValue placeholder="Avaliação" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Sem avaliação</SelectItem>
+                  {[1,2,3,4,5].map(n => <SelectItem key={n} value={String(n)}>{'⭐'.repeat(n)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={form.priceRange || '__none__'} onValueChange={v => setForm(f => ({ ...f, priceRange: v === '__none__' ? '' : v as any }))}>
+                <SelectTrigger className="rounded-xl flex-1"><SelectValue placeholder="Preço" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">—</SelectItem>
+                  <SelectItem value="$">$</SelectItem>
+                  <SelectItem value="$$">$$</SelectItem>
+                  <SelectItem value="$$$">$$$</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Input placeholder="Google Maps URL (opcional)" value={form.mapsUrl} onChange={e => setForm(f => ({ ...f, mapsUrl: e.target.value }))} className="rounded-xl" />
+          </>
+        );
+      case 'receitas':
+        return (
+          <>
+            <Textarea placeholder="Ingredientes (1 por linha)" value={form.ingredients} onChange={e => setForm(f => ({ ...f, ingredients: e.target.value }))} className="rounded-xl" rows={4} />
+            <Textarea placeholder="Modo de preparo" value={form.steps} onChange={e => setForm(f => ({ ...f, steps: e.target.value }))} className="rounded-xl" rows={5} />
+            <div className="flex gap-2">
+              <Input type="number" placeholder="Porções" value={form.servings || ''} onChange={e => setForm(f => ({ ...f, servings: Number(e.target.value) }))} className="rounded-xl" />
+              <Input type="number" placeholder="Tempo (min)" value={form.timeMinutes || ''} onChange={e => setForm(f => ({ ...f, timeMinutes: Number(e.target.value) }))} className="rounded-xl" />
+            </div>
+            <AttachmentUploader value={form.attachmentUrl || undefined} onChange={v => setForm(f => ({ ...f, attachmentUrl: v || '' }))} accept="image/*" />
+          </>
+        );
+      case 'livro':
+        return (
+          <>
+            <Textarea placeholder="Comentário / reflexão pessoal" value={form.comment} onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} className="rounded-xl" rows={4} />
+            <AttachmentUploader value={form.attachmentUrl || undefined} onChange={v => setForm(f => ({ ...f, attachmentUrl: v || '' }))} />
+          </>
+        );
+      case 'rotina':
+        return (
+          <>
+            <div className="space-y-1">
+              <label className="text-[11px] text-muted-foreground">Dias da semana</label>
+              <div className="flex gap-1">
+                {WEEKDAYS.map(d => (
+                  <button
+                    key={d.v}
+                    type="button"
+                    onClick={() => toggleWeekday(d.v)}
+                    className={`h-9 w-9 rounded-full text-xs font-semibold border ${form.weekdays.includes(d.v) ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'}`}
+                  >
+                    {d.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground">Horário</label>
+              <Input type="time" value={form.routineTime} onChange={e => setForm(f => ({ ...f, routineTime: e.target.value }))} className="rounded-xl" />
+            </div>
+            <p className="text-[10px] text-muted-foreground">⏰ A rotina aparece automaticamente no calendário da Agenda.</p>
+          </>
         );
       case 'reunioes':
         return (
