@@ -49,10 +49,33 @@ export function TransactionsList({ scope, companyId }: Props) {
   const { transactions, accounts, cards, categories, people, companies, deleteTransaction, updateTransaction } = useFinance();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<QuickFilter>('todo_mes');
+  const [period, setPeriod] = useState<Period>('this_month');
   const [editing, setEditing] = useState<FinTransaction | null>(null);
   const [showAllPast, setShowAllPast] = useState(false);
 
   const today = todayYMD();
+  const monthStart = startOfMonthYMD();
+  const monthEnd = endOfMonthYMD();
+  const weekEnd = endOfWeekYMD();
+
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    if (period === 'all') return { start: '0000-01-01', end: '9999-12-31' };
+    if (period === 'this_month') return { start: monthStart, end: monthEnd };
+    if (period === 'last_month') {
+      const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const e = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) };
+    }
+    if (period === 'last_3m') {
+      const s = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      return { start: s.toISOString().slice(0, 10), end: monthEnd };
+    }
+    // year
+    const s = new Date(now.getFullYear(), 0, 1);
+    const e = new Date(now.getFullYear(), 11, 31);
+    return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) };
+  }, [period, monthStart, monthEnd]);
   const monthStart = startOfMonthYMD();
   const monthEnd = endOfMonthYMD();
   const weekEnd = endOfWeekYMD();
