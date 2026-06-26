@@ -17,6 +17,15 @@ const INCOMING_KINDS = new Set(['income', 'receivable', 'bank_loan']);
 const TRANSFER_KINDS = new Set(['transfer', 'inter_company']);
 
 type QuickFilter = 'todo_mes' | 'pagas' | 'tudo';
+type Period = 'this_month' | 'last_month' | 'last_3m' | 'year' | 'all';
+
+const periodLabels: Record<Period, string> = {
+  this_month: 'Este mês',
+  last_month: 'Mês passado',
+  last_3m: 'Últimos 3 meses',
+  year: 'Este ano',
+  all: 'Tudo',
+};
 
 const todayYMD = () => new Date().toISOString().slice(0, 10);
 const startOfMonthYMD = () => {
@@ -40,6 +49,7 @@ export function TransactionsList({ scope, companyId }: Props) {
   const { transactions, accounts, cards, categories, people, companies, deleteTransaction, updateTransaction } = useFinance();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<QuickFilter>('todo_mes');
+  const [period, setPeriod] = useState<Period>('this_month');
   const [editing, setEditing] = useState<FinTransaction | null>(null);
   const [showAllPast, setShowAllPast] = useState(false);
 
@@ -47,6 +57,25 @@ export function TransactionsList({ scope, companyId }: Props) {
   const monthStart = startOfMonthYMD();
   const monthEnd = endOfMonthYMD();
   const weekEnd = endOfWeekYMD();
+
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    if (period === 'all') return { start: '0000-01-01', end: '9999-12-31' };
+    if (period === 'this_month') return { start: monthStart, end: monthEnd };
+    if (period === 'last_month') {
+      const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const e = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) };
+    }
+    if (period === 'last_3m') {
+      const s = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+      return { start: s.toISOString().slice(0, 10), end: monthEnd };
+    }
+    // year
+    const s = new Date(now.getFullYear(), 0, 1);
+    const e = new Date(now.getFullYear(), 11, 31);
+    return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) };
+  }, [period, monthStart, monthEnd]);
 
   // Lookup maps O(1) — evita find() por linha (era O(n*m) em listas grandes)
   const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
@@ -75,8 +104,9 @@ export function TransactionsList({ scope, companyId }: Props) {
         if (filter === 'todo_mes') return t.status === 'pending' && t.occurredOn <= monthEnd;
         return true; // tudo
       })
+      .filter(t => t.occurredOn >= periodRange.start && t.occurredOn <= periodRange.end)
       .filter(t => !search.trim() || t.description.toLowerCase().includes(search.toLowerCase()));
-  }, [baseScoped, filter, monthEnd, search]);
+  }, [baseScoped, filter, monthEnd, search, periodRange]);
 
   // Group by bucket: atrasadas / esta semana / este mês / próximas / passadas
   const groups = useMemo(() => {
@@ -291,6 +321,24 @@ export function TransactionsList({ scope, companyId }: Props) {
           placeholder="Buscar lançamento"
           className="rounded-xl h-9 text-sm pl-8"
         />
+      </div>
+
+      {/* Period selector */}
+      <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-0.5">
+        {(Object.keys(periodLabels) as Period[]).map(p => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={cn(
+              'shrink-0 h-8 px-3 rounded-full border text-[11px] font-semibold transition-colors',
+              period === p
+                ? 'bg-foreground text-background border-foreground'
+                : 'bg-card text-muted-foreground border-border hover:text-foreground',
+            )}
+          >
+            {periodLabels[p]}
+          </button>
+        ))}
       </div>
 
       {/* Quick filter chips */}

@@ -323,57 +323,8 @@ export function BillsToPay({ scope, companyId }: Props) {
         </div>
       </div>
 
-      {/* Quick-add */}
-      {canAdd && (
-        <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
-          <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-            <Plus className="h-3 w-3" /> Lançar nova conta
-          </h3>
-          <Input
-            value={qDesc}
-            onChange={e => setQDesc(e.target.value)}
-            placeholder="Ex.: Aluguel, conta de luz…"
-            className="rounded-xl h-10 text-sm"
-            onKeyDown={e => e.key === 'Enter' && handleQuickAdd()}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              value={qAmount}
-              onChange={e => setQAmount(maskBRLInput(e.target.value))}
-              placeholder="R$ 0,00"
-              inputMode="numeric"
-              className="rounded-xl h-10 text-sm font-mono"
-            />
-            <Input
-              type="date"
-              value={qDate}
-              onChange={e => setQDate(e.target.value)}
-              className="rounded-xl h-10 text-sm"
-            />
-          </div>
-          {expenseCategories.length > 0 && (
-            <Select value={qCategoryId} onValueChange={setQCategoryId}>
-              <SelectTrigger className="rounded-xl h-10 text-sm">
-                <SelectValue placeholder="Categoria (opcional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem categoria</SelectItem>
-                {expenseCategories.map(c => (
-                  <SelectItem key={c.id} value={c.id}>
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
-                      {c.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button onClick={handleQuickAdd} className="w-full rounded-xl h-10 font-semibold">
-            <Plus className="h-4 w-4 mr-1" /> Adicionar conta
-          </Button>
-        </div>
-      )}
+      {/* Quick-add removido — use o botão "Novo lançamento" no topo da página */}
+
 
       {/* Tabs */}
       <div className="flex gap-1.5">
