@@ -17,6 +17,15 @@ const INCOMING_KINDS = new Set(['income', 'receivable', 'bank_loan']);
 const TRANSFER_KINDS = new Set(['transfer', 'inter_company']);
 
 type QuickFilter = 'todo_mes' | 'pagas' | 'tudo';
+type Period = 'this_month' | 'last_month' | 'last_3m' | 'year' | 'all';
+
+const periodLabels: Record<Period, string> = {
+  this_month: 'Este mês',
+  last_month: 'Mês passado',
+  last_3m: 'Últimos 3 meses',
+  year: 'Este ano',
+  all: 'Tudo',
+};
 
 const todayYMD = () => new Date().toISOString().slice(0, 10);
 const startOfMonthYMD = () => {
