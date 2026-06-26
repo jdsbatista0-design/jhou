@@ -21,7 +21,7 @@ const SectionFallback = () => (
 
 function FinanceInner() {
   const { scope, setScope, loading } = useFinance();
-  const [section, setSection] = useState<Section>('bills');
+  const [section, setSection] = useState<Section>('transactions');
   const [txOpen, setTxOpen] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
 
@@ -31,9 +31,9 @@ function FinanceInner() {
   }, [scope, setScope]);
 
   const mainSections: { id: Section; label: string; icon: any }[] = [
+    { id: 'transactions', label: 'Tudo', icon: ListChecks },
     { id: 'bills', label: 'A Pagar', icon: CheckSquare },
     { id: 'budgets', label: 'Categorias', icon: PieChart },
-    { id: 'transactions', label: 'Tudo', icon: ListChecks },
     { id: 'overview', label: 'Resumo', icon: TrendingUp },
   ];
 
