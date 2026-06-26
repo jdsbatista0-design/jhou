@@ -102,7 +102,12 @@ export default function DashboardStories() {
   };
 
   // Filtered datasets
-  const filteredItemsAll = useMemo(() => items.filter(applyItemFilters), [items, search, filterTipo, filterArea, filterPeriod]);
+  // Recorrências (rotinas) vivem só na Agenda — não poluem painéis de projetos/tarefas/reuniões
+  const nonRecurringItems = useMemo(
+    () => items.filter(i => !i.recurrenceId && i.origin !== 'recurrence'),
+    [items],
+  );
+  const filteredItemsAll = useMemo(() => nonRecurringItems.filter(applyItemFilters), [nonRecurringItems, search, filterTipo, filterArea, filterPeriod]);
 
   const pendingInbox = useMemo(() => {
     return inbox.filter(e => {
