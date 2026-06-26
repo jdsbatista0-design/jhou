@@ -323,6 +323,24 @@ export function TransactionsList({ scope, companyId }: Props) {
         />
       </div>
 
+      {/* Period selector */}
+      <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-0.5">
+        {(Object.keys(periodLabels) as Period[]).map(p => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={cn(
+              'shrink-0 h-8 px-3 rounded-full border text-[11px] font-semibold transition-colors',
+              period === p
+                ? 'bg-foreground text-background border-foreground'
+                : 'bg-card text-muted-foreground border-border hover:text-foreground',
+            )}
+          >
+            {periodLabels[p]}
+          </button>
+        ))}
+      </div>
+
       {/* Quick filter chips */}
       <div className="flex gap-1.5">
         <button
