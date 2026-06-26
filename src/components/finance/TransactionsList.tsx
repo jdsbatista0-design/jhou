@@ -104,8 +104,9 @@ export function TransactionsList({ scope, companyId }: Props) {
         if (filter === 'todo_mes') return t.status === 'pending' && t.occurredOn <= monthEnd;
         return true; // tudo
       })
+      .filter(t => t.occurredOn >= periodRange.start && t.occurredOn <= periodRange.end)
       .filter(t => !search.trim() || t.description.toLowerCase().includes(search.toLowerCase()));
-  }, [baseScoped, filter, monthEnd, search]);
+  }, [baseScoped, filter, monthEnd, search, periodRange]);
 
   // Group by bucket: atrasadas / esta semana / este mês / próximas / passadas
   const groups = useMemo(() => {
