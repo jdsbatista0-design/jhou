@@ -76,9 +76,6 @@ export function TransactionsList({ scope, companyId }: Props) {
     const e = new Date(now.getFullYear(), 11, 31);
     return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) };
   }, [period, monthStart, monthEnd]);
-  const monthStart = startOfMonthYMD();
-  const monthEnd = endOfMonthYMD();
-  const weekEnd = endOfWeekYMD();
 
   // Lookup maps O(1) — evita find() por linha (era O(n*m) em listas grandes)
   const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
