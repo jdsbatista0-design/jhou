@@ -28,7 +28,10 @@ const rowCard = (r: any): FinCard => ({
   accountId: r.account_id || undefined, name: r.name, brand: r.brand || undefined,
   limitAmount: Number(r.limit_amount ?? 0), closingDay: r.closing_day || undefined,
   dueDay: r.due_day || undefined, color: r.color, archived: r.archived, createdAt: r.created_at,
+  statementOverrides: (r.statement_overrides && typeof r.statement_overrides === 'object')
+    ? r.statement_overrides as Record<string, number> : {},
 });
+
 const rowCategory = (r: any): FinCategory => ({
   id: r.id, scope: r.scope, name: r.name, kind: r.kind, color: r.color,
   icon: r.icon || undefined, archived: r.archived,
@@ -85,6 +88,8 @@ interface FinanceContextType {
   addCard: (data: Omit<FinCard, 'id' | 'createdAt' | 'archived'>) => Promise<void>;
   updateCard: (id: string, data: Partial<FinCard>) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
+  setCardStatementOverride: (cardId: string, monthISO: string, amount: number | null) => Promise<void>;
+
   addCategory: (data: Omit<FinCategory, 'id' | 'archived'>) => Promise<void>;
   updateCategory: (id: string, data: Partial<FinCategory>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -140,10 +145,12 @@ interface FinanceContextType {
   // Card statement helpers
   getCardStatement: (cardId: string, monthISO: string) => {
     start: string; end: string; due: string | null;
-    total: number; paid: number; remaining: number;
+    total: number; computed: number; override: number | null;
+    paid: number; remaining: number;
     status: 'open' | 'closed' | 'paid' | 'partial';
     transactions: FinTransaction[];
   };
+
   getCardCategoryBreakdown: (cardId: string, monthISO: string) => Array<{
     categoryId: string | null; name: string; color: string; total: number; pct: number;
     deltaPct: number | null; // vs previous invoice; null = no comparison
@@ -459,6 +466,14 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
   const deleteCard: FinanceContextType['deleteCard'] = async (id) => {
     await supabase.from('fin_cards').delete().eq('id', id);
   };
+  const setCardStatementOverride: FinanceContextType['setCardStatementOverride'] = async (cardId, monthISO, amount) => {
+    const card = cards.find(c => c.id === cardId);
+    const next: Record<string, number> = { ...(card?.statementOverrides || {}) };
+    if (amount == null || !isFinite(amount)) delete next[monthISO];
+    else next[monthISO] = amount;
+    await supabase.from('fin_cards').update({ statement_overrides: next as any }).eq('id', cardId);
+  };
+
 
   // ---------- Categories ----------
   const addCategory: FinanceContextType['addCategory'] = async (c) => {
@@ -825,7 +840,11 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
       t.cardId === cardId && t.kind === 'expense' &&
       t.occurredOn >= start && t.occurredOn <= end,
     );
-    const total = txs.reduce((s, t) => s + t.amount, 0);
+    const computed = txs.reduce((s, t) => s + t.amount, 0);
+    const card = cards.find(c => c.id === cardId);
+    const override = card?.statementOverrides?.[monthISO];
+    const hasOverride = typeof override === 'number' && isFinite(override);
+    const total = hasOverride ? override! : computed;
     const paidTxs = transactions.filter(t =>
       t.cardId === cardId && t.kind === 'card_payment' &&
       t.status === 'confirmed' && t.paidCardMonth === `${monthISO}-01`,
@@ -838,8 +857,9 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     if (paid >= total && total > 0) status = 'paid';
     else if (paid > 0) status = 'partial';
     else if (closed) status = 'closed';
-    return { start, end, due, total, paid, remaining, status, transactions: txs };
-  }, [transactions, statementPeriod]);
+    return { start, end, due, total, computed, override: hasOverride ? override! : null, paid, remaining, status, transactions: txs };
+  }, [transactions, statementPeriod, cards]);
+
 
   const getCardCategoryBreakdown = useCallback((cardId: string, monthISO: string) => {
     const cur = getCardStatement(cardId, monthISO);
@@ -972,7 +992,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     scope, setScope, selectedCompanyId, setSelectedCompanyId,
     addCompany, updateCompany, deleteCompany,
     addAccount, updateAccount, deleteAccount,
-    addCard, updateCard, deleteCard,
+    addCard, updateCard, deleteCard, setCardStatementOverride,
     addCategory, updateCategory, deleteCategory,
     addPerson, updatePerson, deletePerson,
     addTransaction, updateTransaction, deleteTransaction, deleteTransactionAndFuture,

@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Pencil, X } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { formatBRL } from '@/types/finance';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import { TransactionDialog } from './TransactionDialog';
 
 interface Props { cardId: string; }
@@ -13,14 +15,19 @@ function fmtMonth(iso: string) {
   return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 }
 
+
 export function CardStatement({ cardId }: Props) {
   const {
     cards, getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, categories,
+    setCardStatementOverride,
   } = useFinance();
   const card = cards.find(c => c.id === cardId);
   const now = new Date();
   const [monthISO, setMonthISO] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const [payOpen, setPayOpen] = useState(false);
+  const [editingOverride, setEditingOverride] = useState(false);
+  const [overrideInput, setOverrideInput] = useState('');
+
 
   const statement = useMemo(() => getCardStatement(cardId, monthISO), [getCardStatement, cardId, monthISO]);
   const breakdown = useMemo(() => getCardCategoryBreakdown(cardId, monthISO), [getCardCategoryBreakdown, cardId, monthISO]);
@@ -59,9 +66,19 @@ export function CardStatement({ cardId }: Props) {
       <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Total da fatura</span>
-          {statusBadge}
+          <div className="flex items-center gap-1">
+            {statement.override !== null && (
+              <Badge className="text-[10px] bg-primary/20 text-primary hover:bg-primary/30">Valor informado</Badge>
+            )}
+            {statusBadge}
+          </div>
         </div>
         <div className="text-2xl font-bold text-foreground">{formatBRL(statement.total)}</div>
+        {statement.override !== null && statement.computed !== statement.override && (
+          <div className="text-[10px] text-muted-foreground">
+            Somando as compras lançadas dá {formatBRL(statement.computed)}.
+          </div>
+        )}
         <div className="text-[11px] text-muted-foreground">
           Período {new Date(statement.start + 'T00:00:00').toLocaleDateString('pt-BR')} → {new Date(statement.end + 'T00:00:00').toLocaleDateString('pt-BR')}
           {statement.due && <> · Vence {new Date(statement.due + 'T00:00:00').toLocaleDateString('pt-BR')}</>}
@@ -72,12 +89,69 @@ export function CardStatement({ cardId }: Props) {
             <span className="text-muted-foreground">Restante: <b className="text-foreground">{formatBRL(statement.remaining)}</b></span>
           </div>
         )}
-        {statement.remaining > 0 && (
-          <Button onClick={() => setPayOpen(true)} size="sm" className="w-full rounded-xl h-8 mt-1">
-            <Wallet className="h-3.5 w-3.5 mr-1" /> Pagar fatura
-          </Button>
+        <div className="flex gap-2 pt-1">
+          {statement.remaining > 0 && (
+            <Button onClick={() => setPayOpen(true)} size="sm" className="flex-1 rounded-xl h-8">
+              <Wallet className="h-3.5 w-3.5 mr-1" /> Pagar fatura
+            </Button>
+          )}
+          {!editingOverride && (
+            <Button
+              onClick={() => {
+                setOverrideInput(statement.override != null ? String(statement.override).replace('.', ',') : '');
+                setEditingOverride(true);
+              }}
+              variant="outline"
+              size="sm"
+              className="rounded-xl h-8 text-[11px]"
+            >
+              <Pencil className="h-3 w-3 mr-1" />
+              {statement.override !== null ? 'Ajustar valor' : 'Informar valor'}
+            </Button>
+          )}
+        </div>
+        {editingOverride && (
+          <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+            <Input
+              value={overrideInput}
+              onChange={e => setOverrideInput(e.target.value)}
+              placeholder="Valor real da fatura fechada"
+              inputMode="decimal"
+              className="rounded-xl h-8 text-sm flex-1"
+              autoFocus
+            />
+            <Button
+              size="sm"
+              className="h-8 rounded-xl text-[11px]"
+              onClick={async () => {
+                const v = parseFloat(overrideInput.replace(',', '.'));
+                if (!overrideInput.trim() || !isFinite(v) || v < 0) { toast.error('Valor inválido'); return; }
+                await setCardStatementOverride(cardId, monthISO, v);
+                toast.success('Valor da fatura salvo');
+                setEditingOverride(false);
+              }}
+            >
+              Salvar
+            </Button>
+            {statement.override !== null && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 rounded-xl"
+                title="Remover valor manual"
+                onClick={async () => {
+                  await setCardStatementOverride(cardId, monthISO, null);
+                  toast.success('Valor manual removido');
+                  setEditingOverride(false);
+                }}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         )}
       </div>
+
 
       {breakdown.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-3 space-y-2">

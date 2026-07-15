@@ -56,7 +56,10 @@ export interface FinCard {
   color: string;
   archived: boolean;
   createdAt: string;
+  /** Map monthISO (YYYY-MM) → valor total informado manualmente da fatura fechada. */
+  statementOverrides?: Record<string, number>;
 }
+
 
 export interface FinCategory {
   id: string;
