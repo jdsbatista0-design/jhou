@@ -108,7 +108,21 @@ interface FinanceContextType {
   // Computed helpers
   accountBalance: (accountId: string) => number;
   cardOpenInvoice: (cardId: string) => number;
+  getMonthTotals: (monthISO: string) => {
+    pago: number; recebido: number; aPagar: number; aReceber: number; saldo: number;
+  };
+  getUpcomingBills: (days: number) => FinTransaction[];
+  getCategoryTotals: (monthISO: string) => Array<{
+    categoryId: string | null; name: string; color: string; total: number;
+  }>;
+  getYearMatrix: (year: number) => {
+    categories: FinCategory[];
+    months: string[];
+    expenseMatrix: number[][];
+    incomeMatrix: number[][];
+  };
 }
+
 
 const FinanceContext = createContext<FinanceContextType | null>(null);
 
