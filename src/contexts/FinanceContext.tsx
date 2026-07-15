@@ -838,7 +838,11 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
       t.cardId === cardId && t.kind === 'expense' &&
       t.occurredOn >= start && t.occurredOn <= end,
     );
-    const total = txs.reduce((s, t) => s + t.amount, 0);
+    const computed = txs.reduce((s, t) => s + t.amount, 0);
+    const card = cards.find(c => c.id === cardId);
+    const override = card?.statementOverrides?.[monthISO];
+    const hasOverride = typeof override === 'number' && isFinite(override);
+    const total = hasOverride ? override! : computed;
     const paidTxs = transactions.filter(t =>
       t.cardId === cardId && t.kind === 'card_payment' &&
       t.status === 'confirmed' && t.paidCardMonth === `${monthISO}-01`,
@@ -851,8 +855,9 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     if (paid >= total && total > 0) status = 'paid';
     else if (paid > 0) status = 'partial';
     else if (closed) status = 'closed';
-    return { start, end, due, total, paid, remaining, status, transactions: txs };
-  }, [transactions, statementPeriod]);
+    return { start, end, due, total, computed, override: hasOverride ? override! : null, paid, remaining, status, transactions: txs };
+  }, [transactions, statementPeriod, cards]);
+
 
   const getCardCategoryBreakdown = useCallback((cardId: string, monthISO: string) => {
     const cur = getCardStatement(cardId, monthISO);
