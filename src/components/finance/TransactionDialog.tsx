@@ -173,8 +173,34 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
       reset(); onClose(); return;
     }
 
+    if (isCardPayment) {
+      if (!cardId || cardId === 'none') { toast.error('Selecione o cartão da fatura'); return; }
+      if (!accountId || accountId === 'none') { toast.error('Selecione a conta que pagou'); return; }
+      await addCardPayment({
+        scope, companyId: scope === 'pj' ? (companyId || undefined) : undefined,
+        cardId, accountId, amount: amt,
+        paidCardMonth: `${paidCardMonth}-01`,
+        occurredOn, description: description.trim() || undefined,
+      });
+      toast.success('Pagamento de fatura registrado');
+      reset(); onClose(); return;
+    }
+
+    // Compra parcelada no cartão
+    if (isCardExpense && installments > 1) {
+      await addInstallmentPurchase({
+        scope, companyId: scope === 'pj' ? (companyId || undefined) : undefined,
+        cardId, categoryId: categoryId !== 'none' ? categoryId : undefined,
+        description: description.trim(), totalAmount: amt, installments,
+        firstOccurredOn: occurredOn, status, notes: notes.trim() || undefined,
+      });
+      toast.success(`Compra dividida em ${installments}x`);
+      reset(); onClose(); return;
+    }
+
     // Recurrence: only allowed for plain income/expense (no transfers, no inter)
-    const canRepeat = !isTransfer && !isInter && (kind === 'income' || kind === 'expense');
+    const canRepeat = !isTransfer && !isInter && !isCardPayment && !(isCardExpense && installments > 1)
+      && (kind === 'income' || kind === 'expense');
     let recurrenceId: string | undefined;
     if (canRepeat && repeats) {
       const dayOfMonth = parseInt(occurredOn.slice(-2), 10);
