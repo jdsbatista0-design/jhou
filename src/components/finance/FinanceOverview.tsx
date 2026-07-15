@@ -1,21 +1,16 @@
 import { useMemo } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
+import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
 import { FinScope, formatBRL } from '@/types/finance';
-import { TrendingUp, TrendingDown, Wallet, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, AlertCircle, CalendarClock, CheckCircle2, Hourglass } from 'lucide-react';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
-const INCOMING = new Set(['income', 'receivable', 'bank_loan']);
-const TRANSFER = new Set(['transfer', 'inter_company']);
+const EXPENSE_KINDS = new Set(['expense', 'card_payment', 'invoice_payment', 'employee_payment', 'supplier_payment', 'employee_loan', 'tax']);
 
 export function FinanceOverview({ scope, companyId }: Props) {
-  const { transactions, accounts, cards, categories, accountBalance, cardOpenInvoice } = useFinance();
-
-  const filteredTx = useMemo(() => transactions.filter(t => {
-    if (t.scope !== scope) return false;
-    if (scope === 'pj' && companyId !== 'all' && t.companyId !== companyId) return false;
-    return true;
-  }), [transactions, scope, companyId]);
+  const { transactions, accounts, cards, accountBalance, cardOpenInvoice, getMonthTotals, getCategoryTotals, getUpcomingBills } = useFinance();
+  const { monthISO, monthStart, isCurrentMonth, label } = useFinancePeriod();
 
   const filteredAccounts = useMemo(() => accounts.filter(a => {
     if (a.archived || a.scope !== scope) return false;
@@ -29,67 +24,50 @@ export function FinanceOverview({ scope, companyId }: Props) {
     return true;
   }), [cards, scope, companyId]);
 
-  // Current month bounds
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const monthStartStr = monthStart.toISOString().slice(0, 10);
-  const monthEndStr = monthEnd.toISOString().slice(0, 10);
+  const totals = useMemo(() => getMonthTotals(monthISO), [getMonthTotals, monthISO]);
+  const catTotals = useMemo(
+    () => getCategoryTotals(monthISO).filter(c => c.total > 0).slice(0, 6),
+    [getCategoryTotals, monthISO],
+  );
 
-  // Previous month
-  const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+  // Previous month comparison (only when viewing current month)
+  const prevISO = useMemo(() => {
+    const [y, m] = monthISO.split('-').map(Number);
+    const d = new Date(y, m - 2, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, [monthISO]);
+  const prevTotals = useMemo(() => getMonthTotals(prevISO), [getMonthTotals, prevISO]);
 
-  const txInMonth = filteredTx.filter(t => t.status === 'confirmed' && t.occurredOn >= monthStartStr && t.occurredOn <= monthEndStr);
-  const txInPrev = filteredTx.filter(t => t.status === 'confirmed' && t.occurredOn >= prevStart.toISOString().slice(0, 10) && t.occurredOn <= prevEnd.toISOString().slice(0, 10));
+  // Overdue count/value (pending expenses before month start) — only meaningful when current
+  const overdue = useMemo(() => {
+    if (!isCurrentMonth) return { count: 0, value: 0, items: [] as typeof transactions };
+    const items = transactions.filter(
+      t => t.status === 'pending' && EXPENSE_KINDS.has(t.kind) && t.occurredOn < monthStart,
+    ).sort((a, b) => a.occurredOn.localeCompare(b.occurredOn));
+    return { count: items.length, value: items.reduce((s, t) => s + t.amount, 0), items };
+  }, [transactions, isCurrentMonth, monthStart]);
 
-  const incomeMonth = txInMonth.filter(t => INCOMING.has(t.kind)).reduce((s, t) => s + t.amount, 0);
-  const expenseMonth = txInMonth.filter(t => !INCOMING.has(t.kind) && !TRANSFER.has(t.kind)).reduce((s, t) => s + t.amount, 0);
-  const incomePrev = txInPrev.filter(t => INCOMING.has(t.kind)).reduce((s, t) => s + t.amount, 0);
-  const expensePrev = txInPrev.filter(t => !INCOMING.has(t.kind) && !TRANSFER.has(t.kind)).reduce((s, t) => s + t.amount, 0);
+  const upcoming = useMemo(
+    () => (isCurrentMonth ? getUpcomingBills(7).slice(0, 5) : []),
+    [getUpcomingBills, isCurrentMonth],
+  );
 
   const totalBalance = filteredAccounts.reduce((s, a) => s + accountBalance(a.id), 0);
   const totalCardInvoice = filteredCards.reduce((s, c) => s + cardOpenInvoice(c.id), 0);
 
-  // Top categories of expense in month
-  const byCategory: Record<string, number> = {};
-  txInMonth.filter(t => !INCOMING.has(t.kind) && !TRANSFER.has(t.kind) && t.categoryId).forEach(t => {
-    byCategory[t.categoryId!] = (byCategory[t.categoryId!] || 0) + t.amount;
-  });
-  const topCats = Object.entries(byCategory)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
-    .map(([id, amount]) => ({ cat: categories.find(c => c.id === id), amount }))
-    .filter(x => x.cat);
-
-  // Spending per card in month
-  const cardSpend = filteredCards.map(c => {
-    const total = txInMonth.filter(t => t.cardId === c.id && !INCOMING.has(t.kind)).reduce((s, t) => s + t.amount, 0);
-    return { card: c, total };
-  }).filter(x => x.total > 0).sort((a, b) => b.total - a.total);
-
-  // Upcoming pending in 7 days
-  const in7 = new Date(now); in7.setDate(in7.getDate() + 7);
-  const in7Str = in7.toISOString().slice(0, 10);
-  const upcoming = filteredTx.filter(t => t.status === 'pending' && t.occurredOn >= now.toISOString().slice(0, 10) && t.occurredOn <= in7Str)
-    .sort((a, b) => a.occurredOn.localeCompare(b.occurredOn));
-
-  const balanceMonth = incomeMonth - expenseMonth;
-  const balancePrev = incomePrev - expensePrev;
-
-  const pctChange = (current: number, prev: number) => {
+  const pctChange = (cur: number, prev: number) => {
     if (prev === 0) return null;
-    return ((current - prev) / Math.abs(prev)) * 100;
+    return ((cur - prev) / Math.abs(prev)) * 100;
   };
-
-  const expensePct = pctChange(expenseMonth, expensePrev);
+  const expensePct = pctChange(totals.pago, prevTotals.pago);
+  const maxCat = catTotals[0]?.total || 0;
 
   return (
     <div className="space-y-3">
       {/* Saldo total */}
       <div className="rounded-2xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground p-4">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wider opacity-90 mb-1">
-          <Wallet className="h-3.5 w-3.5" /> Saldo total
+          <Wallet className="h-3.5 w-3.5" /> Saldo total (contas)
         </div>
         <div className="text-2xl font-bold">{formatBRL(totalBalance)}</div>
         {totalCardInvoice > 0 && (
@@ -99,19 +77,27 @@ export function FinanceOverview({ scope, companyId }: Props) {
         )}
       </div>
 
-      {/* Mês corrente */}
+      {/* Cabeçalho do mês */}
+      <div className="text-[11px] uppercase tracking-wider text-muted-foreground pl-1">{label}</div>
+
+      {/* Pago / Recebido */}
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-2xl border border-border bg-card p-3">
           <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
-            <TrendingUp className="h-3 w-3" /> Entradas
+            <TrendingUp className="h-3 w-3" /> Recebido
           </div>
-          <div className="text-base font-bold text-foreground mt-1">{formatBRL(incomeMonth)}</div>
+          <div className="text-base font-bold text-foreground mt-1 tabular-nums">{formatBRL(totals.recebido)}</div>
+          {totals.aReceber > 0 && (
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              A receber: <span className="tabular-nums">{formatBRL(totals.aReceber)}</span>
+            </div>
+          )}
         </div>
         <div className="rounded-2xl border border-border bg-card p-3">
           <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-destructive">
-            <TrendingDown className="h-3 w-3" /> Saídas
+            <TrendingDown className="h-3 w-3" /> Pago
           </div>
-          <div className="text-base font-bold text-foreground mt-1">{formatBRL(expenseMonth)}</div>
+          <div className="text-base font-bold text-foreground mt-1 tabular-nums">{formatBRL(totals.pago)}</div>
           {expensePct !== null && Math.abs(expensePct) >= 1 && (
             <div className={`text-[10px] mt-0.5 ${expensePct > 0 ? 'text-destructive' : 'text-emerald-600'}`}>
               {expensePct > 0 ? '+' : ''}{expensePct.toFixed(0)}% vs mês anterior
@@ -120,31 +106,65 @@ export function FinanceOverview({ scope, companyId }: Props) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-3">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Resultado do mês</div>
-        <div className={`text-lg font-bold mt-1 ${balanceMonth < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
-          {balanceMonth >= 0 ? '+' : ''}{formatBRL(balanceMonth)}
+      {/* Resultado + A pagar */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-2xl border border-border bg-card p-3">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <CheckCircle2 className="h-3 w-3" /> Resultado
+          </div>
+          <div className={`text-base font-bold mt-1 tabular-nums ${totals.saldo < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+            {totals.saldo >= 0 ? '+' : ''}{formatBRL(totals.saldo)}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-border bg-card p-3">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600">
+            <Hourglass className="h-3 w-3" /> A pagar
+          </div>
+          <div className="text-base font-bold text-foreground mt-1 tabular-nums">{formatBRL(totals.aPagar)}</div>
         </div>
       </div>
 
-      {/* Top categorias */}
-      {topCats.length > 0 && (
+      {/* Vencidas (somente mês corrente) */}
+      {overdue.count > 0 && (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-destructive flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5" /> Vencidas
+            </h3>
+            <span className="text-xs font-bold text-destructive tabular-nums">
+              {overdue.count} · {formatBRL(overdue.value)}
+            </span>
+          </div>
+          {overdue.items.slice(0, 4).map(t => (
+            <div key={t.id} className="flex justify-between text-xs">
+              <span className="text-foreground truncate">{t.description}</span>
+              <span className="text-destructive font-bold tabular-nums shrink-0 ml-2">{formatBRL(t.amount)}</span>
+            </div>
+          ))}
+          {overdue.count > 4 && (
+            <div className="text-[10px] text-muted-foreground">+{overdue.count - 4} outras</div>
+          )}
+        </div>
+      )}
+
+      {/* Top categorias do mês */}
+      {catTotals.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top categorias do mês</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top categorias</h3>
           <div className="space-y-2">
-            {topCats.map(({ cat, amount }) => {
-              const pct = expenseMonth > 0 ? (amount / expenseMonth) * 100 : 0;
+            {catTotals.map(c => {
+              const pct = maxCat > 0 ? (c.total / maxCat) * 100 : 0;
               return (
-                <div key={cat!.id} className="space-y-1">
+                <div key={c.categoryId ?? 'none'} className="space-y-1">
                   <div className="flex justify-between text-xs">
                     <span className="text-foreground font-medium truncate flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full" style={{ background: cat!.color }} />
-                      {cat!.name}
+                      <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
+                      {c.name}
                     </span>
-                    <span className="text-muted-foreground tabular-nums">{formatBRL(amount)}</span>
+                    <span className="text-muted-foreground tabular-nums">{formatBRL(c.total)}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full" style={{ width: `${pct}%`, background: cat!.color }} />
+                    <div className="h-full" style={{ width: `${pct}%`, background: c.color }} />
                   </div>
                 </div>
               );
@@ -153,29 +173,13 @@ export function FinanceOverview({ scope, companyId }: Props) {
         </div>
       )}
 
-      {/* Gasto por cartão */}
-      {cardSpend.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Gasto por cartão (mês)</h3>
-          {cardSpend.map(({ card, total }) => (
-            <div key={card.id} className="flex justify-between items-center text-xs">
-              <span className="text-foreground font-medium flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ background: card.color }} />
-                {card.name}
-              </span>
-              <span className="text-foreground font-bold tabular-nums">{formatBRL(total)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Próximos vencimentos */}
+      {/* Próximos 7 dias (somente mês corrente) */}
       {upcoming.length > 0 && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-            <AlertCircle className="h-3.5 w-3.5" /> Próximos 7 dias
+            <CalendarClock className="h-3.5 w-3.5" /> Próximos 7 dias
           </h3>
-          {upcoming.slice(0, 5).map(t => (
+          {upcoming.map(t => (
             <div key={t.id} className="flex justify-between text-xs">
               <span className="text-foreground truncate">{t.description}</span>
               <span className="text-foreground font-bold tabular-nums shrink-0 ml-2">{formatBRL(t.amount)}</span>
