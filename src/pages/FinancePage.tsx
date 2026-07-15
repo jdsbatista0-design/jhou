@@ -153,5 +153,10 @@ function FinanceInner() {
 }
 
 export default function FinancePage() {
-  return <FinanceInner />;
+  return (
+    <FinancePeriodProvider>
+      <FinanceInner />
+    </FinancePeriodProvider>
+  );
 }
+
