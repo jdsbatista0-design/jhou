@@ -75,11 +75,11 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
       <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome (ex.: Nubank Roxinho)" className="rounded-xl h-9 text-sm" />
       <div className="flex gap-2">
         <Input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Bandeira" className="rounded-xl h-9 text-sm flex-1" />
-        <Input value={limitAmount} onChange={e => setLimit(e.target.value)} placeholder="Limite" inputMode="decimal" className="rounded-xl h-9 text-sm flex-1" />
+        <Input value={limitAmount} onChange={e => setLimit(maskBRLInput(e.target.value))} placeholder="Limite R$ 0,00" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1 text-right font-mono" />
       </div>
       <div className="flex gap-2">
-        <Input value={closingDay} onChange={e => setClosing(e.target.value)} placeholder="Dia fechamento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
-        <Input value={dueDay} onChange={e => setDue(e.target.value)} placeholder="Dia vencimento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
+        <Input value={closingDay} onChange={e => setClosing(e.target.value.replace(/\D/g,'').slice(0,2))} placeholder="Dia fechamento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
+        <Input value={dueDay} onChange={e => setDue(e.target.value.replace(/\D/g,'').slice(0,2))} placeholder="Dia vencimento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
       </div>
       {availableAccounts.length > 0 && (
         <Select value={accountId} onValueChange={setAccountId}>
