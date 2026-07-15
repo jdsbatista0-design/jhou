@@ -60,17 +60,25 @@ export function TransactionsList({ scope, companyId }: Props) {
     .reduce((s, t) => s + (INCOMING_KINDS.has(t.kind) ? -t.amount : t.amount), 0),
   [baseScoped, monthEnd]);
 
-  // Apply quick filter + search
+  // Apply period + quick filter + search
   const visible = useMemo(() => {
     return baseScoped
       .filter(t => {
+        const inMonth = t.occurredOn >= monthStart && t.occurredOn <= monthEnd;
+        // Vencidas: no mês corrente, pendentes de saída de meses anteriores continuam aparecendo
+        const isOverdueCarry =
+          isCurrentMonth && t.status === 'pending' && t.occurredOn < monthStart
+          && !INCOMING_KINDS.has(t.kind) && !TRANSFER_KINDS.has(t.kind);
+        return inMonth || isOverdueCarry;
+      })
+      .filter(t => {
         if (filter === 'pagas') return t.status === 'confirmed';
-        if (filter === 'todo_mes') return t.status === 'pending' && t.occurredOn <= monthEnd;
+        if (filter === 'todo_mes') return t.status === 'pending';
         return true; // tudo
       })
-      .filter(t => t.occurredOn >= periodRange.start && t.occurredOn <= periodRange.end)
       .filter(t => !search.trim() || t.description.toLowerCase().includes(search.toLowerCase()));
-  }, [baseScoped, filter, monthEnd, search, periodRange]);
+  }, [baseScoped, filter, monthStart, monthEnd, isCurrentMonth, search]);
+
 
   // Group by bucket: atrasadas / esta semana / este mês / próximas / passadas
   const groups = useMemo(() => {
