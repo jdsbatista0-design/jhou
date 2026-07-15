@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
+import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
 import { FinScope, FinTransaction, formatBRL } from '@/types/finance';
-import { Check, Trash2, Plus, AlertCircle, CalendarDays, Pencil, CheckCircle2, Search, Repeat } from 'lucide-react';
+import { Check, Trash2, AlertCircle, CalendarDays, Pencil, CheckCircle2, Search, Repeat } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { maskBRLInput, parseBRLInput } from '@/lib/currency';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -15,6 +13,7 @@ import {
 import { TransactionDialog } from './TransactionDialog';
 
 interface Props { scope: FinScope; companyId: string | null; }
+
 
 type Tab = 'pending' | 'paid';
 
@@ -42,32 +41,21 @@ const BILL_KINDS = new Set([
 export function BillsToPay({ scope, companyId }: Props) {
   const {
     transactions, accounts, cards, categories, companies,
-    addTransaction, updateTransaction, deleteTransaction,
+    updateTransaction, deleteTransaction,
   } = useFinance();
+  const { monthStart, monthEnd, isCurrentMonth } = useFinancePeriod();
 
   const [tab, setTab] = useState<Tab>('pending');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<FinTransaction | null>(null);
 
-  // Quick-add form
-  const [qDesc, setQDesc] = useState('');
-  const [qAmount, setQAmount] = useState('');
-  const [qDate, setQDate] = useState(todayYMD());
-  const [qCategoryId, setQCategoryId] = useState<string>('none');
-
   const today = todayYMD();
   const weekEnd = endOfWeekYMD();
-  const monthEnd = endOfMonthYMD();
 
   const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
   const cardMap = useMemo(() => new Map(cards.map(c => [c.id, c])), [cards]);
   const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
   const companyMap = useMemo(() => new Map(companies.map(c => [c.id, c])), [companies]);
-
-  const expenseCategories = useMemo(
-    () => categories.filter(c => c.scope === scope && c.kind === 'expense' && !c.archived),
-    [categories, scope],
-  );
 
   const scoped = useMemo(() => transactions
     .filter(t => t.scope === scope)
@@ -75,8 +63,20 @@ export function BillsToPay({ scope, companyId }: Props) {
     .filter(t => BILL_KINDS.has(t.kind)),
   [transactions, scope, companyId]);
 
+  // Escopo do período selecionado — pendentes no mês + vencidas de meses anteriores (só no mês corrente)
+  const inSelectedPeriod = (t: FinTransaction, tabKey: Tab) => {
+    const inMonth = t.occurredOn >= monthStart && t.occurredOn <= monthEnd;
+    if (tabKey === 'pending') {
+      const overdueCarry = isCurrentMonth && t.status === 'pending' && t.occurredOn < monthStart;
+      return inMonth || overdueCarry;
+    }
+    return inMonth;
+  };
+
   const list = useMemo(() => {
-    const base = scoped.filter(t => tab === 'pending' ? t.status === 'pending' : t.status === 'confirmed');
+    const base = scoped
+      .filter(t => (tab === 'pending' ? t.status === 'pending' : t.status === 'confirmed'))
+      .filter(t => inSelectedPeriod(t, tab));
     const filtered = search.trim()
       ? base.filter(t => t.description.toLowerCase().includes(search.toLowerCase()))
       : base;
@@ -85,7 +85,7 @@ export function BillsToPay({ scope, companyId }: Props) {
         ? a.occurredOn.localeCompare(b.occurredOn)
         : b.occurredOn.localeCompare(a.occurredOn),
     );
-  }, [scoped, tab, search]);
+  }, [scoped, tab, search, monthStart, monthEnd, isCurrentMonth]);
 
   // Buckets for pending
   const buckets = useMemo(() => {
@@ -106,39 +106,17 @@ export function BillsToPay({ scope, companyId }: Props) {
   }, [list, tab, today, weekEnd, monthEnd]);
 
   const totals = useMemo(() => {
-    const pendingAll = scoped.filter(t => t.status === 'pending');
-    const overdue = pendingAll.filter(t => t.occurredOn < today).reduce((s, t) => s + t.amount, 0);
-    const month = pendingAll.filter(t => t.occurredOn <= monthEnd).reduce((s, t) => s + t.amount, 0);
-    const overdueCount = pendingAll.filter(t => t.occurredOn < today).length;
+    const pendingScope = scoped.filter(t => t.status === 'pending' && inSelectedPeriod(t, 'pending'));
+    const overdue = pendingScope.filter(t => t.occurredOn < today).reduce((s, t) => s + t.amount, 0);
+    const month = pendingScope.reduce((s, t) => s + t.amount, 0);
+    const overdueCount = pendingScope.filter(t => t.occurredOn < today).length;
     return { overdue, month, overdueCount };
-  }, [scoped, today, monthEnd]);
-
-  const canAdd = scope === 'pf' || (scope === 'pj' && companyId && companyId !== 'all');
-
-  const handleQuickAdd = async () => {
-    if (!qDesc.trim()) { toast.error('Informe o que pagar'); return; }
-    const amt = parseBRLInput(qAmount);
-    if (amt <= 0) { toast.error('Informe o valor'); return; }
-    if (scope === 'pj' && (!companyId || companyId === 'all')) {
-      toast.error('Selecione uma empresa específica'); return;
-    }
-    await addTransaction({
-      scope,
-      companyId: scope === 'pj' ? companyId! : undefined,
-      categoryId: qCategoryId !== 'none' ? qCategoryId : undefined,
-      kind: 'expense',
-      amount: amt,
-      description: qDesc.trim(),
-      occurredOn: qDate,
-      status: 'pending',
-    });
-    setQDesc(''); setQAmount(''); setQDate(todayYMD()); setQCategoryId('none');
-    toast.success('Conta adicionada');
-  };
+  }, [scoped, today, monthStart, monthEnd, isCurrentMonth]);
 
   const handlePay = (t: FinTransaction) => {
     updateTransaction(t.id, { status: 'confirmed' });
     toast.success(`Pago em ${new Date().toLocaleDateString('pt-BR')}`, {
+
       action: { label: 'Desfazer', onClick: () => updateTransaction(t.id, { status: 'pending' }) },
     });
   };

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
+import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
 import { FinScope, formatBRL } from '@/types/finance';
 import { Pencil, Check, X, AlertTriangle, Target } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -14,22 +15,11 @@ const SPENDING_KINDS = new Set([
   'supplier_payment', 'employee_loan', 'tax',
 ]);
 
-const startOfMonthYMD = () => {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-};
-const endOfMonthYMD = () => {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-};
-
 export function CategoryBudgets({ scope }: Props) {
   const { categories, transactions, updateCategory } = useFinance();
+  const { monthStart, monthEnd, label: monthLabel } = useFinancePeriod();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-
-  const monthStart = startOfMonthYMD();
-  const monthEnd = endOfMonthYMD();
 
   const expenseCats = useMemo(
     () => categories.filter(c => c.scope === scope && c.kind === 'expense' && !c.archived),
@@ -65,7 +55,7 @@ export function CategoryBudgets({ scope }: Props) {
       .sort((a, b) => b.spent - a.spent);
   }, [expenseCats, spentByCat]);
 
-  const monthLabel = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
 
   const startEdit = (id: string, current?: number) => {
     setEditingId(id);
