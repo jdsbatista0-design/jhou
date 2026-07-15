@@ -75,6 +75,7 @@ interface CentralContextType {
   addRecurrence: (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>) => Promise<void>;
   updateRecurrence: (id: string, updates: Partial<Recurrence>) => Promise<void>;
   deleteRecurrence: (id: string, alsoDeleteFutureItems: boolean) => Promise<void>;
+  deleteRecurringItem: (itemId: string, scope: 'one' | 'future' | 'all') => Promise<void>;
   settings: Settings;
   updateSettings: (updates: Partial<Settings>) => void;
 }
@@ -225,6 +226,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   }, []);
 
   // ---- ITEMS ----
+  const didDedupeRef = useRef(false);
   const refreshItems = useCallback(async () => {
     const { data: itemRows, error } = await supabase
       .from('items')
@@ -248,7 +250,36 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     });
 
     setItems(itemRows.map((r: any) => dbRowToItem(r, commentsByItem[r.id] || [])));
+
+    // One-shot dedupe of recurring items duplicated by past materializations.
+    // Key = recurrence_id|deadline|deadline_time. Keeps the oldest (first created), deletes the rest.
+    if (!didDedupeRef.current) {
+      didDedupeRef.current = true;
+      const groups = new Map<string, any[]>();
+      for (const r of itemRows as any[]) {
+        if (!r.recurrence_id || !r.deadline) continue;
+        const k = `${r.recurrence_id}|${r.deadline}|${r.deadline_time || ''}`;
+        const arr = groups.get(k) || [];
+        arr.push(r);
+        groups.set(k, arr);
+      }
+      const toDelete: string[] = [];
+      for (const arr of groups.values()) {
+        if (arr.length <= 1) continue;
+        arr.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+        // keep first, delete rest — but prefer keeping a "Concluído" if present
+        const concluded = arr.find(x => x.fase === 'Concluído');
+        const keeper = concluded || arr[0];
+        for (const x of arr) if (x.id !== keeper.id) toDelete.push(x.id);
+      }
+      if (toDelete.length > 0) {
+        console.info(`[dedupe] removing ${toDelete.length} duplicate recurring items`);
+        await supabase.from('items').delete().in('id', toDelete);
+        setItems(prev => prev.filter(i => !toDelete.includes(i.id)));
+      }
+    }
   }, []);
+
 
   // ---- MEMORIES ----
   const refreshMemories = useCallback(async () => {
@@ -1011,6 +1042,52 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (alsoDeleteFutureItems) refreshItems();
   }, [refreshItems]);
 
+  /**
+   * Google-Calendar-style delete for a recurring item:
+   * - 'one'    : deletes only this occurrence
+   * - 'future' : deletes this + all future non-completed occurrences and ends the series
+   * - 'all'    : deletes the whole series (recurrence + all future non-completed occurrences)
+   */
+  const deleteRecurringItem = useCallback(async (itemId: string, scope: 'one' | 'future' | 'all') => {
+    const target = items.find(i => i.id === itemId);
+    if (!target) return;
+    const recurrenceId = target.recurrenceId;
+
+    if (!recurrenceId || scope === 'one') {
+      setItems(prev => prev.filter(i => i.id !== itemId));
+      pushToGoogle(itemId, 'delete');
+      await supabase.from('items').delete().eq('id', itemId);
+      return;
+    }
+
+    if (scope === 'future') {
+      const fromDate = target.deadline || todayYMD();
+      // Optimistic local removal
+      setItems(prev => prev.filter(i =>
+        !(i.recurrenceId === recurrenceId && (i.deadline || '') >= fromDate && i.fase !== 'Concluído')
+      ));
+      await (supabase as any).from('items')
+        .delete()
+        .eq('recurrence_id', recurrenceId)
+        .gte('deadline', fromDate)
+        .neq('fase', 'Concluído');
+      // End the recurrence the day before, so it won't re-materialize
+      const [y, m, d] = fromDate.split('-').map(Number);
+      const prev = new Date(y, m - 1, d - 1);
+      const endYMD = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-${String(prev.getDate()).padStart(2, '0')}`;
+      await (supabase as any).from('recurrences')
+        .update({ end_date: endYMD, last_materialized_until: endYMD })
+        .eq('id', recurrenceId);
+      setRecurrences(prevRs => prevRs.map(r => r.id === recurrenceId ? { ...r, endDate: endYMD, lastMaterializedUntil: endYMD } : r));
+      return;
+    }
+
+    // scope === 'all'
+    await deleteRecurrence(recurrenceId, true);
+  }, [items, pushToGoogle, deleteRecurrence]);
+
+
+
   // Top-up materialization: extends horizon for active recurrences once a day on app open.
   useEffect(() => {
     if (recurrences.length === 0) return;
@@ -1048,14 +1125,14 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     items, addItem, updateItem, deleteItem, addComment, deleteComment,
     memories, addMemory, updateMemory, deleteMemory,
     events, addEvent, deleteEvent, agendaEntries,
-    recurrences, addRecurrence, updateRecurrence, deleteRecurrence,
+    recurrences, addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem,
     settings, updateSettings,
   }), [
     loading, inbox, items, memories, events, agendaEntries, recurrences, settings,
     addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
     addItem, updateItem, deleteItem, addComment, deleteComment,
     addMemory, updateMemory, deleteMemory, addEvent, deleteEvent,
-    addRecurrence, updateRecurrence, deleteRecurrence, updateSettings,
+    addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem, updateSettings,
   ]);
 
   return (

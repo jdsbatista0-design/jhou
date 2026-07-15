@@ -12,13 +12,16 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { getDatePart } from '@/lib/dates';
+import { RecurringDeleteDialog, DeleteScope } from '@/components/RecurringDeleteDialog';
 
 export default function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { items, settings, addItem, updateItem, deleteItem, addComment, deleteComment } = useCentral();
+  const { items, settings, addItem, updateItem, deleteItem, deleteRecurringItem, addComment, deleteComment } = useCentral();
   const isNew = id === 'new';
   const existing = !isNew ? items.find(i => i.id === id) : null;
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
 
   const [commentText, setCommentText] = useState('');
 
@@ -276,15 +279,41 @@ export default function ItemDetail() {
       )}
 
       <div className="flex gap-2 pt-2">
-        <Button onClick={handleSave} className="flex-1 rounded-xl gap-1">
+        <Button onClick={handleSave} className="flex-1 h-12 rounded-xl gap-1">
           <Save className="h-4 w-4" /> Salvar
         </Button>
         {!isNew && (
-          <Button variant="destructive" size="icon" onClick={handleDelete} className="rounded-xl">
-            <Trash2 className="h-4 w-4" />
+          <Button
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+            className="h-12 px-4 rounded-xl gap-1.5"
+            aria-label="Excluir"
+          >
+            <Trash2 className="h-4 w-4" /> Excluir
           </Button>
         )}
       </div>
+
+      <RecurringDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={existing?.title || form.title}
+        isRecurring={!!existing?.recurrenceId}
+        onConfirm={async (scope: DeleteScope) => {
+          if (!id || isNew) return;
+          if (existing?.recurrenceId) {
+            await deleteRecurringItem(id, scope);
+          } else {
+            deleteItem(id);
+          }
+          toast.success(
+            scope === 'all' ? 'Série removida' :
+            scope === 'future' ? 'Este e os próximos removidos' :
+            'Item removido'
+          );
+          navigate('/');
+        }}
+      />
     </div>
   );
 }

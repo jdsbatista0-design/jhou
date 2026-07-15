@@ -13,15 +13,18 @@ import AgendaCalendar from '@/components/agenda/AgendaCalendar';
 import { parseLocalDateTime } from '@/lib/dates';
 import { RecurrencesManager } from '@/components/RecurrencesManager';
 import { formatBRL } from '@/types/finance';
+import { RecurringDeleteDialog, DeleteScope } from '@/components/RecurringDeleteDialog';
 
 type View = 'calendar' | 'list' | 'recurrences';
 
 export default function AgendaPage() {
-  const { agendaEntries, updateItem, deleteEvent } = useCentral();
+  const { agendaEntries, updateItem, deleteEvent, deleteRecurringItem } = useCentral();
   const { transactions, updateTransaction } = useFinance();
   const navigate = useNavigate();
   const [view, setView] = useState<View>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [deleteTarget, setDeleteTarget] = useState<AgendaEntry | null>(null);
+
 
   // Vencimentos financeiros pendentes viram entradas virtuais na agenda
   const financeEntries = useMemo<AgendaEntry[]>(() => {
@@ -129,9 +132,23 @@ export default function AgendaPage() {
             )}
           </div>
         </div>
-        {entry.source === 'event' && !entry.id.startsWith('fin-') && (
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground shrink-0" onClick={e => { e.stopPropagation(); deleteEvent(entry.sourceId); toast.success('Evento removido'); }}>
-            <Trash2 className="h-3.5 w-3.5" />
+        {!entry.id.startsWith('fin-') && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 -mr-1 text-muted-foreground hover:text-destructive shrink-0"
+            aria-label="Excluir"
+            onClick={e => {
+              e.stopPropagation();
+              if (entry.source === 'event') {
+                deleteEvent(entry.sourceId);
+                toast.success('Evento removido');
+              } else {
+                setDeleteTarget(entry);
+              }
+            }}
+          >
+            <Trash2 className="h-5 w-5" />
           </Button>
         )}
       </div>
@@ -223,6 +240,22 @@ export default function AgendaPage() {
       )}
 
       {view === 'recurrences' && <RecurrencesManager />}
+
+      <RecurringDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title={deleteTarget?.title || ''}
+        isRecurring={!!deleteTarget?.item?.recurrenceId}
+        onConfirm={async (scope: DeleteScope) => {
+          if (!deleteTarget) return;
+          await deleteRecurringItem(deleteTarget.sourceId, scope);
+          toast.success(
+            scope === 'all' ? 'Série removida' :
+            scope === 'future' ? 'Este e os próximos removidos' :
+            'Item removido'
+          );
+        }}
+      />
     </div>
   );
 }
