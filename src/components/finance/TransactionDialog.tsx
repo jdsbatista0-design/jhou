@@ -26,9 +26,20 @@ interface Props {
   companyId: string | null;
   /** When provided the dialog edits the given transaction instead of creating one */
   editTransaction?: FinTransaction | null;
+  /** Pre-fill values for a new transaction (used by "Pagar fatura" flow, etc.) */
+  prefill?: {
+    kind?: TxKind;
+    cardId?: string;
+    accountId?: string;
+    categoryId?: string;
+    amount?: number;
+    description?: string;
+    paidCardMonth?: string; // YYYY-MM
+    occurredOn?: string;
+  };
 }
 
-export function TransactionDialog({ open, onClose, scope, companyId, editTransaction }: Props) {
+export function TransactionDialog({ open, onClose, scope, companyId, editTransaction, prefill }: Props) {
   const {
     accounts, cards, categories, people, companies, recurrences,
     addTransaction, updateTransaction, deleteTransaction, deleteTransactionAndFuture,
