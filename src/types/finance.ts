@@ -116,6 +116,12 @@ export interface FinTransaction {
   notes?: string;
   source: TxSource;
   createdAt: string;
+  // Parcelamento (compra parcelada no cartão)
+  installmentNo?: number;
+  installmentTotal?: number;
+  purchaseGroupId?: string;
+  // Pagamento de fatura de cartão (kind = 'card_payment')
+  paidCardMonth?: string; // YYYY-MM-01
 }
 
 // ---- Default seed categories shown the first time the user opens Finanças ----
