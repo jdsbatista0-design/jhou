@@ -54,11 +54,17 @@ export function TransactionsList({ scope, companyId }: Props) {
     .filter(t => scope !== 'pj' || companyId === 'all' || t.companyId === companyId),
   [transactions, scope, companyId]);
 
-  // Pending of this month (for the badge)
+  // Pending do mês selecionado (para o badge do chip)
   const pendingMonthSum = useMemo(() => baseScoped
-    .filter(t => t.status === 'pending' && t.occurredOn <= monthEnd && !TRANSFER_KINDS.has(t.kind))
+    .filter(t => {
+      if (t.status !== 'pending' || TRANSFER_KINDS.has(t.kind)) return false;
+      const inMonth = t.occurredOn >= monthStart && t.occurredOn <= monthEnd;
+      const overdueCarry = isCurrentMonth && t.occurredOn < monthStart && !INCOMING_KINDS.has(t.kind);
+      return inMonth || overdueCarry;
+    })
     .reduce((s, t) => s + (INCOMING_KINDS.has(t.kind) ? -t.amount : t.amount), 0),
-  [baseScoped, monthEnd]);
+  [baseScoped, monthStart, monthEnd, isCurrentMonth]);
+
 
   // Apply period + quick filter + search
   const visible = useMemo(() => {
