@@ -1012,6 +1012,52 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (alsoDeleteFutureItems) refreshItems();
   }, [refreshItems]);
 
+  /**
+   * Google-Calendar-style delete for a recurring item:
+   * - 'one'    : deletes only this occurrence
+   * - 'future' : deletes this + all future non-completed occurrences and ends the series
+   * - 'all'    : deletes the whole series (recurrence + all future non-completed occurrences)
+   */
+  const deleteRecurringItem = useCallback(async (itemId: string, scope: 'one' | 'future' | 'all') => {
+    const target = items.find(i => i.id === itemId);
+    if (!target) return;
+    const recurrenceId = target.recurrenceId;
+
+    if (!recurrenceId || scope === 'one') {
+      setItems(prev => prev.filter(i => i.id !== itemId));
+      pushToGoogle(itemId, 'delete');
+      await supabase.from('items').delete().eq('id', itemId);
+      return;
+    }
+
+    if (scope === 'future') {
+      const fromDate = target.deadline || todayYMD();
+      // Optimistic local removal
+      setItems(prev => prev.filter(i =>
+        !(i.recurrenceId === recurrenceId && (i.deadline || '') >= fromDate && i.fase !== 'Concluído')
+      ));
+      await (supabase as any).from('items')
+        .delete()
+        .eq('recurrence_id', recurrenceId)
+        .gte('deadline', fromDate)
+        .neq('fase', 'Concluído');
+      // End the recurrence the day before, so it won't re-materialize
+      const [y, m, d] = fromDate.split('-').map(Number);
+      const prev = new Date(y, m - 1, d - 1);
+      const endYMD = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-${String(prev.getDate()).padStart(2, '0')}`;
+      await (supabase as any).from('recurrences')
+        .update({ end_date: endYMD, last_materialized_until: endYMD })
+        .eq('id', recurrenceId);
+      setRecurrences(prevRs => prevRs.map(r => r.id === recurrenceId ? { ...r, endDate: endYMD, lastMaterializedUntil: endYMD } : r));
+      return;
+    }
+
+    // scope === 'all'
+    await deleteRecurrence(recurrenceId, true);
+  }, [items, pushToGoogle, deleteRecurrence]);
+
+
+
   // Top-up materialization: extends horizon for active recurrences once a day on app open.
   useEffect(() => {
     if (recurrences.length === 0) return;
