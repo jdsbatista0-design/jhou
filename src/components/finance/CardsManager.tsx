@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { FinScope, FinCard, formatBRL } from '@/types/finance';
 import { CardStatement } from './CardStatement';
+import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
@@ -21,7 +22,7 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
   const editing = mode.kind === 'edit' ? mode.card : null;
   const [name, setName] = useState(editing?.name || '');
   const [brand, setBrand] = useState(editing?.brand || '');
-  const [limitAmount, setLimit] = useState(editing ? String(editing.limitAmount || '') : '');
+  const [limitAmount, setLimit] = useState(editing ? numberToBRLInput(editing.limitAmount || 0) : '');
   const [closingDay, setClosing] = useState(editing?.closingDay ? String(editing.closingDay) : '');
   const [dueDay, setDue] = useState(editing?.dueDay ? String(editing.dueDay) : '');
   const [accountId, setAccountId] = useState<string>(editing?.accountId || 'none');
@@ -30,7 +31,7 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
     if (editing) {
       setName(editing.name || '');
       setBrand(editing.brand || '');
-      setLimit(String(editing.limitAmount || ''));
+      setLimit(numberToBRLInput(editing.limitAmount || 0));
       setClosing(editing.closingDay ? String(editing.closingDay) : '');
       setDue(editing.dueDay ? String(editing.dueDay) : '');
       setAccountId(editing.accountId || 'none');
@@ -42,7 +43,7 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
     const patch: Partial<FinCard> = {
       name: name.trim(),
       brand: brand.trim() || undefined,
-      limitAmount: parseFloat(limitAmount.replace(',', '.')) || 0,
+      limitAmount: parseBRLInput(limitAmount),
       closingDay: parseInt(closingDay) || undefined,
       dueDay: parseInt(dueDay) || undefined,
       accountId: accountId !== 'none' ? accountId : undefined,
@@ -74,11 +75,11 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
       <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome (ex.: Nubank Roxinho)" className="rounded-xl h-9 text-sm" />
       <div className="flex gap-2">
         <Input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Bandeira" className="rounded-xl h-9 text-sm flex-1" />
-        <Input value={limitAmount} onChange={e => setLimit(e.target.value)} placeholder="Limite" inputMode="decimal" className="rounded-xl h-9 text-sm flex-1" />
+        <Input value={limitAmount} onChange={e => setLimit(maskBRLInput(e.target.value))} placeholder="Limite R$ 0,00" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1 text-right font-mono" />
       </div>
       <div className="flex gap-2">
-        <Input value={closingDay} onChange={e => setClosing(e.target.value)} placeholder="Dia fechamento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
-        <Input value={dueDay} onChange={e => setDue(e.target.value)} placeholder="Dia vencimento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
+        <Input value={closingDay} onChange={e => setClosing(e.target.value.replace(/\D/g,'').slice(0,2))} placeholder="Dia fechamento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
+        <Input value={dueDay} onChange={e => setDue(e.target.value.replace(/\D/g,'').slice(0,2))} placeholder="Dia vencimento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
       </div>
       {availableAccounts.length > 0 && (
         <Select value={accountId} onValueChange={setAccountId}>

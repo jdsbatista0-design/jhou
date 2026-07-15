@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { TransactionDialog } from './TransactionDialog';
+import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -138,20 +139,23 @@ export function CardStatement({ cardId, onEditCard }: Props) {
           <span className="text-muted-foreground">Fatura fechada (banco)</span>
           {editingOverride ? (
             <div className="flex items-center gap-1">
-              <Input
-                value={overrideInput}
-                onChange={e => setOverrideInput(e.target.value)}
-                placeholder="0,00"
-                inputMode="decimal"
-                className="rounded-lg h-7 text-xs w-24 text-right font-mono"
-                autoFocus
-              />
+              <div className="relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none">R$</span>
+                <Input
+                  value={overrideInput}
+                  onChange={e => setOverrideInput(maskBRLInput(e.target.value))}
+                  placeholder="0,00"
+                  inputMode="numeric"
+                  className="rounded-lg h-8 text-xs w-28 text-right font-mono pl-7"
+                  autoFocus
+                />
+              </div>
               <Button
                 size="icon"
-                className="h-7 w-7 rounded-lg"
+                className="h-8 w-8 rounded-lg"
                 onClick={async () => {
-                  const v = parseFloat(overrideInput.replace(',', '.'));
-                  if (!overrideInput.trim() || !isFinite(v) || v < 0) { toast.error('Valor inválido'); return; }
+                  const v = parseBRLInput(overrideInput);
+                  if (!overrideInput.trim() || v <= 0) { toast.error('Valor inválido'); return; }
                   await setCardStatementOverride(cardId, monthISO, v);
                   toast.success('Valor da fatura salvo');
                   setEditingOverride(false);
@@ -163,7 +167,7 @@ export function CardStatement({ cardId, onEditCard }: Props) {
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="h-7 w-7 rounded-lg"
+                  className="h-8 w-8 rounded-lg"
                   title="Remover valor manual"
                   onClick={async () => {
                     await setCardStatementOverride(cardId, monthISO, null);
@@ -177,7 +181,7 @@ export function CardStatement({ cardId, onEditCard }: Props) {
           ) : (
             <button
               onClick={() => {
-                setOverrideInput(hasOverride ? String(statement.override).replace('.', ',') : '');
+                setOverrideInput(hasOverride ? numberToBRLInput(statement.override!) : '');
                 setEditingOverride(true);
               }}
               className="flex items-center gap-1 font-mono font-semibold text-foreground hover:text-primary"
@@ -318,6 +322,14 @@ export function CardStatement({ cardId, onEditCard }: Props) {
           onClose={() => setPayOpen(false)}
           scope={card.scope}
           companyId={card.companyId || null}
+          prefill={{
+            kind: 'card_payment',
+            cardId: card.id,
+            accountId: card.accountId,
+            amount: statement.remaining,
+            paidCardMonth: monthISO,
+            description: `Pagamento fatura ${fmtMonth(monthISO)} — ${card.name}`,
+          }}
         />
       )}
     </div>

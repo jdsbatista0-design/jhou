@@ -26,9 +26,20 @@ interface Props {
   companyId: string | null;
   /** When provided the dialog edits the given transaction instead of creating one */
   editTransaction?: FinTransaction | null;
+  /** Pre-fill values for a new transaction (used by "Pagar fatura" flow, etc.) */
+  prefill?: {
+    kind?: TxKind;
+    cardId?: string;
+    accountId?: string;
+    categoryId?: string;
+    amount?: number;
+    description?: string;
+    paidCardMonth?: string; // YYYY-MM
+    occurredOn?: string;
+  };
 }
 
-export function TransactionDialog({ open, onClose, scope, companyId, editTransaction }: Props) {
+export function TransactionDialog({ open, onClose, scope, companyId, editTransaction, prefill }: Props) {
   const {
     accounts, cards, categories, people, companies, recurrences,
     addTransaction, updateTransaction, deleteTransaction, deleteTransactionAndFuture,
@@ -77,14 +88,12 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
   const isCardPayment = kind === 'card_payment';
   const isCardExpense = kind === 'expense' && cardId !== 'none';
 
-  // Hydrate state when editing
+  // Hydrate state when editing or when a prefill is provided
   useEffect(() => {
     if (!open) return;
     if (editTransaction) {
       setKind(editTransaction.kind);
-      // For transfer rows we stored signed amount (out=positive, in=negative). Always edit absolute value.
       setAmount(numberToBRLInput(Math.abs(editTransaction.amount)));
-      // Strip "(saída)/(entrada)" suffix from transfer descriptions
       setDescription(editTransaction.description.replace(/\s*\((saída|entrada)\)\s*$/i, ''));
       setOccurredOn(editTransaction.occurredOn);
       setAccountId(editTransaction.accountId || 'none');
@@ -95,6 +104,16 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
       setStatus(editTransaction.status === 'pending' ? 'pending' : 'confirmed');
     } else {
       reset();
+      if (prefill) {
+        if (prefill.kind) setKind(prefill.kind);
+        if (prefill.cardId) setCardId(prefill.cardId);
+        if (prefill.accountId) setAccountId(prefill.accountId);
+        if (prefill.categoryId) setCategoryId(prefill.categoryId);
+        if (typeof prefill.amount === 'number' && prefill.amount > 0) setAmount(numberToBRLInput(prefill.amount));
+        if (prefill.description) setDescription(prefill.description);
+        if (prefill.paidCardMonth) setPaidCardMonth(prefill.paidCardMonth);
+        if (prefill.occurredOn) setOccurredOn(prefill.occurredOn);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editTransaction?.id]);
