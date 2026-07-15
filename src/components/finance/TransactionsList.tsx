@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
-import { FinScope, FinTransaction, TX_KIND_LABELS, formatBRL } from '@/types/finance';
+import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
+import { FinScope, FinTransaction, formatBRL } from '@/types/finance';
 import { Trash2, ArrowDown, ArrowUp, ArrowLeftRight, Check, Search, Repeat, Pencil, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,25 +18,8 @@ const INCOMING_KINDS = new Set(['income', 'receivable', 'bank_loan']);
 const TRANSFER_KINDS = new Set(['transfer', 'inter_company']);
 
 type QuickFilter = 'todo_mes' | 'pagas' | 'tudo';
-type Period = 'this_month' | 'last_month' | 'last_3m' | 'year' | 'all';
-
-const periodLabels: Record<Period, string> = {
-  this_month: 'Este mês',
-  last_month: 'Mês passado',
-  last_3m: 'Últimos 3 meses',
-  year: 'Este ano',
-  all: 'Tudo',
-};
 
 const todayYMD = () => new Date().toISOString().slice(0, 10);
-const startOfMonthYMD = () => {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-};
-const endOfMonthYMD = () => {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-};
 const endOfWeekYMD = () => {
   const d = new Date();
   const days = 7 - d.getDay();
@@ -47,35 +31,15 @@ const PAST_LIMIT = 80;
 
 export function TransactionsList({ scope, companyId }: Props) {
   const { transactions, accounts, cards, categories, people, companies, deleteTransaction, updateTransaction } = useFinance();
+  const { monthStart, monthEnd, isCurrentMonth } = useFinancePeriod();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<QuickFilter>('todo_mes');
-  const [period, setPeriod] = useState<Period>('this_month');
   const [editing, setEditing] = useState<FinTransaction | null>(null);
   const [showAllPast, setShowAllPast] = useState(false);
 
   const today = todayYMD();
-  const monthStart = startOfMonthYMD();
-  const monthEnd = endOfMonthYMD();
   const weekEnd = endOfWeekYMD();
 
-  const periodRange = useMemo(() => {
-    const now = new Date();
-    if (period === 'all') return { start: '0000-01-01', end: '9999-12-31' };
-    if (period === 'this_month') return { start: monthStart, end: monthEnd };
-    if (period === 'last_month') {
-      const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const e = new Date(now.getFullYear(), now.getMonth(), 0);
-      return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) };
-    }
-    if (period === 'last_3m') {
-      const s = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-      return { start: s.toISOString().slice(0, 10), end: monthEnd };
-    }
-    // year
-    const s = new Date(now.getFullYear(), 0, 1);
-    const e = new Date(now.getFullYear(), 11, 31);
-    return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10) };
-  }, [period, monthStart, monthEnd]);
 
   // Lookup maps O(1) — evita find() por linha (era O(n*m) em listas grandes)
   const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts]);
