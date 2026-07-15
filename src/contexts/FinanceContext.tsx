@@ -693,12 +693,15 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
   }, [cards, transactions]);
 
   // ---------- Period helpers ----------
+  // NOTE: 'card_payment' NÃO entra em EXPENSE_KINDS — as compras individuais no cartão
+  // já foram contabilizadas como 'expense'. O pagamento da fatura é uma transferência
+  // (banco → cartão) e é reportado separadamente como "pagamentosFatura".
   const EXPENSE_KINDS = useMemo(() => new Set([
-    'expense', 'card_payment', 'invoice_payment', 'employee_payment',
+    'expense', 'invoice_payment', 'employee_payment',
     'supplier_payment', 'employee_loan', 'tax',
   ]), []);
   const INCOME_KINDS = useMemo(() => new Set(['income', 'receivable', 'bank_loan']), []);
-  const TRANSFER_KINDS = useMemo(() => new Set(['transfer', 'inter_company']), []);
+  const TRANSFER_KINDS = useMemo(() => new Set(['transfer', 'inter_company', 'card_payment']), []);
 
   const monthBounds = useCallback((monthISO: string) => {
     const [y, m] = monthISO.split('-').map(Number);
@@ -715,11 +718,15 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
   const getMonthTotals = useCallback((monthISO: string) => {
     const { start, end } = monthBounds(monthISO);
     const isCurrent = monthISO === currentMonthISOFn();
-    let pago = 0, recebido = 0, aPagar = 0, aReceber = 0;
+    let pago = 0, recebido = 0, aPagar = 0, aReceber = 0, pagamentosFatura = 0;
 
     for (const t of transactions) {
-      if (TRANSFER_KINDS.has(t.kind)) continue;
       const inMonth = t.occurredOn >= start && t.occurredOn <= end;
+      if (t.kind === 'card_payment') {
+        if (t.status === 'confirmed' && inMonth) pagamentosFatura += t.amount;
+        continue;
+      }
+      if (TRANSFER_KINDS.has(t.kind)) continue;
       const isExpense = EXPENSE_KINDS.has(t.kind);
       const isIncome = INCOME_KINDS.has(t.kind);
 
@@ -731,12 +738,11 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
           if (isExpense) aPagar += t.amount;
           else if (isIncome) aReceber += t.amount;
         } else if (isCurrent && isExpense && t.occurredOn < start) {
-          // vencidas de meses anteriores entram no mês corrente
           aPagar += t.amount;
         }
       }
     }
-    return { pago, recebido, aPagar, aReceber, saldo: recebido - pago };
+    return { pago, recebido, aPagar, aReceber, saldo: recebido - pago, pagamentosFatura };
   }, [transactions, monthBounds, currentMonthISOFn, EXPENSE_KINDS, INCOME_KINDS, TRANSFER_KINDS]);
 
   const getUpcomingBills = useCallback((days: number) => {
