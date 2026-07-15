@@ -145,10 +145,12 @@ interface FinanceContextType {
   // Card statement helpers
   getCardStatement: (cardId: string, monthISO: string) => {
     start: string; end: string; due: string | null;
-    total: number; paid: number; remaining: number;
+    total: number; computed: number; override: number | null;
+    paid: number; remaining: number;
     status: 'open' | 'closed' | 'paid' | 'partial';
     transactions: FinTransaction[];
   };
+
   getCardCategoryBreakdown: (cardId: string, monthISO: string) => Array<{
     categoryId: string | null; name: string; color: string; total: number; pct: number;
     deltaPct: number | null; // vs previous invoice; null = no comparison
