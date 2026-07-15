@@ -934,9 +934,9 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     return horizonYMD;
   }, []);
 
-  const addRecurrence = useCallback(async (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>) => {
+  const addRecurrence = useCallback(async (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>): Promise<string | null> => {
     const userId = await getUserId();
-    if (!userId) return;
+    if (!userId) return null;
 
     const { data, error } = await (supabase as any).from('recurrences').insert({
       title: rec.title,
@@ -952,7 +952,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     }).select('*').single();
     if (error || !data) {
       console.error('addRecurrence failed', error);
-      return;
+      return null;
     }
     const created = dbRowToRecurrence(data);
     setRecurrences(prev => [created, ...prev]);
@@ -965,6 +965,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       .eq('id', created.id);
     setRecurrences(prev => prev.map(r => r.id === created.id ? { ...r, lastMaterializedUntil: newHorizon } : r));
     refreshItems();
+    return created.id;
   }, [getUserId, materializeRecurrence, refreshItems]);
 
   const updateRecurrence = useCallback(async (id: string, updates: Partial<Recurrence>) => {
