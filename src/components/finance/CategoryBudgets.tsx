@@ -2,11 +2,15 @@ import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
 import { FinScope, formatBRL } from '@/types/finance';
-import { Pencil, Check, X, AlertTriangle, Target } from 'lucide-react';
+import { Pencil, Check, X, AlertTriangle, Target, Settings2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { maskBRLInput, parseBRLInput } from '@/lib/currency';
 import { toast } from 'sonner';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { CategoriesManager } from './CategoriesManager';
+
+
 
 interface Props { scope: FinScope }
 
