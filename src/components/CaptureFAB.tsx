@@ -16,6 +16,7 @@ type Mode = 'menu' | 'text' | 'audio';
 export default function CaptureFAB() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('menu');
+  const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [text, setText] = useState('');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -32,6 +33,10 @@ export default function CaptureFAB() {
   const navigate = useNavigate();
   const location = useLocation();
   const hidden = HIDDEN_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(`${r}/`));
+  const intent: 'appointment' | 'text' | 'menu' =
+    location.pathname === '/agenda' || location.pathname.startsWith('/agenda/') ? 'appointment' :
+    location.pathname === '/inbox' || location.pathname.startsWith('/inbox/') ? 'text' :
+    'menu';
 
   // Auto-focus textarea
   useEffect(() => {
