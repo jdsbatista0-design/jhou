@@ -55,6 +55,10 @@ const rowTransaction = (r: any): FinTransaction => ({
   kind: r.kind, amount: Number(r.amount), description: r.description,
   occurredOn: r.occurred_on, status: r.status, attachmentUrl: r.attachment_url || undefined,
   notes: r.notes || undefined, source: r.source, createdAt: r.created_at,
+  installmentNo: r.installment_no ?? undefined,
+  installmentTotal: r.installment_total ?? undefined,
+  purchaseGroupId: r.purchase_group_id ?? undefined,
+  paidCardMonth: r.paid_card_month ?? undefined,
 });
 
 interface FinanceContextType {
@@ -105,11 +109,23 @@ interface FinanceContextType {
     toCompanyId: string; toAccountId: string;
     amount: number; description: string; occurredOn: string;
   }) => Promise<void>;
+  // Compound: card operations
+  addInstallmentPurchase: (data: {
+    scope: FinScope; companyId?: string; cardId: string; categoryId?: string;
+    description: string; totalAmount: number; installments: number; firstOccurredOn: string;
+    status?: 'pending' | 'confirmed'; notes?: string;
+  }) => Promise<void>;
+  addCardPayment: (data: {
+    scope: FinScope; companyId?: string; cardId: string; accountId: string;
+    amount: number; paidCardMonth: string; occurredOn: string; description?: string;
+  }) => Promise<void>;
+  convertToCardPayment: (transactionId: string, cardId: string, paidCardMonth: string) => Promise<void>;
   // Computed helpers
   accountBalance: (accountId: string) => number;
   cardOpenInvoice: (cardId: string) => number;
   getMonthTotals: (monthISO: string) => {
     pago: number; recebido: number; aPagar: number; aReceber: number; saldo: number;
+    pagamentosFatura: number;
   };
   getUpcomingBills: (days: number) => FinTransaction[];
   getCategoryTotals: (monthISO: string) => Array<{
@@ -121,6 +137,23 @@ interface FinanceContextType {
     expenseMatrix: number[][];
     incomeMatrix: number[][];
   };
+  // Card statement helpers
+  getCardStatement: (cardId: string, monthISO: string) => {
+    start: string; end: string; due: string | null;
+    total: number; paid: number; remaining: number;
+    status: 'open' | 'closed' | 'paid' | 'partial';
+    transactions: FinTransaction[];
+  };
+  getCardCategoryBreakdown: (cardId: string, monthISO: string) => Array<{
+    categoryId: string | null; name: string; color: string; total: number; pct: number;
+    deltaPct: number | null; // vs previous invoice; null = no comparison
+  }>;
+  getCardActiveInstallments: (cardId: string) => Array<{
+    purchaseGroupId: string; description: string; installmentAmount: number;
+    total: number; paidCount: number; remaining: number; endsNextMonth: boolean;
+    nextDueOn: string | null;
+  }>;
+  getCardPaymentsForMonth: (monthISO: string) => number;
 }
 
 
@@ -481,7 +514,11 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
       description: t.description, occurred_on: t.occurredOn, status: t.status || 'confirmed',
       attachment_url: t.attachmentUrl || null, notes: t.notes || null,
       source: t.source || 'manual', user_id: userId,
-    });
+      installment_no: t.installmentNo ?? null,
+      installment_total: t.installmentTotal ?? null,
+      purchase_group_id: t.purchaseGroupId ?? null,
+      paid_card_month: t.paidCardMonth ?? null,
+    } as any);
   };
   const updateTransaction: FinanceContextType['updateTransaction'] = async (id, data) => {
     const upd: any = {};
@@ -495,6 +532,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     if (data.cardId !== undefined) upd.card_id = data.cardId || null;
     if (data.notes !== undefined) upd.notes = data.notes || null;
     if (data.kind !== undefined) upd.kind = data.kind;
+    if (data.paidCardMonth !== undefined) upd.paid_card_month = data.paidCardMonth || null;
     await supabase.from('fin_transactions').update(upd).eq('id', id);
   };
   const deleteTransaction: FinanceContextType['deleteTransaction'] = async (id) => {
@@ -655,12 +693,15 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
   }, [cards, transactions]);
 
   // ---------- Period helpers ----------
+  // NOTE: 'card_payment' NÃO entra em EXPENSE_KINDS — as compras individuais no cartão
+  // já foram contabilizadas como 'expense'. O pagamento da fatura é uma transferência
+  // (banco → cartão) e é reportado separadamente como "pagamentosFatura".
   const EXPENSE_KINDS = useMemo(() => new Set([
-    'expense', 'card_payment', 'invoice_payment', 'employee_payment',
+    'expense', 'invoice_payment', 'employee_payment',
     'supplier_payment', 'employee_loan', 'tax',
   ]), []);
   const INCOME_KINDS = useMemo(() => new Set(['income', 'receivable', 'bank_loan']), []);
-  const TRANSFER_KINDS = useMemo(() => new Set(['transfer', 'inter_company']), []);
+  const TRANSFER_KINDS = useMemo(() => new Set(['transfer', 'inter_company', 'card_payment']), []);
 
   const monthBounds = useCallback((monthISO: string) => {
     const [y, m] = monthISO.split('-').map(Number);
@@ -677,11 +718,15 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
   const getMonthTotals = useCallback((monthISO: string) => {
     const { start, end } = monthBounds(monthISO);
     const isCurrent = monthISO === currentMonthISOFn();
-    let pago = 0, recebido = 0, aPagar = 0, aReceber = 0;
+    let pago = 0, recebido = 0, aPagar = 0, aReceber = 0, pagamentosFatura = 0;
 
     for (const t of transactions) {
-      if (TRANSFER_KINDS.has(t.kind)) continue;
       const inMonth = t.occurredOn >= start && t.occurredOn <= end;
+      if (t.kind === 'card_payment') {
+        if (t.status === 'confirmed' && inMonth) pagamentosFatura += t.amount;
+        continue;
+      }
+      if (TRANSFER_KINDS.has(t.kind)) continue;
       const isExpense = EXPENSE_KINDS.has(t.kind);
       const isIncome = INCOME_KINDS.has(t.kind);
 
@@ -693,12 +738,11 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
           if (isExpense) aPagar += t.amount;
           else if (isIncome) aReceber += t.amount;
         } else if (isCurrent && isExpense && t.occurredOn < start) {
-          // vencidas de meses anteriores entram no mês corrente
           aPagar += t.amount;
         }
       }
     }
-    return { pago, recebido, aPagar, aReceber, saldo: recebido - pago };
+    return { pago, recebido, aPagar, aReceber, saldo: recebido - pago, pagamentosFatura };
   }, [transactions, monthBounds, currentMonthISOFn, EXPENSE_KINDS, INCOME_KINDS, TRANSFER_KINDS]);
 
   const getUpcomingBills = useCallback((days: number) => {
@@ -756,6 +800,173 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     return { categories: activeCats, months, expenseMatrix, incomeMatrix };
   }, [transactions, categories, EXPENSE_KINDS, INCOME_KINDS]);
 
+  // ---------- Card statement helpers ----------
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const statementPeriod = useCallback((cardId: string, monthISO: string) => {
+    const card = cards.find(c => c.id === cardId);
+    const [y, m] = monthISO.split('-').map(Number);
+    if (!card || !card.closingDay) {
+      const start = `${monthISO}-01`;
+      const end = new Date(y, m, 0).toISOString().slice(0, 10);
+      const due = card?.dueDay ? ymd(new Date(y, m, card.dueDay)) : null;
+      return { start, end, due };
+    }
+    const closing = new Date(y, m - 1, card.closingDay);
+    const prevClosing = new Date(y, m - 2, card.closingDay);
+    const startD = new Date(prevClosing); startD.setDate(startD.getDate() + 1);
+    const due = card.dueDay ? ymd(new Date(y, m, card.dueDay)) : null;
+    return { start: ymd(startD), end: ymd(closing), due };
+  }, [cards]);
+
+  const getCardStatement = useCallback((cardId: string, monthISO: string) => {
+    const { start, end, due } = statementPeriod(cardId, monthISO);
+    const txs = transactions.filter(t =>
+      t.cardId === cardId && t.kind === 'expense' &&
+      t.occurredOn >= start && t.occurredOn <= end,
+    );
+    const total = txs.reduce((s, t) => s + t.amount, 0);
+    const paidTxs = transactions.filter(t =>
+      t.cardId === cardId && t.kind === 'card_payment' &&
+      t.status === 'confirmed' && t.paidCardMonth === `${monthISO}-01`,
+    );
+    const paid = paidTxs.reduce((s, t) => s + t.amount, 0);
+    const remaining = Math.max(0, total - paid);
+    const today = new Date().toISOString().slice(0, 10);
+    const closed = today > end;
+    let status: 'open' | 'closed' | 'paid' | 'partial' = 'open';
+    if (paid >= total && total > 0) status = 'paid';
+    else if (paid > 0) status = 'partial';
+    else if (closed) status = 'closed';
+    return { start, end, due, total, paid, remaining, status, transactions: txs };
+  }, [transactions, statementPeriod]);
+
+  const getCardCategoryBreakdown = useCallback((cardId: string, monthISO: string) => {
+    const cur = getCardStatement(cardId, monthISO);
+    const [y, m] = monthISO.split('-').map(Number);
+    const prevISO = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`;
+    const prev = getCardStatement(cardId, prevISO);
+    const curByCat = new Map<string, number>();
+    let curUncat = 0;
+    for (const t of cur.transactions) {
+      if (t.categoryId) curByCat.set(t.categoryId, (curByCat.get(t.categoryId) || 0) + t.amount);
+      else curUncat += t.amount;
+    }
+    const prevByCat = new Map<string, number>();
+    let prevUncat = 0;
+    for (const t of prev.transactions) {
+      if (t.categoryId) prevByCat.set(t.categoryId, (prevByCat.get(t.categoryId) || 0) + t.amount);
+      else prevUncat += t.amount;
+    }
+    const total = cur.total || 1;
+    const rows = categories
+      .filter(c => c.kind === 'expense' && !c.archived && (curByCat.get(c.id) || 0) > 0)
+      .map(c => {
+        const t = curByCat.get(c.id) || 0;
+        const p = prevByCat.get(c.id) || 0;
+        return {
+          categoryId: c.id as string | null,
+          name: c.name, color: c.color, total: t,
+          pct: (t / total) * 100,
+          deltaPct: p > 0 ? ((t - p) / p) * 100 : null,
+        };
+      });
+    if (curUncat > 0) {
+      rows.push({
+        categoryId: null, name: 'Sem categoria', color: '#94a3b8', total: curUncat,
+        pct: (curUncat / total) * 100,
+        deltaPct: prevUncat > 0 ? ((curUncat - prevUncat) / prevUncat) * 100 : null,
+      });
+    }
+    return rows.sort((a, b) => b.total - a.total);
+  }, [getCardStatement, categories]);
+
+  const getCardActiveInstallments = useCallback((cardId: string) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const groups = new Map<string, FinTransaction[]>();
+    for (const t of transactions) {
+      if (t.cardId !== cardId) continue;
+      if (!t.purchaseGroupId || !t.installmentTotal) continue;
+      const arr = groups.get(t.purchaseGroupId) || [];
+      arr.push(t);
+      groups.set(t.purchaseGroupId, arr);
+    }
+    const out: Array<{
+      purchaseGroupId: string; description: string; installmentAmount: number;
+      total: number; paidCount: number; remaining: number; endsNextMonth: boolean;
+      nextDueOn: string | null;
+    }> = [];
+    for (const [gid, arr] of groups) {
+      arr.sort((a, b) => a.occurredOn.localeCompare(b.occurredOn));
+      const first = arr[0];
+      const total = first.installmentTotal!;
+      const paidCount = arr.filter(t => t.occurredOn < today && t.status === 'confirmed').length;
+      const remaining = total - paidCount;
+      if (remaining <= 0) continue;
+      const nextTx = arr.find(t => t.occurredOn >= today) || arr[arr.length - 1];
+      out.push({
+        purchaseGroupId: gid,
+        description: first.description.replace(/\s*\(\d+\/\d+\)\s*$/, ''),
+        installmentAmount: first.amount,
+        total, paidCount, remaining,
+        endsNextMonth: remaining <= 2,
+        nextDueOn: nextTx.occurredOn,
+      });
+    }
+    return out.sort((a, b) => a.remaining - b.remaining);
+  }, [transactions]);
+
+  const getCardPaymentsForMonth = useCallback((monthISO: string) => {
+    const { start, end } = monthBounds(monthISO);
+    return transactions
+      .filter(t => t.kind === 'card_payment' && t.status === 'confirmed'
+        && t.occurredOn >= start && t.occurredOn <= end)
+      .reduce((s, t) => s + t.amount, 0);
+  }, [transactions, monthBounds]);
+
+  // ---------- Card actions ----------
+  const addInstallmentPurchase: FinanceContextType['addInstallmentPurchase'] = async (data) => {
+    const userId = await getUserId(); if (!userId) return;
+    const n = Math.max(1, Math.floor(data.installments));
+    const per = Math.round((data.totalAmount / n) * 100) / 100;
+    const remainder = Math.round((data.totalAmount - per * (n - 1)) * 100) / 100;
+    const groupId = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const [fy, fm, fd] = data.firstOccurredOn.split('-').map(Number);
+    const rows = Array.from({ length: n }, (_, i) => {
+      const d = new Date(fy, fm - 1 + i, fd);
+      const amt = i === n - 1 ? remainder : per;
+      return {
+        scope: data.scope, company_id: data.companyId || null,
+        card_id: data.cardId, category_id: data.categoryId || null,
+        kind: 'expense', amount: amt,
+        description: n > 1 ? `${data.description} (${i + 1}/${n})` : data.description,
+        occurred_on: ymd(d), status: data.status || 'confirmed',
+        source: 'manual', notes: data.notes || null, user_id: userId,
+        installment_no: i + 1, installment_total: n, purchase_group_id: groupId,
+      };
+    });
+    await supabase.from('fin_transactions').insert(rows as any);
+  };
+
+  const addCardPayment: FinanceContextType['addCardPayment'] = async (data) => {
+    const userId = await getUserId(); if (!userId) return;
+    await supabase.from('fin_transactions').insert({
+      scope: data.scope, company_id: data.companyId || null,
+      card_id: data.cardId, account_id: data.accountId,
+      kind: 'card_payment', amount: data.amount,
+      description: data.description || `Pagamento fatura ${data.paidCardMonth.slice(0, 7)}`,
+      occurred_on: data.occurredOn, status: 'confirmed',
+      source: 'manual', paid_card_month: data.paidCardMonth,
+      user_id: userId,
+    } as any);
+  };
+
+  const convertToCardPayment: FinanceContextType['convertToCardPayment'] = async (transactionId, cardId, paidCardMonth) => {
+    await supabase.from('fin_transactions').update({
+      kind: 'card_payment', card_id: cardId, paid_card_month: paidCardMonth,
+    } as any).eq('id', transactionId);
+  };
+
   const value = useMemo<FinanceContextType>(() => ({
     loading, companies, accounts, cards, categories, people, recurrences, transactions,
     scope, setScope, selectedCompanyId, setSelectedCompanyId,
@@ -767,12 +978,15 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     addTransaction, updateTransaction, deleteTransaction, deleteTransactionAndFuture,
     addRecurrence, updateRecurrence, deleteRecurrence,
     addTransferBetweenAccounts, addInterCompanyTransfer,
+    addInstallmentPurchase, addCardPayment, convertToCardPayment,
     accountBalance, cardOpenInvoice,
     getMonthTotals, getUpcomingBills, getCategoryTotals, getYearMatrix,
+    getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, getCardPaymentsForMonth,
   }), [loading, companies, accounts, cards, categories, people, recurrences, transactions,
        scope, setScope, selectedCompanyId, setSelectedCompanyId,
        accountBalance, cardOpenInvoice,
-       getMonthTotals, getUpcomingBills, getCategoryTotals, getYearMatrix]);
+       getMonthTotals, getUpcomingBills, getCategoryTotals, getYearMatrix,
+       getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, getCardPaymentsForMonth]);
 
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;

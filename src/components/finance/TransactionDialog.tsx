@@ -34,6 +34,7 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
     addTransaction, updateTransaction, deleteTransaction, deleteTransactionAndFuture,
     addRecurrence, updateRecurrence, deleteRecurrence,
     addTransferBetweenAccounts, addInterCompanyTransfer,
+    addInstallmentPurchase, addCardPayment, getCardStatement,
   } = useFinance();
 
   const isEdit = !!editTransaction;
@@ -63,9 +64,18 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
   const [toAccountId, setToAccountId] = useState<string>('');
   const [toCompanyId, setToCompanyId] = useState<string>('');
   const [toCompanyAccountId, setToCompanyAccountId] = useState<string>('');
+  // Parcelamento (compra parcelada no cartão)
+  const [installments, setInstallments] = useState<number>(1);
+  // Pagamento de fatura de cartão — mês competência da fatura (YYYY-MM)
+  const [paidCardMonth, setPaidCardMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const isTransfer = kind === 'transfer';
   const isInter = kind === 'inter_company';
+  const isCardPayment = kind === 'card_payment';
+  const isCardExpense = kind === 'expense' && cardId !== 'none';
 
   // Hydrate state when editing
   useEffect(() => {
@@ -108,6 +118,7 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
     setAccountId('none'); setCardId('none'); setCategoryId('none'); setPersonId('none'); setNotes('');
     setStatus('confirmed'); setFromAccountId(''); setToAccountId(''); setToCompanyId(''); setToCompanyAccountId('');
     setRepeats(false); setRepFrequency('monthly'); setRepHasEnd(false); setRepEndOn('');
+    setInstallments(1);
   };
 
   const handleSave = async () => {
@@ -162,8 +173,34 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
       reset(); onClose(); return;
     }
 
+    if (isCardPayment) {
+      if (!cardId || cardId === 'none') { toast.error('Selecione o cartão da fatura'); return; }
+      if (!accountId || accountId === 'none') { toast.error('Selecione a conta que pagou'); return; }
+      await addCardPayment({
+        scope, companyId: scope === 'pj' ? (companyId || undefined) : undefined,
+        cardId, accountId, amount: amt,
+        paidCardMonth: `${paidCardMonth}-01`,
+        occurredOn, description: description.trim() || undefined,
+      });
+      toast.success('Pagamento de fatura registrado');
+      reset(); onClose(); return;
+    }
+
+    // Compra parcelada no cartão
+    if (isCardExpense && installments > 1) {
+      await addInstallmentPurchase({
+        scope, companyId: scope === 'pj' ? (companyId || undefined) : undefined,
+        cardId, categoryId: categoryId !== 'none' ? categoryId : undefined,
+        description: description.trim(), totalAmount: amt, installments,
+        firstOccurredOn: occurredOn, status, notes: notes.trim() || undefined,
+      });
+      toast.success(`Compra dividida em ${installments}x`);
+      reset(); onClose(); return;
+    }
+
     // Recurrence: only allowed for plain income/expense (no transfers, no inter)
-    const canRepeat = !isTransfer && !isInter && (kind === 'income' || kind === 'expense');
+    const canRepeat = !isTransfer && !isInter && !isCardPayment && !(isCardExpense && installments > 1)
+      && (kind === 'income' || kind === 'expense');
     let recurrenceId: string | undefined;
     if (canRepeat && repeats) {
       const dayOfMonth = parseInt(occurredOn.slice(-2), 10);
@@ -369,7 +406,45 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
             </>
           )}
 
-          {(isEdit || (!isTransfer && !isInter)) && (
+          {!isEdit && isCardPayment && (() => {
+            const st = cardId !== 'none' ? getCardStatement(cardId, paidCardMonth) : null;
+            return (
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2 text-xs">
+                <div className="text-[11px] text-muted-foreground leading-snug">
+                  Isto é um <b>pagamento de fatura</b>: sai do banco, quita a fatura do cartão.
+                  As compras individuais já estão contabilizadas — este lançamento não é somado às despesas do mês.
+                </div>
+                <div>
+                  <Label className="text-xs">Cartão</Label>
+                  <Select value={cardId} onValueChange={setCardId}>
+                    <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Selecionar cartão" /></SelectTrigger>
+                    <SelectContent>{availableCards.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Conta que pagou</Label>
+                  <Select value={accountId} onValueChange={setAccountId}>
+                    <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Conta bancária" /></SelectTrigger>
+                    <SelectContent>{availableAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Fatura referente ao mês</Label>
+                  <Input type="month" value={paidCardMonth} onChange={e => setPaidCardMonth(e.target.value)} className="rounded-xl h-9 text-sm" />
+                </div>
+                {st && (
+                  <div className="rounded-lg bg-background/60 p-2 text-[11px] text-muted-foreground">
+                    Fatura: <b className="text-foreground">R$ {st.total.toFixed(2)}</b> ·
+                    Pago: <b className="text-foreground">R$ {st.paid.toFixed(2)}</b> ·
+                    Restante: <b className="text-foreground">R$ {st.remaining.toFixed(2)}</b>
+                    {st.due && <> · Vence {new Date(st.due + 'T00:00:00').toLocaleDateString('pt-BR')}</>}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {(isEdit || (!isTransfer && !isInter && !isCardPayment)) && (
             <>
               <div className="flex gap-2">
                 <div className="flex-1">
@@ -393,6 +468,31 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
                   </Select>
                 </div>
               </div>
+
+              {!isEdit && isCardExpense && (
+                <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Parcelar em</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number" min={1} max={36}
+                        value={installments}
+                        onChange={e => setInstallments(Math.max(1, Math.min(36, parseInt(e.target.value) || 1)))}
+                        className="rounded-lg h-8 w-16 text-sm text-center"
+                      />
+                      <span className="text-xs text-muted-foreground">x</span>
+                    </div>
+                  </div>
+                  {installments > 1 && amount && (
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      {installments}x de <b className="text-foreground">R$ {(parseBRLInput(amount) / installments).toFixed(2)}</b> ·
+                      Total <b className="text-foreground">R$ {parseBRLInput(amount).toFixed(2)}</b>.
+                      Cada parcela vira uma despesa no mês correspondente.
+                    </p>
+                  )}
+                </div>
+              )}
+
 
               <div>
                 <Label className="text-xs">Categoria</Label>
@@ -435,7 +535,7 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
               </div>
 
               {/* Recurrence block — only when creating a plain income/expense */}
-              {!isEdit && (kind === 'income' || kind === 'expense') && (
+              {!isEdit && (kind === 'income' || kind === 'expense') && !(isCardExpense && installments > 1) && (
                 <div className={cn(
                   'rounded-xl border p-3 space-y-2 transition-colors',
                   repeats

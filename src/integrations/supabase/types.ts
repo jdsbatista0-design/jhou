@@ -414,10 +414,14 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          installment_no: number | null
+          installment_total: number | null
           kind: string
           notes: string | null
           occurred_on: string
+          paid_card_month: string | null
           person_id: string | null
+          purchase_group_id: string | null
           recurrence_id: string | null
           scope: string
           source: string
@@ -436,10 +440,14 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          installment_no?: number | null
+          installment_total?: number | null
           kind: string
           notes?: string | null
           occurred_on?: string
+          paid_card_month?: string | null
           person_id?: string | null
+          purchase_group_id?: string | null
           recurrence_id?: string | null
           scope: string
           source?: string
@@ -458,10 +466,14 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          installment_no?: number | null
+          installment_total?: number | null
           kind?: string
           notes?: string | null
           occurred_on?: string
+          paid_card_month?: string | null
           person_id?: string | null
+          purchase_group_id?: string | null
           recurrence_id?: string | null
           scope?: string
           source?: string
