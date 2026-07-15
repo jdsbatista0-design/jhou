@@ -5,7 +5,10 @@ import { Button } from '@/components/ui/button';
 import { useCentral } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+
+// Rotas onde o FAB de captura NÃO deve aparecer (elas possuem seus próprios CTAs)
+const HIDDEN_ROUTES = ['/financas', '/memory', '/memoria'];
 
 type Mode = 'menu' | 'text' | 'audio';
 
