@@ -143,6 +143,7 @@ export type Database = {
           limit_amount: number
           name: string
           scope: string
+          statement_overrides: Json
           updated_at: string
           user_id: string
         }
@@ -159,6 +160,7 @@ export type Database = {
           limit_amount?: number
           name: string
           scope: string
+          statement_overrides?: Json
           updated_at?: string
           user_id?: string
         }
@@ -175,6 +177,7 @@ export type Database = {
           limit_amount?: number
           name?: string
           scope?: string
+          statement_overrides?: Json
           updated_at?: string
           user_id?: string
         }

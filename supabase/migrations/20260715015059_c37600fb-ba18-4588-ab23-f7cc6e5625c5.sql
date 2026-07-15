@@ -1,0 +1,1 @@
+ALTER TABLE public.fin_cards ADD COLUMN IF NOT EXISTS statement_overrides jsonb NOT NULL DEFAULT '{}'::jsonb;
