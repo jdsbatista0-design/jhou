@@ -28,7 +28,10 @@ const rowCard = (r: any): FinCard => ({
   accountId: r.account_id || undefined, name: r.name, brand: r.brand || undefined,
   limitAmount: Number(r.limit_amount ?? 0), closingDay: r.closing_day || undefined,
   dueDay: r.due_day || undefined, color: r.color, archived: r.archived, createdAt: r.created_at,
+  statementOverrides: (r.statement_overrides && typeof r.statement_overrides === 'object')
+    ? r.statement_overrides as Record<string, number> : {},
 });
+
 const rowCategory = (r: any): FinCategory => ({
   id: r.id, scope: r.scope, name: r.name, kind: r.kind, color: r.color,
   icon: r.icon || undefined, archived: r.archived,
