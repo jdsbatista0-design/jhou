@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, CreditCard } from 'lucide-react';
+import { Plus, Trash2, CreditCard, ChevronDown, ChevronUp } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,11 +10,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { CardStatement } from './CardStatement';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
 export function CardsManager({ scope, companyId }: Props) {
   const { cards, accounts, addCard, deleteCard, cardOpenInvoice } = useFinance();
+  const [showForm, setShowForm] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [limitAmount, setLimit] = useState('');
