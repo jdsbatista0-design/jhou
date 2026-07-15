@@ -1,94 +1,85 @@
-## 1. Recorrentes só no calendário (fora do Inbox)
 
-- Itens com `recurrenceId` (ou `origin === 'recurrence'`) deixam de aparecer no **Inbox Kanban** (em qualquer agrupamento, fase ou área).
-- Continuam aparecendo na **Agenda** (calendário, lista do dia e tab "Recorrentes").
-- Ponto violeta no calendário já existe — mantém.
-- Exceção: se uma ocorrência específica for marcada como "pendente / travada" manualmente, ainda pode reaparecer no Inbox? **Não nesta rodada** — recorrência sempre vive na Agenda.
+## Etapa 1 — Fundação de período + regras de cálculo
 
-## 2. Vencimentos financeiros no calendário
+Escopo isolado no módulo Financeiro. Sem migração de schema. Inbox, Agenda, HD e Dashboard não são tocados.
 
-- `fin_transactions` com `due_date` e status "a pagar/receber" geram entradas virtuais na Agenda (não duplicam em `items`).
-- `fin_recurrences` materializam ocorrências futuras na Agenda dentro do horizonte (mesma lógica de 60 dias).
-- Ponto âmbar no calendário (já reservado para `origin === 'finance'`).
-- Clique no dia mostra a despesa com botão "Marcar como paga" que abre o ticking direto em `BillsToPay`.
+### Observação importante sobre nomes de coluna
+O prompt fala em `due_date`, mas hoje o schema usa `occurred_on` como data de competência do lançamento (e `status = 'pending' | 'confirmed' | 'cancelled'`). Vou tratar `occurred_on` como o "vencimento" para toda a regra de competência — sem criar coluna nova. Se depois quiser separar `emissão × vencimento × pagamento`, é migração dedicada e fica fora desta etapa.
 
-## 3. Memória / HD vira tab principal
+### 1. `src/components/finance/MonthNavigator.tsx` (novo)
+- Controle `◄  Novembro 2026  ►` com botão "Hoje".
+- Props: `value: string` (formato `YYYY-MM`), `onChange(next)`, `className?`.
+- Formatação em pt-BR ("novembro de 2026"), primeira letra maiúscula.
+- Botão "Hoje" desabilitado quando já é o mês corrente.
+- Acessibilidade: `aria-label` nos botões prev/next.
 
-- Bottom nav passa para **5 tabs**: Hoje · Inbox · Agenda · Financeiro · HD.
-- Remover HD/Memória do menu de Configurações (vira atalho só).
-- Página HD ganha sub-tabs por categoria (chips já existem; viram navegação principal):
-  Geral · Reuniões · Senhas · Receitas · Viagens · Livro · Rotina · Desejos · Propósito.
+### 2. `FinancePeriodContext`
+Arquivo próprio: `src/contexts/FinancePeriodContext.tsx`.
 
-### 3.1 Meu Livro
-- Adicionar campo de **anexo** (PDF/imagem do capítulo, foto manuscrita).
-- Cada entrada de Livro = { título do capítulo/trecho, conteúdo, anexo, comentário pessoal }.
-- Storage bucket privado `memory-attachments`.
+- Estado: `monthISO: string` (default = mês corrente `YYYY-MM`).
+- Ações: `setMonth(iso)`, `goPrev()`, `goNext()`, `goToday()`.
+- Derivados expostos: `monthStart: Date`, `monthEnd: Date`, `isCurrentMonth: boolean`.
+- `Provider` embrulha o conteúdo de `FinancePage`.
+- Hook `useFinancePeriod()`.
 
-### 3.2 Senhas (cofre)
-- Já existe estrutura (`login`, `password`, `url`). Reforçar:
-  - Senha armazenada **cifrada** no campo `password` usando `src/lib/crypto.ts` com o PIN global.
-  - Mostrar/copiar exige PIN se o usuário tiver PIN ativo.
-  - Botão "Gerar senha forte" no formulário.
+`FinancePage` renderiza o `MonthNavigator` no topo, acima das abas — visível em todas (Resumo, Tudo, A Pagar, Categorias). Aba Cadastros ignora o período.
 
-### 3.3 Receitas
-- Novos campos por categoria `receitas`:
-  - `ingredients` (texto multilinha), `steps` (texto multilinha), `servings`, `time` (minutos), `attachment` (foto do prato).
-- Card mostra foto, tempo, porções e botão "Ver receita completa".
+### 3. Helpers no `FinanceContext`
+Todos derivados do estado já existente em memória — não fazem novas queries.
 
-### 3.4 Viagens (guia por destino)
-- Já agrupa por cidade. Adicionar **sub-tipo** dentro de cada memória de viagem:
-  - `travelKind`: 'hotel' | 'restaurante' | 'lugar' | 'dica'.
-  - `address`, `rating` (1–5), `priceRange` ('$'/'$$'/'$$$'), `mapsUrl`.
-- Render por cidade com mini-seções: Hotéis · Restaurantes · Lugares · Dicas.
-
-### 3.5 Rotina → calendário
-- Categoria `rotina` ganha campos `weekdays` + `time` (igual recorrência).
-- Salvar uma rotina cria automaticamente uma **Recurrence** com `origin = 'recurrence'`, vinculada à memória (campo `linkedRecurrenceId`).
-- Editar/excluir a rotina sincroniza a recorrência.
-- Aparece no calendário com ponto violeta.
-
-## 4. Schema
-
-Migration única:
-
-```sql
-ALTER TABLE public.memories
-  ADD COLUMN attachment_url TEXT,
-  ADD COLUMN comment TEXT,
-  ADD COLUMN ingredients TEXT,
-  ADD COLUMN steps TEXT,
-  ADD COLUMN servings INT,
-  ADD COLUMN time_minutes INT,
-  ADD COLUMN travel_kind TEXT,
-  ADD COLUMN address TEXT,
-  ADD COLUMN rating INT,
-  ADD COLUMN price_range TEXT,
-  ADD COLUMN maps_url TEXT,
-  ADD COLUMN weekdays INT[],
-  ADD COLUMN routine_time TEXT,
-  ADD COLUMN linked_recurrence_id UUID;
+```ts
+getMonthTotals(monthISO): {
+  pago: number;         // Σ confirmed income  no mês  ⟶  na verdade "recebido"
+  recebido: number;     // Σ confirmed income (kind income/receivable) no mês
+  aPagar: number;       // Σ pending expense no mês + vencidas de meses anteriores
+  aReceber: number;     // Σ pending income no mês
+  saldo: number;        // recebido − pago(saídas confirmadas)
+}
 ```
 
-Storage bucket privado `memory-attachments` + policies por `auth.uid()`.
+- "Pago" = Σ saídas confirmadas (`kind` de saída, `status='confirmed'`) com `occurred_on` dentro do mês.
+- "Recebido" = Σ entradas confirmadas dentro do mês.
+- "A pagar" = Σ pendentes de saída com `occurred_on` no mês **+** Σ pendentes de saída com `occurred_on` anterior ao mês selecionado, quando o mês selecionado é o mês corrente (regra "vencidas não somem").
+- "Saldo do mês" = recebido confirmado − pago confirmado.
 
-## 5. Arquivos
+```ts
+getUpcomingBills(days): FinTransaction[]  // pending expense, occurred_on entre hoje e hoje+days, ordenado asc
+getCategoryTotals(monthISO): Array<{ categoryId, name, color, total }>  // saídas confirmadas por categoria
+getYearMatrix(year): {
+  categories: FinCategory[];
+  months: string[];                  // 12 chaves 'YYYY-MM'
+  expenseMatrix: number[][];         // [categoria][mês]
+  incomeMatrix: number[][];
+}
+```
 
-**Editar:**
-- `src/components/BottomNav.tsx` — adicionar tab HD.
-- `src/components/inbox/InboxKanban.tsx` — filtrar `recurrenceId`/`origin==='recurrence'`.
-- `src/contexts/CentralContext.tsx` — `agendaEntries` derivar também de `fin_transactions` e `fin_recurrences`.
-- `src/components/agenda/AgendaCalendar.tsx` — clique em dia financeiro com ação "marcar pago".
-- `src/pages/MemoryPage.tsx` — sub-tabs reais, novos campos por categoria, anexo, cifragem de senha, criação/sync de Recurrence para rotina.
-- `src/pages/SettingsPage.tsx` — remover entrada redundante de Memória.
-- `src/types/central.ts` — extender `Memory` com novos campos.
+Todos memoizados por `useMemo` sobre `transactions`, `categories` — sem custo de rede.
+
+### 4. Integração nas abas existentes
+- `TransactionsList` (aba Tudo) e `BillsToPay` (A Pagar) passam a filtrar por `monthISO` do contexto. Filtros próprios de período são removidos, mas a busca de texto e chips de tipo continuam.
+- `CategoryBudgets` (Categorias) usa `getCategoryTotals(monthISO)` para o progresso do mês selecionado (hoje é sempre mês corrente).
+- Selo "vencida" (badge vermelho) aparece nas linhas cuja `occurred_on < hoje` e `status='pending'` — regra visual só; a lógica de contagem já cobre isso em `getMonthTotals`.
+
+### 5. Arquivos afetados
 
 **Criar:**
-- `src/components/memory/AttachmentUploader.tsx` — upload para `memory-attachments`.
-- `src/components/memory/RecipeCard.tsx`, `TravelCard.tsx`, `PasswordCard.tsx`, `BookCard.tsx`, `RoutineForm.tsx`.
-- Storage bucket via tool.
+- `src/components/finance/MonthNavigator.tsx`
+- `src/contexts/FinancePeriodContext.tsx`
 
-## 6. Fora de escopo
-- Sincronizar receitas/viagens com Google Drive.
-- OCR de anexo de livro.
-- Compartilhamento de senhas com outra pessoa.
-- Importação de extrato bancário para vencimentos.
+**Editar:**
+- `src/pages/FinancePage.tsx` — embrulha com `FinancePeriodProvider` e renderiza `MonthNavigator` no topo.
+- `src/contexts/FinanceContext.tsx` — adiciona os 4 helpers e expõe no `value`.
+- `src/components/finance/TransactionsList.tsx` — consumir `monthISO`, remover filtro de período próprio, adicionar selo "vencida".
+- `src/components/finance/BillsToPay.tsx` — consumir `monthISO`, incluir vencidas de meses anteriores quando o mês selecionado é o corrente.
+- `src/components/finance/CategoryBudgets.tsx` — passar a usar `getCategoryTotals(monthISO)`.
+
+### Critério de aceite
+- Navegar mês a mês filtra as três listas simultaneamente.
+- No mês corrente, contas pendentes vencidas de meses anteriores aparecem no topo com selo "vencida" e são contadas em `aPagar`.
+- Em meses futuros ou passados, o filtro é estrito por `occurred_on` naquele mês.
+- Helpers retornam os totais esperados (verificação manual em 2–3 casos).
+
+### Fora de escopo desta etapa
+- Aba Resumo, gráficos, aba Recorrentes, aba Histórico e fatura do cartão — vêm nas etapas 2, 3 e 4.
+- Qualquer mudança em Inbox, Agenda, HD, Dashboard.
+- Migração de schema (renomear `occurred_on` → `due_date`, por exemplo).
