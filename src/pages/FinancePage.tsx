@@ -1,6 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Plus, Wallet, CreditCard, ListChecks, TrendingUp, Receipt, Settings as SettingsIcon, ChevronDown, CheckSquare, PieChart } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
+import { FinancePeriodProvider } from '@/contexts/FinancePeriodContext';
+import { MonthNavigator } from '@/components/finance/MonthNavigator';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +14,7 @@ const CardsManager = lazy(() => import('@/components/finance/CardsManager').then
 const CategoriesManager = lazy(() => import('@/components/finance/CategoriesManager').then(m => ({ default: m.CategoriesManager })));
 const CategoryBudgets = lazy(() => import('@/components/finance/CategoryBudgets').then(m => ({ default: m.CategoryBudgets })));
 const TransactionDialog = lazy(() => import('@/components/finance/TransactionDialog').then(m => ({ default: m.TransactionDialog })));
+
 
 type Section = 'bills' | 'budgets' | 'overview' | 'transactions' | 'accounts' | 'cards' | 'categories';
 
