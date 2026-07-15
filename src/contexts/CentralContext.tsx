@@ -75,6 +75,7 @@ interface CentralContextType {
   addRecurrence: (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>) => Promise<void>;
   updateRecurrence: (id: string, updates: Partial<Recurrence>) => Promise<void>;
   deleteRecurrence: (id: string, alsoDeleteFutureItems: boolean) => Promise<void>;
+  deleteRecurringItem: (itemId: string, scope: 'one' | 'future' | 'all') => Promise<void>;
   settings: Settings;
   updateSettings: (updates: Partial<Settings>) => void;
 }
