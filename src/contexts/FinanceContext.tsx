@@ -88,6 +88,8 @@ interface FinanceContextType {
   addCard: (data: Omit<FinCard, 'id' | 'createdAt' | 'archived'>) => Promise<void>;
   updateCard: (id: string, data: Partial<FinCard>) => Promise<void>;
   deleteCard: (id: string) => Promise<void>;
+  setCardStatementOverride: (cardId: string, monthISO: string, amount: number | null) => Promise<void>;
+
   addCategory: (data: Omit<FinCategory, 'id' | 'archived'>) => Promise<void>;
   updateCategory: (id: string, data: Partial<FinCategory>) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
