@@ -61,30 +61,39 @@ export function CardsManager({ scope, companyId }: Props) {
   return (
     <div className="space-y-3">
       {canAdd && (
-        <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Novo cartão</h3>
-          <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome (ex.: Nubank Roxinho)" className="rounded-xl h-9 text-sm" />
-          <div className="flex gap-2">
-            <Input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Bandeira" className="rounded-xl h-9 text-sm flex-1" />
-            <Input value={limitAmount} onChange={e => setLimit(e.target.value)} placeholder="Limite" inputMode="decimal" className="rounded-xl h-9 text-sm flex-1" />
+        showForm ? (
+          <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Novo cartão</h3>
+              <button onClick={() => setShowForm(false)} className="text-[11px] text-muted-foreground">Cancelar</button>
+            </div>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome (ex.: Nubank Roxinho)" className="rounded-xl h-9 text-sm" />
+            <div className="flex gap-2">
+              <Input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Bandeira" className="rounded-xl h-9 text-sm flex-1" />
+              <Input value={limitAmount} onChange={e => setLimit(e.target.value)} placeholder="Limite" inputMode="decimal" className="rounded-xl h-9 text-sm flex-1" />
+            </div>
+            <div className="flex gap-2">
+              <Input value={closingDay} onChange={e => setClosing(e.target.value)} placeholder="Dia fechamento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
+              <Input value={dueDay} onChange={e => setDue(e.target.value)} placeholder="Dia vencimento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
+            </div>
+            {availableAccounts.length > 0 && (
+              <Select value={accountId} onValueChange={setAccountId}>
+                <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Conta vinculada (opcional)" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem conta vinculada</SelectItem>
+                  {availableAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            <Button onClick={async () => { await handleAdd(); setShowForm(false); }} size="sm" className="w-full rounded-xl h-9">
+              <Plus className="h-3.5 w-3.5 mr-1" /> Cadastrar
+            </Button>
           </div>
-          <div className="flex gap-2">
-            <Input value={closingDay} onChange={e => setClosing(e.target.value)} placeholder="Dia fechamento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
-            <Input value={dueDay} onChange={e => setDue(e.target.value)} placeholder="Dia vencimento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
-          </div>
-          {availableAccounts.length > 0 && (
-            <Select value={accountId} onValueChange={setAccountId}>
-              <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Conta vinculada (opcional)" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem conta vinculada</SelectItem>
-                {availableAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-          <Button onClick={handleAdd} size="sm" className="w-full rounded-xl h-9">
-            <Plus className="h-3.5 w-3.5 mr-1" /> Cadastrar
+        ) : (
+          <Button onClick={() => setShowForm(true)} variant="outline" size="sm" className="w-full rounded-xl h-8 text-xs">
+            <Plus className="h-3.5 w-3.5 mr-1" /> Novo cartão
           </Button>
-        </div>
+        )
       )}
 
       <div className="space-y-2">
@@ -96,6 +105,7 @@ export function CardsManager({ scope, companyId }: Props) {
         {visible.map(c => {
           const invoice = cardOpenInvoice(c.id);
           const used = c.limitAmount > 0 ? Math.min(100, (invoice / c.limitAmount) * 100) : 0;
+          const isOpen = expanded === c.id;
           return (
             <div key={c.id} className="rounded-2xl border border-border bg-card p-3 space-y-2">
               <div className="flex items-center gap-3">
@@ -133,6 +143,17 @@ export function CardsManager({ scope, companyId }: Props) {
                   <div className="h-full transition-all" style={{ width: `${used}%`, background: used > 80 ? 'hsl(var(--destructive))' : c.color }} />
                 </div>
               </div>
+              <button
+                onClick={() => setExpanded(isOpen ? null : c.id)}
+                className="w-full flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground pt-1"
+              >
+                {isOpen ? <><ChevronUp className="h-3 w-3" /> Ocultar fatura</> : <><ChevronDown className="h-3 w-3" /> Ver fatura, gastos por categoria e parcelas</>}
+              </button>
+              {isOpen && (
+                <div className="pt-2 border-t border-border/40">
+                  <CardStatement cardId={c.id} />
+                </div>
+              )}
             </div>
           );
         })}
