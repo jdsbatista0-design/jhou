@@ -99,6 +99,16 @@ interface FinanceContextType {
   addRecurrence: (data: Omit<FinRecurrence, 'id' | 'active' | 'lastGeneratedOn'> & { active?: boolean }) => Promise<string | null>;
   updateRecurrence: (id: string, data: Partial<FinRecurrence>) => Promise<void>;
   deleteRecurrence: (id: string, alsoDeleteFutureTx?: boolean) => Promise<void>;
+  // Compound: transfer between accounts (creates 2 rows)
+  addTransferBetweenAccounts: (data: {
+    scope: FinScope; companyId?: string; fromAccountId: string; toAccountId: string;
+    amount: number; description: string; occurredOn: string;
+  }) => Promise<void>;
+  addInterCompanyTransfer: (data: {
+    fromCompanyId: string; fromAccountId: string;
+    toCompanyId: string; toAccountId: string;
+    amount: number; description: string; occurredOn: string;
+  }) => Promise<void>;
   // Compound: card operations
   addInstallmentPurchase: (data: {
     scope: FinScope; companyId?: string; cardId: string; categoryId?: string;
