@@ -329,9 +329,19 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
             <Select value={kind} onValueChange={v => setKind(v as TxKind)} disabled={kindDisabled}>
               <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {allowedKinds.map(k => <SelectItem key={k} value={k}>{TX_KIND_LABELS[k]}</SelectItem>)}
+                {allowedKinds.map(k => (
+                  <SelectItem key={k} value={k}>
+                    <div className="flex flex-col">
+                      <span>{TX_KIND_LABELS[k]}</span>
+                      {k === 'card_payment' && (
+                        <span className="text-[10px] text-muted-foreground">quita a fatura — não conta como despesa nova</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+
           </div>
 
           <div className="flex gap-2">
