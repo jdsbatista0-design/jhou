@@ -654,6 +654,108 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
       .reduce((s, t) => s + t.amount, 0);
   }, [cards, transactions]);
 
+  // ---------- Period helpers ----------
+  const EXPENSE_KINDS = useMemo(() => new Set([
+    'expense', 'card_payment', 'invoice_payment', 'employee_payment',
+    'supplier_payment', 'employee_loan', 'tax',
+  ]), []);
+  const INCOME_KINDS = useMemo(() => new Set(['income', 'receivable', 'bank_loan']), []);
+  const TRANSFER_KINDS = useMemo(() => new Set(['transfer', 'inter_company']), []);
+
+  const monthBounds = useCallback((monthISO: string) => {
+    const [y, m] = monthISO.split('-').map(Number);
+    const start = new Date(y, m - 1, 1).toISOString().slice(0, 10);
+    const end = new Date(y, m, 0).toISOString().slice(0, 10);
+    return { start, end };
+  }, []);
+
+  const currentMonthISOFn = useCallback(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const getMonthTotals = useCallback((monthISO: string) => {
+    const { start, end } = monthBounds(monthISO);
+    const isCurrent = monthISO === currentMonthISOFn();
+    let pago = 0, recebido = 0, aPagar = 0, aReceber = 0;
+
+    for (const t of transactions) {
+      if (TRANSFER_KINDS.has(t.kind)) continue;
+      const inMonth = t.occurredOn >= start && t.occurredOn <= end;
+      const isExpense = EXPENSE_KINDS.has(t.kind);
+      const isIncome = INCOME_KINDS.has(t.kind);
+
+      if (t.status === 'confirmed' && inMonth) {
+        if (isExpense) pago += t.amount;
+        else if (isIncome) recebido += t.amount;
+      } else if (t.status === 'pending') {
+        if (inMonth) {
+          if (isExpense) aPagar += t.amount;
+          else if (isIncome) aReceber += t.amount;
+        } else if (isCurrent && isExpense && t.occurredOn < start) {
+          // vencidas de meses anteriores entram no mês corrente
+          aPagar += t.amount;
+        }
+      }
+    }
+    return { pago, recebido, aPagar, aReceber, saldo: recebido - pago };
+  }, [transactions, monthBounds, currentMonthISOFn, EXPENSE_KINDS, INCOME_KINDS, TRANSFER_KINDS]);
+
+  const getUpcomingBills = useCallback((days: number) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const horizon = new Date(); horizon.setDate(horizon.getDate() + days);
+    const end = horizon.toISOString().slice(0, 10);
+    return transactions
+      .filter(t => t.status === 'pending' && EXPENSE_KINDS.has(t.kind))
+      .filter(t => t.occurredOn >= today && t.occurredOn <= end)
+      .sort((a, b) => a.occurredOn.localeCompare(b.occurredOn));
+  }, [transactions, EXPENSE_KINDS]);
+
+  const getCategoryTotals = useCallback((monthISO: string) => {
+    const { start, end } = monthBounds(monthISO);
+    const byId = new Map<string, number>();
+    let uncategorized = 0;
+    for (const t of transactions) {
+      if (!EXPENSE_KINDS.has(t.kind)) continue;
+      if (t.status !== 'confirmed') continue;
+      if (t.occurredOn < start || t.occurredOn > end) continue;
+      if (t.categoryId) byId.set(t.categoryId, (byId.get(t.categoryId) || 0) + t.amount);
+      else uncategorized += t.amount;
+    }
+    const rows = categories
+      .filter(c => c.kind === 'expense' && !c.archived)
+      .map(c => ({
+        categoryId: c.id as string | null,
+        name: c.name,
+        color: c.color,
+        total: byId.get(c.id) || 0,
+      }));
+    if (uncategorized > 0) {
+      rows.push({ categoryId: null, name: 'Sem categoria', color: '#94a3b8', total: uncategorized });
+    }
+    return rows.sort((a, b) => b.total - a.total);
+  }, [transactions, categories, monthBounds, EXPENSE_KINDS]);
+
+  const getYearMatrix = useCallback((year: number) => {
+    const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+    const activeCats = categories.filter(c => !c.archived);
+    const catIndex = new Map(activeCats.map((c, i) => [c.id, i]));
+    const expenseMatrix: number[][] = activeCats.map(() => Array(12).fill(0));
+    const incomeMatrix: number[][] = activeCats.map(() => Array(12).fill(0));
+
+    for (const t of transactions) {
+      if (t.status !== 'confirmed') continue;
+      if (!t.occurredOn.startsWith(String(year))) continue;
+      const monthIdx = parseInt(t.occurredOn.slice(5, 7), 10) - 1;
+      if (monthIdx < 0 || monthIdx > 11) continue;
+      const catIdx = t.categoryId ? catIndex.get(t.categoryId) : undefined;
+      if (catIdx === undefined) continue;
+      if (EXPENSE_KINDS.has(t.kind)) expenseMatrix[catIdx][monthIdx] += t.amount;
+      else if (INCOME_KINDS.has(t.kind)) incomeMatrix[catIdx][monthIdx] += t.amount;
+    }
+    return { categories: activeCats, months, expenseMatrix, incomeMatrix };
+  }, [transactions, categories, EXPENSE_KINDS, INCOME_KINDS]);
+
   const value = useMemo<FinanceContextType>(() => ({
     loading, companies, accounts, cards, categories, people, recurrences, transactions,
     scope, setScope, selectedCompanyId, setSelectedCompanyId,
@@ -666,9 +768,12 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     addRecurrence, updateRecurrence, deleteRecurrence,
     addTransferBetweenAccounts, addInterCompanyTransfer,
     accountBalance, cardOpenInvoice,
+    getMonthTotals, getUpcomingBills, getCategoryTotals, getYearMatrix,
   }), [loading, companies, accounts, cards, categories, people, recurrences, transactions,
        scope, setScope, selectedCompanyId, setSelectedCompanyId,
-       accountBalance, cardOpenInvoice]);
+       accountBalance, cardOpenInvoice,
+       getMonthTotals, getUpcomingBills, getCategoryTotals, getYearMatrix]);
+
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
 }
