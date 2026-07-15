@@ -1125,14 +1125,14 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     items, addItem, updateItem, deleteItem, addComment, deleteComment,
     memories, addMemory, updateMemory, deleteMemory,
     events, addEvent, deleteEvent, agendaEntries,
-    recurrences, addRecurrence, updateRecurrence, deleteRecurrence,
+    recurrences, addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem,
     settings, updateSettings,
   }), [
     loading, inbox, items, memories, events, agendaEntries, recurrences, settings,
     addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
     addItem, updateItem, deleteItem, addComment, deleteComment,
     addMemory, updateMemory, deleteMemory, addEvent, deleteEvent,
-    addRecurrence, updateRecurrence, deleteRecurrence, updateSettings,
+    addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem, updateSettings,
   ]);
 
   return (
