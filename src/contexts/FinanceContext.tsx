@@ -464,6 +464,14 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
   const deleteCard: FinanceContextType['deleteCard'] = async (id) => {
     await supabase.from('fin_cards').delete().eq('id', id);
   };
+  const setCardStatementOverride: FinanceContextType['setCardStatementOverride'] = async (cardId, monthISO, amount) => {
+    const card = cards.find(c => c.id === cardId);
+    const next: Record<string, number> = { ...(card?.statementOverrides || {}) };
+    if (amount == null || !isFinite(amount)) delete next[monthISO];
+    else next[monthISO] = amount;
+    await supabase.from('fin_cards').update({ statement_overrides: next as any }).eq('id', cardId);
+  };
+
 
   // ---------- Categories ----------
   const addCategory: FinanceContextType['addCategory'] = async (c) => {
