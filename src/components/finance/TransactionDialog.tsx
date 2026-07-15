@@ -406,7 +406,45 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
             </>
           )}
 
-          {(isEdit || (!isTransfer && !isInter)) && (
+          {!isEdit && isCardPayment && (() => {
+            const st = cardId !== 'none' ? getCardStatement(cardId, paidCardMonth) : null;
+            return (
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-2 text-xs">
+                <div className="text-[11px] text-muted-foreground leading-snug">
+                  Isto é um <b>pagamento de fatura</b>: sai do banco, quita a fatura do cartão.
+                  As compras individuais já estão contabilizadas — este lançamento não é somado às despesas do mês.
+                </div>
+                <div>
+                  <Label className="text-xs">Cartão</Label>
+                  <Select value={cardId} onValueChange={setCardId}>
+                    <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Selecionar cartão" /></SelectTrigger>
+                    <SelectContent>{availableCards.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Conta que pagou</Label>
+                  <Select value={accountId} onValueChange={setAccountId}>
+                    <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Conta bancária" /></SelectTrigger>
+                    <SelectContent>{availableAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Fatura referente ao mês</Label>
+                  <Input type="month" value={paidCardMonth} onChange={e => setPaidCardMonth(e.target.value)} className="rounded-xl h-9 text-sm" />
+                </div>
+                {st && (
+                  <div className="rounded-lg bg-background/60 p-2 text-[11px] text-muted-foreground">
+                    Fatura: <b className="text-foreground">R$ {st.total.toFixed(2)}</b> ·
+                    Pago: <b className="text-foreground">R$ {st.paid.toFixed(2)}</b> ·
+                    Restante: <b className="text-foreground">R$ {st.remaining.toFixed(2)}</b>
+                    {st.due && <> · Vence {new Date(st.due + 'T00:00:00').toLocaleDateString('pt-BR')}</>}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {(isEdit || (!isTransfer && !isInter && !isCardPayment)) && (
             <>
               <div className="flex gap-2">
                 <div className="flex-1">
