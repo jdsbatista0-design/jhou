@@ -72,7 +72,7 @@ interface CentralContextType {
   deleteEvent: (id: string) => void;
   agendaEntries: AgendaEntry[];
   recurrences: Recurrence[];
-  addRecurrence: (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>) => Promise<void>;
+  addRecurrence: (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>) => Promise<string | null>;
   updateRecurrence: (id: string, updates: Partial<Recurrence>) => Promise<void>;
   deleteRecurrence: (id: string, alsoDeleteFutureItems: boolean) => Promise<void>;
   deleteRecurringItem: (itemId: string, scope: 'one' | 'future' | 'all') => Promise<void>;
@@ -815,13 +815,25 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
   const deleteMemory = useCallback(async (id: string) => {
     let snapshot: Memory[] = [];
+    let linkedRecId: string | undefined;
     setMemories(curr => {
       snapshot = curr;
+      const target = curr.find(m => m.id === id);
+      linkedRecId = target?.linkedRecurrenceId;
       return curr.filter(m => m.id !== id);
     });
     const { error } = await supabase.from('memories').delete().eq('id', id);
-    if (error) setMemories(snapshot);
-  }, []);
+    if (error) { setMemories(snapshot); return; }
+    if (linkedRecId) {
+      // Cascade: also drop the recurrence + its future non-completed items
+      const today = todayYMD();
+      await (supabase as any).from('items').delete()
+        .eq('recurrence_id', linkedRecId).gte('deadline', today).neq('fase', 'Concluído');
+      await (supabase as any).from('recurrences').delete().eq('id', linkedRecId);
+      setRecurrences(prev => prev.filter(r => r.id !== linkedRecId));
+      refreshItems();
+    }
+  }, [refreshItems]);
 
   // ---- EVENT ACTIONS ----
   const addEvent = useCallback(async (event: Omit<AgendaEvent, 'id' | 'createdAt'>) => {
@@ -934,9 +946,9 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     return horizonYMD;
   }, []);
 
-  const addRecurrence = useCallback(async (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>) => {
+  const addRecurrence = useCallback(async (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>): Promise<string | null> => {
     const userId = await getUserId();
-    if (!userId) return;
+    if (!userId) return null;
 
     const { data, error } = await (supabase as any).from('recurrences').insert({
       title: rec.title,
@@ -952,7 +964,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     }).select('*').single();
     if (error || !data) {
       console.error('addRecurrence failed', error);
-      return;
+      return null;
     }
     const created = dbRowToRecurrence(data);
     setRecurrences(prev => [created, ...prev]);
@@ -965,6 +977,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       .eq('id', created.id);
     setRecurrences(prev => prev.map(r => r.id === created.id ? { ...r, lastMaterializedUntil: newHorizon } : r));
     refreshItems();
+    return created.id;
   }, [getUserId, materializeRecurrence, refreshItems]);
 
   const updateRecurrence = useCallback(async (id: string, updates: Partial<Recurrence>) => {

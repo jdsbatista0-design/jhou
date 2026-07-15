@@ -6,6 +6,7 @@ import { useCentral } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
+import AppointmentSheet from '@/components/AppointmentSheet';
 
 // Rotas onde o FAB de captura NÃO deve aparecer (elas possuem seus próprios CTAs)
 const HIDDEN_ROUTES = ['/financas', '/memory', '/memoria'];
@@ -15,6 +16,7 @@ type Mode = 'menu' | 'text' | 'audio';
 export default function CaptureFAB() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>('menu');
+  const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [text, setText] = useState('');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -31,6 +33,10 @@ export default function CaptureFAB() {
   const navigate = useNavigate();
   const location = useLocation();
   const hidden = HIDDEN_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(`${r}/`));
+  const intent: 'appointment' | 'text' | 'menu' =
+    location.pathname === '/agenda' || location.pathname.startsWith('/agenda/') ? 'appointment' :
+    location.pathname === '/inbox' || location.pathname.startsWith('/inbox/') ? 'text' :
+    'menu';
 
   // Auto-focus textarea
   useEffect(() => {
@@ -123,7 +129,9 @@ export default function CaptureFAB() {
     reader.readAsDataURL(file);
   };
 
-  const openMenu = () => {
+  const handleFabClick = () => {
+    if (intent === 'appointment') { setAppointmentOpen(true); return; }
+    if (intent === 'text') { setMode('text'); setOpen(true); return; }
     setMode('menu');
     setOpen(true);
   };
@@ -167,7 +175,7 @@ export default function CaptureFAB() {
       {/* Single FAB — escondido em Finanças e HD (têm seus próprios CTAs) */}
       {!hidden && (
         <button
-          onClick={openMenu}
+          onClick={handleFabClick}
           aria-label="Capturar"
           className={cn(
             'fixed z-40 right-4 h-14 w-14 rounded-full',
@@ -338,6 +346,8 @@ export default function CaptureFAB() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AppointmentSheet open={appointmentOpen} onOpenChange={setAppointmentOpen} />
     </>
   );
 }

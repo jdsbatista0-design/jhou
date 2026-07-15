@@ -74,7 +74,7 @@ export default function MemoryPage() {
 
     if (cat === 'rotina' && form.weekdays.length > 0 && form.routineTime) {
       try {
-        await addRecurrence({
+        const recId = await addRecurrence({
           title: form.title,
           area: settings.areas[0] || 'Pessoal',
           type: 'Rotina',
@@ -84,6 +84,7 @@ export default function MemoryPage() {
           reminderMinutes: 30,
           active: true,
         });
+        if (recId) linkedRecurrenceId = recId;
         toast.success('Rotina adicionada à Agenda');
       } catch (e) {
         console.error('addRecurrence failed', e);

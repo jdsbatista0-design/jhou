@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Repeat, Bell, Trash2 } from 'lucide-react';
+import { Repeat, Bell, Trash2, Plus } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -10,26 +11,41 @@ import {
 } from '@/components/ui/alert-dialog';
 import { weekdaysSummary } from '@/lib/recurrence';
 import { toast } from 'sonner';
+import AppointmentSheet from '@/components/AppointmentSheet';
 
 export function RecurrencesManager() {
   const { recurrences, updateRecurrence, deleteRecurrence } = useCentral();
+  const [newOpen, setNewOpen] = useState(false);
+
+  const header = (
+    <div className="flex items-center justify-between">
+      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+        <Repeat className="h-4 w-4" /> Recorrências
+      </h3>
+      <Button size="sm" className="h-8 gap-1" onClick={() => setNewOpen(true)}>
+        <Plus className="h-3.5 w-3.5" /> Novo
+      </Button>
+    </div>
+  );
 
   if (recurrences.length === 0) {
     return (
-      <div className="border border-dashed border-border rounded-xl p-4 text-center">
-        <Repeat className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-        <p className="text-xs text-muted-foreground">
-          Nenhum compromisso recorrente. Crie em Agenda → Compromisso → "Repete".
-        </p>
+      <div className="space-y-3">
+        {header}
+        <div className="border border-dashed border-border rounded-xl p-4 text-center">
+          <Repeat className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+          <p className="text-xs text-muted-foreground">
+            Nenhum compromisso recorrente. Toque em <span className="font-semibold">Novo</span> para criar.
+          </p>
+        </div>
+        <AppointmentSheet open={newOpen} onOpenChange={setNewOpen} defaultRepeat />
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-        <Repeat className="h-4 w-4" /> Recorrências
-      </h3>
+      {header}
       {recurrences.map(rec => (
         <div key={rec.id} className="border border-border rounded-xl p-3 space-y-2">
           <div className="flex items-start justify-between gap-2">
@@ -86,6 +102,7 @@ export function RecurrencesManager() {
           </div>
         </div>
       ))}
+      <AppointmentSheet open={newOpen} onOpenChange={setNewOpen} defaultRepeat />
     </div>
   );
 }
