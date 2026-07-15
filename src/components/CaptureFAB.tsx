@@ -175,7 +175,7 @@ export default function CaptureFAB() {
       {/* Single FAB — escondido em Finanças e HD (têm seus próprios CTAs) */}
       {!hidden && (
         <button
-          onClick={openMenu}
+          onClick={handleFabClick}
           aria-label="Capturar"
           className={cn(
             'fixed z-40 right-4 h-14 w-14 rounded-full',
