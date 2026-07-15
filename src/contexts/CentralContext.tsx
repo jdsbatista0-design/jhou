@@ -470,7 +470,18 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       sourceId: e.id,
     }));
 
-    return [...fromItems, ...fromEvents].sort((a, b) => {
+    const unique = new Map<string, AgendaEntry>();
+    for (const entry of [...fromItems, ...fromEvents]) {
+      const key = entry.item?.recurrenceId
+        ? `rec:${entry.item.recurrenceId}:${entry.item.deadline || ''}:${entry.item.deadlineTime || ''}`
+        : `${entry.source}:${normalizeForMatch(entry.title)}:${entry.datetime}:${normalizeForMatch(entry.type)}`;
+      const current = unique.get(key);
+      if (!current || (entry.item?.createdAt || '') < (current.item?.createdAt || '')) {
+        unique.set(key, entry);
+      }
+    }
+
+    return Array.from(unique.values()).sort((a, b) => {
       const aDate = parseLocalDateTime(a.datetime) || new Date(a.datetime);
       const bDate = parseLocalDateTime(b.datetime) || new Date(b.datetime);
       return aDate.getTime() - bDate.getTime();
