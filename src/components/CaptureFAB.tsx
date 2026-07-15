@@ -129,7 +129,9 @@ export default function CaptureFAB() {
     reader.readAsDataURL(file);
   };
 
-  const openMenu = () => {
+  const handleFabClick = () => {
+    if (intent === 'appointment') { setAppointmentOpen(true); return; }
+    if (intent === 'text') { setMode('text'); setOpen(true); return; }
     setMode('menu');
     setOpen(true);
   };
