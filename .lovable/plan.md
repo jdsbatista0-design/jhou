@@ -1,85 +1,104 @@
+## O que você vai conseguir fazer
 
-## Etapa 1 — Fundação de período + regras de cálculo
+1. Ver **por cartão** a fatura do mês, o que gastou por categoria, top compras e todas as parcelas ativas (com aviso de "acaba mês que vem").
+2. Comparar com o mês anterior pra saber **onde dá pra economizar**.
+3. Registrar compra **parcelada em Nx** num clique — o app cria as parcelas certas, respeitando o fechamento.
+4. **Pagar a fatura sem duplicar despesa**: pagamento vira transferência conta → cartão, some das despesas, aparece só como quitação.
+5. Revisar seu histórico atual e converter pagamentos antigos de fatura que você lançou como despesa (sem apagar nada — você aprova item a item).
 
-Escopo isolado no módulo Financeiro. Sem migração de schema. Inbox, Agenda, HD e Dashboard não são tocados.
+## Home nova de "Cartões"
 
-### Observação importante sobre nomes de coluna
-O prompt fala em `due_date`, mas hoje o schema usa `occurred_on` como data de competência do lançamento (e `status = 'pending' | 'confirmed' | 'cancelled'`). Vou tratar `occurred_on` como o "vencimento" para toda a regra de competência — sem criar coluna nova. Se depois quiser separar `emissão × vencimento × pagamento`, é migração dedicada e fica fora desta etapa.
+Aba **Finanças → Cartões** deixa de ser só cadastro. Vira:
 
-### 1. `src/components/finance/MonthNavigator.tsx` (novo)
-- Controle `◄  Novembro 2026  ►` com botão "Hoje".
-- Props: `value: string` (formato `YYYY-MM`), `onChange(next)`, `className?`.
-- Formatação em pt-BR ("novembro de 2026"), primeira letra maiúscula.
-- Botão "Hoje" desabilitado quando já é o mês corrente.
-- Acessibilidade: `aria-label` nos botões prev/next.
+```text
+[ Nubank ●●●● ]  [ Itaú ]  [ + cartão ]
+────────────────────────────────────────
+Fatura Nov  (fecha 25/nov • vence 05/dez)  ABERTA
+R$ 2.340,00   ▓▓▓▓▓░░  68% do limite
+             Pago: R$ 0     [ Pagar fatura ]
 
-### 2. `FinancePeriodContext`
-Arquivo próprio: `src/contexts/FinancePeriodContext.tsx`.
+Onde gastou mais
+ Alimentação   R$ 890   38%   ↑ 12% vs out
+ Transporte    R$ 420   18%   ↓ 5%
+ Assinaturas   R$ 310   13%   =
 
-- Estado: `monthISO: string` (default = mês corrente `YYYY-MM`).
-- Ações: `setMonth(iso)`, `goPrev()`, `goNext()`, `goToday()`.
-- Derivados expostos: `monthStart: Date`, `monthEnd: Date`, `isCurrentMonth: boolean`.
-- `Provider` embrulha o conteúdo de `FinancePage`.
-- Hook `useFinancePeriod()`.
+Parcelas ativas (3)
+ iPhone 15     8/12   R$ 450   restam 4
+ Sofá         11/12   R$ 180   ACABA MÊS QUE VEM
+ Curso         2/6    R$ 220   restam 4
 
-`FinancePage` renderiza o `MonthNavigator` no topo, acima das abas — visível em todas (Resumo, Tudo, A Pagar, Categorias). Aba Cadastros ignora o período.
+Top 5 do mês
+ Mercado Dia 12   R$ 320   Alimentação
+ …
 
-### 3. Helpers no `FinanceContext`
-Todos derivados do estado já existente em memória — não fazem novas queries.
-
-```ts
-getMonthTotals(monthISO): {
-  pago: number;         // Σ confirmed income  no mês  ⟶  na verdade "recebido"
-  recebido: number;     // Σ confirmed income (kind income/receivable) no mês
-  aPagar: number;       // Σ pending expense no mês + vencidas de meses anteriores
-  aReceber: number;     // Σ pending income no mês
-  saldo: number;        // recebido − pago(saídas confirmadas)
-}
+[ Ver todos os lançamentos ]  [ Gerenciar cartões ]
 ```
 
-- "Pago" = Σ saídas confirmadas (`kind` de saída, `status='confirmed'`) com `occurred_on` dentro do mês.
-- "Recebido" = Σ entradas confirmadas dentro do mês.
-- "A pagar" = Σ pendentes de saída com `occurred_on` no mês **+** Σ pendentes de saída com `occurred_on` anterior ao mês selecionado, quando o mês selecionado é o mês corrente (regra "vencidas não somem").
-- "Saldo do mês" = recebido confirmado − pago confirmado.
+Período controlado pelo `MonthNavigator` já existente. Cada "mês" = fatura cujo fechamento cai naquele mês.
 
-```ts
-getUpcomingBills(days): FinTransaction[]  // pending expense, occurred_on entre hoje e hoje+days, ordenado asc
-getCategoryTotals(monthISO): Array<{ categoryId, name, color, total }>  // saídas confirmadas por categoria
-getYearMatrix(year): {
-  categories: FinCategory[];
-  months: string[];                  // 12 chaves 'YYYY-MM'
-  expenseMatrix: number[][];         // [categoria][mês]
-  incomeMatrix: number[][];
-}
-```
+## Regra anti-duplicação (o ponto crítico)
 
-Todos memoizados por `useMemo` sobre `transactions`, `categories` — sem custo de rede.
+- **Compra no cartão** = despesa, contabilizada **uma vez**, na data da compra, na categoria escolhida.
+- **Pagar fatura** = transferência da conta pro cartão. **Não** entra em despesa, **não** entra em categoria, **não** soma no "Total gasto no mês".
+- No Resumo aparece numa linha separada: *"Pagamentos de fatura — R$ X"* (dinheiro que saiu da conta, mas não é gasto novo).
+- Na conta bancária a saída aparece normalmente (o dinheiro saiu de verdade).
 
-### 4. Integração nas abas existentes
-- `TransactionsList` (aba Tudo) e `BillsToPay` (A Pagar) passam a filtrar por `monthISO` do contexto. Filtros próprios de período são removidos, mas a busca de texto e chips de tipo continuam.
-- `CategoryBudgets` (Categorias) usa `getCategoryTotals(monthISO)` para o progresso do mês selecionado (hoje é sempre mês corrente).
-- Selo "vencida" (badge vermelho) aparece nas linhas cuja `occurred_on < hoje` e `status='pending'` — regra visual só; a lógica de contagem já cobre isso em `getMonthTotals`.
+## Registrar parcelamento
 
-### 5. Arquivos afetados
+No "Novo lançamento", ao escolher **Despesa + Cartão**:
+- Aparece toggle **Parcelar** com nº de parcelas (2–24).
+- Ao salvar, gera N linhas com mesma `purchase_group_id`, `installment_no` 1..N.
+- Datas das parcelas respeitam o `closing_day`: se comprou depois do fechamento, primeira parcela cai na fatura seguinte.
+- Descrição fica `Descrição (k/N)` pra leitura clara no extrato.
 
-**Criar:**
-- `src/components/finance/MonthNavigator.tsx`
-- `src/contexts/FinancePeriodContext.tsx`
+## Pagar fatura
 
-**Editar:**
-- `src/pages/FinancePage.tsx` — embrulha com `FinancePeriodProvider` e renderiza `MonthNavigator` no topo.
-- `src/contexts/FinanceContext.tsx` — adiciona os 4 helpers e expõe no `value`.
-- `src/components/finance/TransactionsList.tsx` — consumir `monthISO`, remover filtro de período próprio, adicionar selo "vencida".
-- `src/components/finance/BillsToPay.tsx` — consumir `monthISO`, incluir vencidas de meses anteriores quando o mês selecionado é o corrente.
-- `src/components/finance/CategoryBudgets.tsx` — passar a usar `getCategoryTotals(monthISO)`.
+Botão **"Pagar fatura"** no card do cartão:
+- Já vem preenchido com valor total, cartão e mês da fatura.
+- Você escolhe conta de origem e confirma.
+- Fatura muda pra **PAGA** (ou "Parcialmente paga" se valor < total).
 
-### Critério de aceite
-- Navegar mês a mês filtra as três listas simultaneamente.
-- No mês corrente, contas pendentes vencidas de meses anteriores aparecem no topo com selo "vencida" e são contadas em `aPagar`.
-- Em meses futuros ou passados, o filtro é estrito por `occurred_on` naquele mês.
-- Helpers retornam os totais esperados (verificação manual em 2–3 casos).
+## Revisar histórico (limpeza dos duplicados atuais)
 
-### Fora de escopo desta etapa
-- Aba Resumo, gráficos, aba Recorrentes, aba Histórico e fatura do cartão — vêm nas etapas 2, 3 e 4.
-- Qualquer mudança em Inbox, Agenda, HD, Dashboard.
-- Migração de schema (renomear `occurred_on` → `due_date`, por exemplo).
+Nova tela **"Revisar pagamentos de fatura"** acessível pelo cartão:
+- Lista despesas candidatas (categoria vazia, descrição com "fatura/cartão/nome-do-banco", ou valor batendo com fatura).
+- Cada linha tem botão **"É pagamento de fatura"** → converte a despesa em `card_payment`, vincula ao cartão e mês.
+- Nada é apagado ou movido automaticamente. Você decide item a item.
+
+## O que muda no banco
+
+Migração única (não destrutiva):
+
+- `fin_transactions.kind` passa a aceitar `card_payment` além de `expense/income/transfer`.
+- `fin_transactions.installment_no int`, `installment_total int`, `purchase_group_id uuid` (todos nulos = compra à vista).
+- `fin_transactions.paid_card_month date` (mês da fatura quitada por um `card_payment`).
+- Índices: `(card_id, occurred_on)`, `(purchase_group_id)`, `(card_id, paid_card_month)`.
+- Todos os dados atuais continuam válidos (campos novos ficam nulos).
+
+## O que muda no código (frontend)
+
+- `TransactionDialog`: campo Cartão + toggle Parcelar; novo modo "Pagar fatura".
+- `FinanceContext`:
+  - `getCardStatement(cardId, monthISO)` — período fechamento→vencimento, total, % limite, pago, status.
+  - `getCardCategoryBreakdown(cardId, monthISO)` — ranking + delta vs mês anterior.
+  - `getCardActiveInstallments(cardId)` — agrupa por `purchase_group_id`, marca "acaba mês que vem".
+  - `getCardPaymentsForMonth(monthISO)` — pra linha separada no Resumo.
+  - Todos os helpers de despesa (`getMonthTotals`, categorias, "A Pagar", `BillsToPay`) passam a **excluir** `kind = 'card_payment'`.
+- Nova tela `CardStatement.tsx` + seletor de cartões na aba Cartões.
+- Nova tela `ReviewCardPayments.tsx` acessível pelo card do cartão.
+- Aba Cartões passa a mostrar `CardStatement` por padrão; cadastro vira modal "Gerenciar cartões".
+
+## Ordem de entrega
+
+1. Migração (schema).
+2. Regra anti-duplicação nos helpers + novo modo "Pagar fatura" no diálogo.
+3. `CardStatement` + nova home da aba Cartões.
+4. Parcelamento no diálogo + geração das linhas.
+5. Tela "Revisar pagamentos de fatura".
+
+## Fora do escopo
+
+- Juros de fatura / rotativo automático (fatura fica "Parcialmente paga", sem cálculo).
+- Importação de fatura OFX/CSV.
+- Estorno de parcela individual (deletar apaga o grupo inteiro).
+- Cartão PJ (mantém só PF por enquanto).
