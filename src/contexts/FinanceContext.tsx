@@ -99,21 +99,23 @@ interface FinanceContextType {
   addRecurrence: (data: Omit<FinRecurrence, 'id' | 'active' | 'lastGeneratedOn'> & { active?: boolean }) => Promise<string | null>;
   updateRecurrence: (id: string, data: Partial<FinRecurrence>) => Promise<void>;
   deleteRecurrence: (id: string, alsoDeleteFutureTx?: boolean) => Promise<void>;
-  // Compound: transfer between accounts (creates 2 rows)
-  addTransferBetweenAccounts: (data: {
-    scope: FinScope; companyId?: string; fromAccountId: string; toAccountId: string;
-    amount: number; description: string; occurredOn: string;
+  // Compound: card operations
+  addInstallmentPurchase: (data: {
+    scope: FinScope; companyId?: string; cardId: string; categoryId?: string;
+    description: string; totalAmount: number; installments: number; firstOccurredOn: string;
+    status?: 'pending' | 'confirmed'; notes?: string;
   }) => Promise<void>;
-  addInterCompanyTransfer: (data: {
-    fromCompanyId: string; fromAccountId: string;
-    toCompanyId: string; toAccountId: string;
-    amount: number; description: string; occurredOn: string;
+  addCardPayment: (data: {
+    scope: FinScope; companyId?: string; cardId: string; accountId: string;
+    amount: number; paidCardMonth: string; occurredOn: string; description?: string;
   }) => Promise<void>;
+  convertToCardPayment: (transactionId: string, cardId: string, paidCardMonth: string) => Promise<void>;
   // Computed helpers
   accountBalance: (accountId: string) => number;
   cardOpenInvoice: (cardId: string) => number;
   getMonthTotals: (monthISO: string) => {
     pago: number; recebido: number; aPagar: number; aReceber: number; saldo: number;
+    pagamentosFatura: number;
   };
   getUpcomingBills: (days: number) => FinTransaction[];
   getCategoryTotals: (monthISO: string) => Array<{
@@ -125,6 +127,23 @@ interface FinanceContextType {
     expenseMatrix: number[][];
     incomeMatrix: number[][];
   };
+  // Card statement helpers
+  getCardStatement: (cardId: string, monthISO: string) => {
+    start: string; end: string; due: string | null;
+    total: number; paid: number; remaining: number;
+    status: 'open' | 'closed' | 'paid' | 'partial';
+    transactions: FinTransaction[];
+  };
+  getCardCategoryBreakdown: (cardId: string, monthISO: string) => Array<{
+    categoryId: string | null; name: string; color: string; total: number; pct: number;
+    deltaPct: number | null; // vs previous invoice; null = no comparison
+  }>;
+  getCardActiveInstallments: (cardId: string) => Array<{
+    purchaseGroupId: string; description: string; installmentAmount: number;
+    total: number; paidCount: number; remaining: number; endsNextMonth: boolean;
+    nextDueOn: string | null;
+  }>;
+  getCardPaymentsForMonth: (monthISO: string) => number;
 }
 
 
