@@ -346,6 +346,8 @@ export default function CaptureFAB() {
           )}
         </SheetContent>
       </Sheet>
+
+      <AppointmentSheet open={appointmentOpen} onOpenChange={setAppointmentOpen} />
     </>
   );
 }
