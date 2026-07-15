@@ -34,6 +34,7 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
     addTransaction, updateTransaction, deleteTransaction, deleteTransactionAndFuture,
     addRecurrence, updateRecurrence, deleteRecurrence,
     addTransferBetweenAccounts, addInterCompanyTransfer,
+    addInstallmentPurchase, addCardPayment, getCardStatement,
   } = useFinance();
 
   const isEdit = !!editTransaction;
