@@ -240,6 +240,22 @@ export default function AgendaPage() {
       )}
 
       {view === 'recurrences' && <RecurrencesManager />}
+
+      <RecurringDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}
+        title={deleteTarget?.title || ''}
+        isRecurring={!!deleteTarget?.item?.recurrenceId}
+        onConfirm={async (scope: DeleteScope) => {
+          if (!deleteTarget) return;
+          await deleteRecurringItem(deleteTarget.sourceId, scope);
+          toast.success(
+            scope === 'all' ? 'Série removida' :
+            scope === 'future' ? 'Este e os próximos removidos' :
+            'Item removido'
+          );
+        }}
+      />
     </div>
   );
 }
