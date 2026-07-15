@@ -535,7 +535,7 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
               </div>
 
               {/* Recurrence block — only when creating a plain income/expense */}
-              {!isEdit && (kind === 'income' || kind === 'expense') && (
+              {!isEdit && (kind === 'income' || kind === 'expense') && !(isCardExpense && installments > 1) && (
                 <div className={cn(
                   'rounded-xl border p-3 space-y-2 transition-colors',
                   repeats
