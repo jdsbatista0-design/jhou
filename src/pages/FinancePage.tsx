@@ -119,12 +119,15 @@ function FinanceInner() {
         )}
       </div>
 
-      <Button
-        onClick={() => setTxOpen(true)}
-        className="w-full rounded-2xl h-11 font-semibold"
-      >
-        <Plus className="h-4 w-4 mr-1" /> Novo lançamento
-      </Button>
+      {showPeriod && (
+        <Button
+          onClick={() => setTxOpen(true)}
+          className="w-full rounded-2xl h-11 font-semibold"
+        >
+          <Plus className="h-4 w-4 mr-1" /> Novo lançamento
+        </Button>
+      )}
+
 
       <div className="pt-1">
         <Suspense fallback={<SectionFallback />}>
