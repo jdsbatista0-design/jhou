@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Pencil, X } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { formatBRL } from '@/types/finance';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 import { TransactionDialog } from './TransactionDialog';
 
 interface Props { cardId: string; }
@@ -12,6 +14,7 @@ function fmtMonth(iso: string) {
   const [y, m] = iso.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 }
+
 
 export function CardStatement({ cardId }: Props) {
   const {
