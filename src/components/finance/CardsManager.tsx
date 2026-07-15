@@ -1,22 +1,18 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, CreditCard, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { Plus, CreditCard, ChevronDown, ChevronUp } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { FinScope, FinCard, formatBRL } from '@/types/finance';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { CardStatement } from './CardStatement';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
 type FormMode = { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; card: FinCard };
 
-function CardForm({ mode, scope, companyId, availableAccounts, onDone }: {
+export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: {
   mode: FormMode; scope: FinScope; companyId: string | null;
   availableAccounts: ReturnType<typeof useFinance>['accounts'];
   onDone: () => void;
@@ -101,7 +97,7 @@ function CardForm({ mode, scope, companyId, availableAccounts, onDone }: {
 }
 
 export function CardsManager({ scope, companyId }: Props) {
-  const { cards, accounts, deleteCard, cardOpenInvoice } = useFinance();
+  const { cards, accounts, cardOpenInvoice } = useFinance();
   const [formMode, setFormMode] = useState<FormMode>({ kind: 'closed' });
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -122,7 +118,7 @@ export function CardsManager({ scope, companyId }: Props) {
 
   return (
     <div className="space-y-3">
-      {formMode.kind !== 'closed' && (
+      {formMode.kind === 'create' && (
         <CardForm
           mode={formMode}
           scope={scope}
@@ -132,7 +128,7 @@ export function CardsManager({ scope, companyId }: Props) {
         />
       )}
       {canAdd && formMode.kind === 'closed' && (
-        <Button onClick={() => setFormMode({ kind: 'create' })} variant="outline" size="sm" className="w-full rounded-xl h-8 text-xs">
+        <Button onClick={() => setFormMode({ kind: 'create' })} variant="outline" size="sm" className="w-full rounded-xl h-9 text-xs">
           <Plus className="h-3.5 w-3.5 mr-1" /> Novo cartão
         </Button>
       )}
@@ -149,57 +145,50 @@ export function CardsManager({ scope, companyId }: Props) {
           const isOpen = expanded === c.id;
           return (
             <div key={c.id} className="rounded-2xl border border-border bg-card p-3 space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: c.color + '22' }}>
+              <button
+                onClick={() => setExpanded(isOpen ? null : c.id)}
+                className="w-full flex items-center gap-3 text-left"
+              >
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: c.color + '22' }}>
                   <CreditCard className="h-4 w-4" style={{ color: c.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-foreground truncate">{c.name}</div>
                   <div className="text-[11px] text-muted-foreground truncate">
-                    {c.brand && `${c.brand} · `}Fechamento dia {c.closingDay || '—'} · Vence dia {c.dueDay || '—'}
+                    {c.brand && `${c.brand} · `}Fecha dia {c.closingDay || '—'} · Vence dia {c.dueDay || '—'}
                   </div>
                 </div>
-                <button
-                  onClick={() => setFormMode({ kind: 'edit', card: c })}
-                  className="p-1.5 text-muted-foreground hover:text-foreground"
-                  title="Editar cartão"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <button className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Excluir cartão?</AlertDialogTitle>
-                      <AlertDialogDescription>Os lançamentos no cartão perderão referência (mas continuam existindo).</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => { deleteCard(c.id); toast.success('Cartão excluído'); }}>Excluir</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+                {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+              </button>
+
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] text-muted-foreground">
-                  <span>Fatura aberta</span>
+                  <span>Fatura em aberto</span>
                   <span className="font-semibold text-foreground">{formatBRL(invoice)} / {formatBRL(c.limitAmount)}</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div className="h-full transition-all" style={{ width: `${used}%`, background: used > 80 ? 'hsl(var(--destructive))' : c.color }} />
                 </div>
               </div>
-              <button
-                onClick={() => setExpanded(isOpen ? null : c.id)}
-                className="w-full flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground pt-1"
-              >
-                {isOpen ? <><ChevronUp className="h-3 w-3" /> Ocultar fatura</> : <><ChevronDown className="h-3 w-3" /> Ver fatura, gastos por categoria e parcelas</>}
-              </button>
+
               {isOpen && (
                 <div className="pt-2 border-t border-border/40">
-                  <CardStatement cardId={c.id} />
+                  <CardStatement
+                    cardId={c.id}
+                    availableAccounts={availableAccounts}
+                    onEditCard={() => setFormMode({ kind: 'edit', card: c })}
+                  />
+                  {formMode.kind === 'edit' && formMode.card.id === c.id && (
+                    <div className="pt-3">
+                      <CardForm
+                        mode={formMode}
+                        scope={scope}
+                        companyId={companyId}
+                        availableAccounts={availableAccounts}
+                        onDone={() => setFormMode({ kind: 'closed' })}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

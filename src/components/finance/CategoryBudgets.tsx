@@ -2,11 +2,15 @@ import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
 import { FinScope, formatBRL } from '@/types/finance';
-import { Pencil, Check, X, AlertTriangle, Target } from 'lucide-react';
+import { Pencil, Check, X, AlertTriangle, Target, Settings2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { maskBRLInput, parseBRLInput } from '@/lib/currency';
 import { toast } from 'sonner';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { CategoriesManager } from './CategoriesManager';
+
+
 
 interface Props { scope: FinScope }
 
@@ -75,6 +79,24 @@ export function CategoryBudgets({ scope }: Props) {
   return (
     <div className="space-y-3">
       {/* Header com mês */}
+      <div className="flex items-center justify-end">
+        <Sheet>
+          <SheetTrigger asChild>
+            <button className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+              <Settings2 className="h-3 w-3" /> Gerenciar categorias
+            </button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Categorias</SheetTitle>
+            </SheetHeader>
+            <div className="pt-4">
+              <CategoriesManager scope={scope} />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
       <div className="rounded-2xl border border-border bg-card p-3">
         <div className="flex items-center justify-between">
           <div>
@@ -121,7 +143,8 @@ export function CategoryBudgets({ scope }: Props) {
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-6 text-center">
           <p className="text-sm text-foreground font-semibold">Nenhuma categoria de saída</p>
           <p className="text-[11px] text-muted-foreground mt-1">
-            Cadastre categorias em ⚙ Categorias (cad.).
+            Cadastre categorias em "Gerenciar categorias" no topo.
+
           </p>
         </div>
       )}
