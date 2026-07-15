@@ -55,6 +55,10 @@ const rowTransaction = (r: any): FinTransaction => ({
   kind: r.kind, amount: Number(r.amount), description: r.description,
   occurredOn: r.occurred_on, status: r.status, attachmentUrl: r.attachment_url || undefined,
   notes: r.notes || undefined, source: r.source, createdAt: r.created_at,
+  installmentNo: r.installment_no ?? undefined,
+  installmentTotal: r.installment_total ?? undefined,
+  purchaseGroupId: r.purchase_group_id ?? undefined,
+  paidCardMonth: r.paid_card_month ?? undefined,
 });
 
 interface FinanceContextType {
