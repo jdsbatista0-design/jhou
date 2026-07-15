@@ -29,6 +29,8 @@ export default function CaptureFAB() {
 
   const { addInboxEntry } = useCentral();
   const navigate = useNavigate();
+  const location = useLocation();
+  const hidden = HIDDEN_ROUTES.some(r => location.pathname === r || location.pathname.startsWith(`${r}/`));
 
   // Auto-focus textarea
   useEffect(() => {
