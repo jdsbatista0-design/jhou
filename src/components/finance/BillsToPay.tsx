@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
+import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
 import { FinScope, FinTransaction, formatBRL } from '@/types/finance';
-import { Check, Trash2, Plus, AlertCircle, CalendarDays, Pencil, CheckCircle2, Search, Repeat } from 'lucide-react';
+import { Check, Trash2, AlertCircle, CalendarDays, Pencil, CheckCircle2, Search, Repeat } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { maskBRLInput, parseBRLInput } from '@/lib/currency';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -15,6 +13,7 @@ import {
 import { TransactionDialog } from './TransactionDialog';
 
 interface Props { scope: FinScope; companyId: string | null; }
+
 
 type Tab = 'pending' | 'paid';
 
