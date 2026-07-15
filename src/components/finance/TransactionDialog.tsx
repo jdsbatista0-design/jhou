@@ -64,9 +64,18 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
   const [toAccountId, setToAccountId] = useState<string>('');
   const [toCompanyId, setToCompanyId] = useState<string>('');
   const [toCompanyAccountId, setToCompanyAccountId] = useState<string>('');
+  // Parcelamento (compra parcelada no cartão)
+  const [installments, setInstallments] = useState<number>(1);
+  // Pagamento de fatura de cartão — mês competência da fatura (YYYY-MM)
+  const [paidCardMonth, setPaidCardMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const isTransfer = kind === 'transfer';
   const isInter = kind === 'inter_company';
+  const isCardPayment = kind === 'card_payment';
+  const isCardExpense = kind === 'expense' && cardId !== 'none';
 
   // Hydrate state when editing
   useEffect(() => {
