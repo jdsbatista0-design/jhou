@@ -79,6 +79,24 @@ export function CategoryBudgets({ scope }: Props) {
   return (
     <div className="space-y-3">
       {/* Header com mês */}
+      <div className="flex items-center justify-end">
+        <Sheet>
+          <SheetTrigger asChild>
+            <button className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+              <Settings2 className="h-3 w-3" /> Gerenciar categorias
+            </button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Categorias</SheetTitle>
+            </SheetHeader>
+            <div className="pt-4">
+              <CategoriesManager scope={scope} />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
       <div className="rounded-2xl border border-border bg-card p-3">
         <div className="flex items-center justify-between">
           <div>
