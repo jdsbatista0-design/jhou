@@ -514,7 +514,11 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
       description: t.description, occurred_on: t.occurredOn, status: t.status || 'confirmed',
       attachment_url: t.attachmentUrl || null, notes: t.notes || null,
       source: t.source || 'manual', user_id: userId,
-    });
+      installment_no: t.installmentNo ?? null,
+      installment_total: t.installmentTotal ?? null,
+      purchase_group_id: t.purchaseGroupId ?? null,
+      paid_card_month: t.paidCardMonth ?? null,
+    } as any);
   };
   const updateTransaction: FinanceContextType['updateTransaction'] = async (id, data) => {
     const upd: any = {};
@@ -528,6 +532,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     if (data.cardId !== undefined) upd.card_id = data.cardId || null;
     if (data.notes !== undefined) upd.notes = data.notes || null;
     if (data.kind !== undefined) upd.kind = data.kind;
+    if (data.paidCardMonth !== undefined) upd.paid_card_month = data.paidCardMonth || null;
     await supabase.from('fin_transactions').update(upd).eq('id', id);
   };
   const deleteTransaction: FinanceContextType['deleteTransaction'] = async (id) => {
