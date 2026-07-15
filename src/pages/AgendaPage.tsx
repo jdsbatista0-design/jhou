@@ -132,9 +132,23 @@ export default function AgendaPage() {
             )}
           </div>
         </div>
-        {entry.source === 'event' && !entry.id.startsWith('fin-') && (
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground shrink-0" onClick={e => { e.stopPropagation(); deleteEvent(entry.sourceId); toast.success('Evento removido'); }}>
-            <Trash2 className="h-3.5 w-3.5" />
+        {!entry.id.startsWith('fin-') && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 -mr-1 text-muted-foreground hover:text-destructive shrink-0"
+            aria-label="Excluir"
+            onClick={e => {
+              e.stopPropagation();
+              if (entry.source === 'event') {
+                deleteEvent(entry.sourceId);
+                toast.success('Evento removido');
+              } else {
+                setDeleteTarget(entry);
+              }
+            }}
+          >
+            <Trash2 className="h-5 w-5" />
           </Button>
         )}
       </div>
