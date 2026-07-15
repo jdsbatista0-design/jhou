@@ -6,6 +6,7 @@ import { useCentral } from '@/contexts/CentralContext';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
+import AppointmentSheet from '@/components/AppointmentSheet';
 
 // Rotas onde o FAB de captura NÃO deve aparecer (elas possuem seus próprios CTAs)
 const HIDDEN_ROUTES = ['/financas', '/memory', '/memoria'];
