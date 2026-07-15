@@ -143,7 +143,8 @@ export function CategoryBudgets({ scope }: Props) {
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-6 text-center">
           <p className="text-sm text-foreground font-semibold">Nenhuma categoria de saída</p>
           <p className="text-[11px] text-muted-foreground mt-1">
-            Cadastre categorias em ⚙ Categorias (cad.).
+            Cadastre categorias em "Gerenciar categorias" no topo.
+
           </p>
         </div>
       )}
