@@ -322,6 +322,14 @@ export function CardStatement({ cardId, onEditCard }: Props) {
           onClose={() => setPayOpen(false)}
           scope={card.scope}
           companyId={card.companyId || null}
+          prefill={{
+            kind: 'card_payment',
+            cardId: card.id,
+            accountId: card.accountId,
+            amount: statement.remaining,
+            paidCardMonth: monthISO,
+            description: `Pagamento fatura ${fmtMonth(monthISO)} — ${card.name}`,
+          }}
         />
       )}
     </div>
