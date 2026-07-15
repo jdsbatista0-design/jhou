@@ -102,6 +102,7 @@ export function RecurrencesManager() {
           </div>
         </div>
       ))}
+      <AppointmentSheet open={newOpen} onOpenChange={setNewOpen} defaultRepeat />
     </div>
   );
 }
