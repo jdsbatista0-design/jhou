@@ -1,101 +1,79 @@
 
-## Problema
+## Problemas
 
-Hoje o módulo Financeiro tem 3 confusões:
+1. **Não dá pra lançar compromisso recorrente direto.** Hoje o único caminho é HD → Rotina. Na Agenda não há nenhum botão de "Novo compromisso", e o `RecurrencesManager` só lista/pausa/exclui — não cria.
+2. **Rotina do HD duplica na Agenda.** Dois bugs somados:
+   - `MemoryPage.handleAdd` cria a `Recurrence` mas grava a Memory com `linkedRecurrenceId = undefined` (a variável nunca é preenchida). Sem link, qualquer edição/regravação da rotina cria uma **nova** recorrência → materializa Items em paralelo → duplica no calendário.
+   - Apagar a memória de Rotina não apaga a recorrência órfã, que continua materializando Items no horizonte de 60 dias.
+3. **FAB "+" fora de contexto.** Abre sempre um menu com 4 opções (Texto, Áudio, Foto, Item). Na Agenda deveria abrir direto **Novo compromisso** (o básico do módulo); na Inbox, captura rápida; nas demais, o menu atual.
 
-1. **Engrenagem ambígua** — a engrenagem esconde "Contas", "Cartões" e "Categorias (cad.)". Fica escondido demais para algo que o usuário abre toda hora, e mistura cadastro operacional (contas/cartões) com cadastro estrutural (categorias).
-2. **Cartão editado em dois lugares** — dá pra editar cartão pelo lápis dentro da aba Cartões *e* pelo mesmo lápis quando expande a fatura, com botões diferentes ("Novo lançamento" no topo, "Novo cartão" logo abaixo, "Pagar fatura" dentro do extrato…).
-3. **Fatura confusa** — o "Total da fatura" ora é a soma das compras lançadas, ora é o valor manual (override), sem deixar claro qual é qual nem o que fazer com a diferença.
+## Como fica
 
-## Como fica no final
+### FAB contextual (`CaptureFAB.tsx`)
 
-### Navegação (barra de abas do Financeiro)
-
-Sai a engrenagem. Ficam 5 abas fixas, agrupadas em 2 blocos visuais:
-
-```text
-[ Tudo ] [ A Pagar ] [ Categorias ] [ Resumo ]  |  [ Contas ] [ Cartões ]
-   ^^^ operacional (mostra + Novo lançamento)      ^^^ cadastros
-```
-
-- Bloco esquerdo (operacional): mostra o `MonthNavigator` e o botão `+ Novo lançamento`.
-- Bloco direito (cadastros): sem seletor de mês, sem botão global. Cada tela tem seu próprio `+ Nova conta` / `+ Novo cartão`.
-- Cadastro de **categorias** deixa de ser uma aba separada — vira um botão "Gerenciar categorias" dentro da aba **Categorias** (já é a tela de metas). Um único lugar para orçamento + cadastro.
-
-### Cartão de crédito — um único ponto de edição
-
-- Na aba **Cartões**, o cartão vira uma linha com nome, limite, fatura aberta e um único botão "Abrir". Sem lápis fora.
-- Ao abrir, aparece o extrato do mês com:
-  - **Editar cartão** (nome, bandeira, fechamento, vencimento, conta vinculada) no topo do extrato.
-  - **Excluir cartão** ao lado.
-  - Navegação por mês da fatura.
-  - Ações da fatura (ver abaixo).
-
-Deixa de existir a duplicidade de lápis "na lista" e "no extrato".
-
-### Lógica da fatura (a parte importante)
-
-Cada mês do cartão tem sempre 2 números que o sistema exibe lado a lado, com rótulo claro:
+O botão passa a decidir a ação pelo `location.pathname`:
 
 ```text
-┌─────────────────────────────────────────────┐
-│ Somei das suas compras     R$ 2.180,00      │  ← calculado dos lançamentos
-│ Fatura fechada (banco)     R$ 2.250,00  ✏️  │  ← valor manual informado
-│ Diferença                  R$   70,00       │
-│                                             │
-│ [ Lançar diferença como "Ajuste" ]          │
-│ [ Pagar fatura ]                            │
-└─────────────────────────────────────────────┘
+/agenda          → abre "Novo compromisso" (sheet dedicado, ver abaixo)
+/inbox           → abre direto o modo "Texto" (captura rápida)
+/index (Hoje)    → mantém o menu atual (Texto / Áudio / Foto / Item)
+/financas /memory→ continua escondido (têm CTAs próprios)
 ```
 
-Regras claras:
+O menu de 4 opções deixa de ser o padrão universal — vira só o fallback da Home.
 
-- Enquanto o mês está **em aberto**, o sistema considera o valor "Somei das suas compras" como total. Não pede nada.
-- Quando o cartão fecha (passa do `closingDay`), aparece o campo "Fatura fechada (banco)" pedindo o valor real que o banco mandou.
-  - Se o usuário informar e bater com o somado → some o alerta.
-  - Se houver diferença → mostra o valor e oferece **"Lançar diferença como Ajuste"**, que cria um único lançamento no cartão daquele mês, categoria "Ajuste de fatura", pra fechar a conta. Sem apagar o histórico.
-- O botão **"Pagar fatura"** desce a fatura a pagar (usa o valor considerado — informado se houver, senão o somado) e registra uma transferência da conta escolhida para o cartão, sem duplicar despesa.
+### Novo sheet "Compromisso" (aberto pelo FAB na Agenda)
 
-### Onde lanço o quê
+Um único formulário curto, mobile-first:
 
-Fica uma regra simples, apoiada no botão `+ Novo lançamento` (único, na barra operacional):
+```text
+Título            [____________________]
+Data              [ 15/07/2026 ]   Hora [ 16:00 ]
+Área              [ Pessoal ▾ ]
+Tipo              [ Compromisso ▾ ]  (Reunião, Visita, Prazo…)
+Lembrete          [ 30 min antes ▾ ]
 
-- **Gasto no cartão** → tipo "Saída" + selecionar cartão. Vai automaticamente para a fatura do mês certo (respeita fechamento).
-- **Compra parcelada** → mesma tela, campo "Parcelas". Já existe.
-- **Pagamento de conta / boleto** → tipo "Saída" + selecionar conta bancária.
-- **Pagar fatura do cartão** → botão "Pagar fatura" dentro do extrato do cartão (mais direto). Alternativa: tipo "Pagamento de cartão" no diálogo.
+[ ] Repete
+   └── Dias:  S T Q Q S S D
+        Termina em: [ opcional ]
 
-O tipo "Pagamento de cartão" no menu suspenso ganha um subtítulo explicativo: "use quando quitar a fatura — não conta como despesa nova".
+[ Salvar ]
+```
+
+- Sem "Repete" → cria um `Item` único com `deadline` + `deadlineTime` (aparece na Agenda como sempre).
+- Com "Repete" → cria uma `Recurrence` (materializa via lógica já existente). **Não** cria Item avulso além dos materializados.
+
+Esse mesmo sheet fica reutilizável (o botão "Novo" dentro da aba **Recorrentes** também passa a abri-lo, com "Repete" já ligado).
+
+### Rotina do HD — fim das duplicatas
+
+`MemoryPage.tsx` (`handleAdd` e o fluxo de edição de rotina):
+
+- Guardar o `id` retornado por `addRecurrence` e gravar em `memory.linkedRecurrenceId`. Isso exige `addRecurrence` retornar o `id` (hoje é `Promise<void>`).
+- Ao **editar** uma memória de Rotina que já tem `linkedRecurrenceId`, chamar `updateRecurrence(linkedRecurrenceId, { weekdays, time, title, active })` em vez de `addRecurrence` de novo.
+- Ao **excluir** uma memória de Rotina, apagar também a recorrência vinculada (`deleteRecurrence(linkedRecurrenceId, true)`) para não deixar órfã materializando Items.
+- Dedupe defensivo já existente no `CentralContext` continua limpando qualquer resíduo antigo no primeiro load.
 
 ## Detalhes técnicos
 
-- `src/pages/FinancePage.tsx`
-  - Remover `showConfig` e `configSections`. Renderizar 6 abas fixas em 2 grupos, com um divisor visual entre operacional e cadastros.
-  - `showPeriod` e o botão `+ Novo lançamento` continuam só nas 4 abas operacionais.
-  - Remover `categories` das abas (fica dentro de `CategoryBudgets`).
-
-- `src/components/finance/CardsManager.tsx`
-  - Remover formulário inline de edição na lista. Manter só criação.
-  - Cada card vira linha compacta com botão "Abrir" que expande o `CardStatement`.
-  - Passar `onEdit` / `onDelete` para dentro do `CardStatement`.
-
-- `src/components/finance/CardStatement.tsx`
-  - Novo cabeçalho com "Editar cartão" e "Excluir cartão".
-  - Bloco "Total da fatura" substituído pelo bloco de 2 linhas + diferença, com rótulos "Somei das suas compras" e "Fatura fechada (banco)".
-  - Novo botão "Lançar diferença como Ajuste" quando `override != null && override !== computed`. Cria uma `fin_transactions` no cartão com `description = "Ajuste de fatura"`, categoria "Ajuste" (criar se não existir, ou usar categoria genérica), `occurredOn` = último dia do período da fatura.
-  - Estado da fatura ("Em aberto" / "Fechada" / "Paga") continua no canto.
-
-- `src/components/finance/CategoryBudgets.tsx`
-  - Adicionar um botão discreto "Gerenciar categorias" no topo que abre o `CategoriesManager` num `Sheet` ou navega para uma sub-view. Mantém a tela de metas como principal.
-
-- `src/components/finance/TransactionDialog.tsx`
-  - No `Select` de tipo, adicionar `description` curta em "Pagamento de cartão" ("quita a fatura, não é despesa nova").
-  - Sem mudança de lógica.
-
-- Nenhuma migração de banco. `statement_overrides` já existe; só passa a ser lido/gravado com rótulo mais claro. O "Ajuste de fatura" é uma `fin_transactions` normal com `cardId` preenchido.
+- `src/contexts/CentralContext.tsx`
+  - `addRecurrence` passa a retornar `Promise<string | null>` (o `id` criado). Ajustar a assinatura no tipo do contexto.
+- `src/components/CaptureFAB.tsx`
+  - Ler `location.pathname` e mapear para um `intent`: `appointment` (Agenda), `text` (Inbox), `menu` (Home).
+  - `intent === 'appointment'` abre o novo `AppointmentSheet` em vez do menu.
+  - `intent === 'text'` abre o sheet já existente direto no `mode='text'`.
+- `src/components/AppointmentSheet.tsx` (novo)
+  - Form controlado com os campos acima. Usa `settings.areas` e `settings.agendaTypes`.
+  - Sem "Repete": `addItem({ title, area, tipo: 'Compromisso', fase: 'Em andamento', deadline, deadlineTime, reminderMinutes, tags: [tipo] })`.
+  - Com "Repete": `addRecurrence({ title, area, type, time, weekdays, startDate: hoje, endDate, reminderMinutes, active: true })`.
+- `src/components/RecurrencesManager.tsx`
+  - Adicionar botão "Novo compromisso recorrente" no topo, abrindo o mesmo `AppointmentSheet` com `repeat=true` pré-ligado.
+- `src/pages/MemoryPage.tsx`
+  - Capturar `const recId = await addRecurrence(...)` e passar em `linkedRecurrenceId`.
+  - Implementar caminho de edição/exclusão da rotina que respeita o `linkedRecurrenceId` (update em vez de novo insert; delete em cascata).
 
 ## Fora de escopo
 
-- Não mexer em Agenda, Dashboard, Memória.
-- Não mudar cores/tema.
-- Não trocar a lógica de recorrência financeira.
+- Não mudar Financeiro, Dashboard, HD (fora da categoria Rotina), tema/cores.
+- Não mudar o motor de materialização de recorrências nem o horizonte de 60 dias.
+- Push notifications continuam adiadas.
