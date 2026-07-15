@@ -13,15 +13,18 @@ import AgendaCalendar from '@/components/agenda/AgendaCalendar';
 import { parseLocalDateTime } from '@/lib/dates';
 import { RecurrencesManager } from '@/components/RecurrencesManager';
 import { formatBRL } from '@/types/finance';
+import { RecurringDeleteDialog, DeleteScope } from '@/components/RecurringDeleteDialog';
 
 type View = 'calendar' | 'list' | 'recurrences';
 
 export default function AgendaPage() {
-  const { agendaEntries, updateItem, deleteEvent } = useCentral();
+  const { agendaEntries, updateItem, deleteEvent, deleteRecurringItem } = useCentral();
   const { transactions, updateTransaction } = useFinance();
   const navigate = useNavigate();
   const [view, setView] = useState<View>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [deleteTarget, setDeleteTarget] = useState<AgendaEntry | null>(null);
+
 
   // Vencimentos financeiros pendentes viram entradas virtuais na agenda
   const financeEntries = useMemo<AgendaEntry[]>(() => {
