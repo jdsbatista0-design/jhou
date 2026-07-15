@@ -39,8 +39,11 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 h-14 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b border-surface-2">
-        <div className="max-w-lg mx-auto h-full px-3 flex items-center gap-2">
+      <header
+        className="sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 border-b border-surface-2"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        <div className="max-w-lg mx-auto h-14 px-3 flex items-center gap-2">
           <ProfileMenu email={profile.email} fullName={profile.fullName} avatarUrl={profile.avatarUrl} />
           <div className="min-w-0 flex-1">
             <p className="text-[10px] text-muted-foreground leading-tight truncate">
@@ -52,6 +55,7 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
         </div>
       </header>
+
 
       <main className="max-w-lg mx-auto px-4 pt-4 pb-24">
         {children}
