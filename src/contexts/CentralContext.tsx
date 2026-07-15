@@ -204,6 +204,22 @@ function dbRowToEvent(row: any): AgendaEvent {
   };
 }
 
+function normalizeForMatch(value: string | null | undefined): string {
+  return (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function sortedWeekdays(value: unknown): number[] {
+  return Array.isArray(value)
+    ? value.map(Number).filter(Number.isFinite).sort((a, b) => a - b)
+    : [];
+}
+
+function sameWeekdays(a: unknown, b: unknown): boolean {
+  const left = sortedWeekdays(a);
+  const right = sortedWeekdays(b);
+  return left.length === right.length && left.every((day, index) => day === right[index]);
+}
+
 export function CentralProvider({ children, userId }: { children: React.ReactNode; userId: string }) {
   const cachePrefix = `central:${userId}:`;
   const [inbox, setInbox] = useState<InboxEntry[]>(() => loadFromStorage(`${cachePrefix}inbox`, []));
@@ -226,7 +242,6 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   }, []);
 
   // ---- ITEMS ----
-  const didDedupeRef = useRef(false);
   const refreshItems = useCallback(async () => {
     const { data: itemRows, error } = await supabase
       .from('items')
@@ -234,7 +249,31 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       .order('created_at', { ascending: false });
     if (error || !itemRows) return;
 
-    const itemIds = itemRows.map((r: any) => r.id);
+    let cleanRows = itemRows as any[];
+
+    // Dedupe recorrências sempre, não só no boot: uma corrida entre criação + top-up
+    // podia gerar duas ocorrências iguais dentro da mesma série.
+    const groups = new Map<string, any[]>();
+    for (const r of cleanRows) {
+      if (!r.recurrence_id || !r.deadline || r.fase === 'Concluído') continue;
+      const k = `${r.recurrence_id}|${r.deadline}|${r.deadline_time || ''}`;
+      const arr = groups.get(k) || [];
+      arr.push(r);
+      groups.set(k, arr);
+    }
+    const toDelete: string[] = [];
+    for (const arr of groups.values()) {
+      if (arr.length <= 1) continue;
+      arr.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+      const keeper = arr[0];
+      for (const x of arr) if (x.id !== keeper.id) toDelete.push(x.id);
+    }
+    if (toDelete.length > 0) {
+      cleanRows = cleanRows.filter((r: any) => !toDelete.includes(r.id));
+      await supabase.from('items').delete().in('id', toDelete);
+    }
+
+    const itemIds = cleanRows.map((r: any) => r.id);
     const { data: commentRows } = itemIds.length
       ? await supabase
         .from('item_comments')
@@ -249,35 +288,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       commentsByItem[c.item_id].push({ id: c.id, text: c.text, createdAt: c.created_at });
     });
 
-    setItems(itemRows.map((r: any) => dbRowToItem(r, commentsByItem[r.id] || [])));
-
-    // One-shot dedupe of recurring items duplicated by past materializations.
-    // Key = recurrence_id|deadline|deadline_time. Keeps the oldest (first created), deletes the rest.
-    if (!didDedupeRef.current) {
-      didDedupeRef.current = true;
-      const groups = new Map<string, any[]>();
-      for (const r of itemRows as any[]) {
-        if (!r.recurrence_id || !r.deadline) continue;
-        const k = `${r.recurrence_id}|${r.deadline}|${r.deadline_time || ''}`;
-        const arr = groups.get(k) || [];
-        arr.push(r);
-        groups.set(k, arr);
-      }
-      const toDelete: string[] = [];
-      for (const arr of groups.values()) {
-        if (arr.length <= 1) continue;
-        arr.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-        // keep first, delete rest — but prefer keeping a "Concluído" if present
-        const concluded = arr.find(x => x.fase === 'Concluído');
-        const keeper = concluded || arr[0];
-        for (const x of arr) if (x.id !== keeper.id) toDelete.push(x.id);
-      }
-      if (toDelete.length > 0) {
-        console.info(`[dedupe] removing ${toDelete.length} duplicate recurring items`);
-        await supabase.from('items').delete().in('id', toDelete);
-        setItems(prev => prev.filter(i => !toDelete.includes(i.id)));
-      }
-    }
+    setItems(cleanRows.map((r: any) => dbRowToItem(r, commentsByItem[r.id] || [])));
   }, []);
 
 
@@ -594,6 +605,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       comments: item.comments || [],
       recurrenceId: item.recurrenceId,
       reminderMinutes: item.reminderMinutes,
+      origin: item.origin || 'manual',
       createdAt: now,
       updatedAt: now,
     };
@@ -936,6 +948,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
         tags: [rec.type || 'Compromisso'],
         recurrence_id: rec.id,
         reminder_minutes: rec.reminderMinutes,
+        origin: 'recurrence',
         user_id: userId,
       }));
 
@@ -949,6 +962,65 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   const addRecurrence = useCallback(async (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>): Promise<string | null> => {
     const userId = await getUserId();
     if (!userId) return null;
+
+    const { data: possibleExisting } = await (supabase as any)
+      .from('recurrences')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('time', rec.time)
+      .eq('active', true);
+
+    const existingRow = (possibleExisting || []).find((row: any) =>
+      normalizeForMatch(row.title) === normalizeForMatch(rec.title) &&
+      sameWeekdays(row.weekdays, rec.weekdays)
+    );
+
+    if (existingRow) {
+      const existing = dbRowToRecurrence(existingRow);
+      const patch = {
+        title: rec.title,
+        area: rec.area,
+        type: rec.type,
+        reminder_minutes: rec.reminderMinutes,
+        end_date: rec.endDate || existing.endDate || null,
+      };
+      await (supabase as any).from('recurrences').update(patch).eq('id', existing.id);
+
+      const today = todayYMD();
+      await (supabase as any).from('items')
+        .update({
+          title: rec.title,
+          area: rec.area,
+          tipo: rec.type,
+          tags: [rec.type],
+          reminder_minutes: rec.reminderMinutes,
+          origin: 'recurrence',
+        })
+        .eq('recurrence_id', existing.id)
+        .gte('deadline', today)
+        .neq('fase', 'Concluído');
+
+      const reused: Recurrence = {
+        ...existing,
+        title: rec.title,
+        area: rec.area,
+        type: rec.type,
+        reminderMinutes: rec.reminderMinutes,
+        endDate: rec.endDate || existing.endDate,
+      };
+      const newHorizon = await materializeRecurrence(reused, userId);
+      await (supabase as any)
+        .from('recurrences')
+        .update({ last_materialized_until: newHorizon })
+        .eq('id', reused.id);
+      const finalRec = { ...reused, lastMaterializedUntil: newHorizon };
+      setRecurrences(prev => {
+        const exists = prev.some(r => r.id === finalRec.id);
+        return exists ? prev.map(r => r.id === finalRec.id ? finalRec : r) : [finalRec, ...prev];
+      });
+      refreshItems();
+      return existing.id;
+    }
 
     const { data, error } = await (supabase as any).from('recurrences').insert({
       title: rec.title,
@@ -967,15 +1039,15 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       return null;
     }
     const created = dbRowToRecurrence(data);
-    setRecurrences(prev => [created, ...prev]);
 
-    // Materialize and update horizon
+    // Materializa antes de publicar no estado; assim o top-up não roda em paralelo
+    // para a mesma série recém-criada.
     const newHorizon = await materializeRecurrence(created, userId);
     await (supabase as any)
       .from('recurrences')
       .update({ last_materialized_until: newHorizon })
       .eq('id', created.id);
-    setRecurrences(prev => prev.map(r => r.id === created.id ? { ...r, lastMaterializedUntil: newHorizon } : r));
+    setRecurrences(prev => [{ ...created, lastMaterializedUntil: newHorizon }, ...prev]);
     refreshItems();
     return created.id;
   }, [getUserId, materializeRecurrence, refreshItems]);
