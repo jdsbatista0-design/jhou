@@ -12,13 +12,16 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { getDatePart } from '@/lib/dates';
+import { RecurringDeleteDialog, DeleteScope } from '@/components/RecurringDeleteDialog';
 
 export default function ItemDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { items, settings, addItem, updateItem, deleteItem, addComment, deleteComment } = useCentral();
+  const { items, settings, addItem, updateItem, deleteItem, deleteRecurringItem, addComment, deleteComment } = useCentral();
   const isNew = id === 'new';
   const existing = !isNew ? items.find(i => i.id === id) : null;
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
 
   const [commentText, setCommentText] = useState('');
 
