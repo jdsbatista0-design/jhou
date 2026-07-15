@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
-import { Plus, Trash2, CreditCard, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Trash2, CreditCard, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { FinScope, formatBRL } from '@/types/finance';
+import { FinScope, FinCard, formatBRL } from '@/types/finance';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -14,16 +14,96 @@ import { CardStatement } from './CardStatement';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
+type FormMode = { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; card: FinCard };
+
+function CardForm({ mode, scope, companyId, availableAccounts, onDone }: {
+  mode: FormMode; scope: FinScope; companyId: string | null;
+  availableAccounts: ReturnType<typeof useFinance>['accounts'];
+  onDone: () => void;
+}) {
+  const { addCard, updateCard } = useFinance();
+  const editing = mode.kind === 'edit' ? mode.card : null;
+  const [name, setName] = useState(editing?.name || '');
+  const [brand, setBrand] = useState(editing?.brand || '');
+  const [limitAmount, setLimit] = useState(editing ? String(editing.limitAmount || '') : '');
+  const [closingDay, setClosing] = useState(editing?.closingDay ? String(editing.closingDay) : '');
+  const [dueDay, setDue] = useState(editing?.dueDay ? String(editing.dueDay) : '');
+  const [accountId, setAccountId] = useState<string>(editing?.accountId || 'none');
+
+  useEffect(() => {
+    if (editing) {
+      setName(editing.name || '');
+      setBrand(editing.brand || '');
+      setLimit(String(editing.limitAmount || ''));
+      setClosing(editing.closingDay ? String(editing.closingDay) : '');
+      setDue(editing.dueDay ? String(editing.dueDay) : '');
+      setAccountId(editing.accountId || 'none');
+    }
+  }, [editing?.id]);
+
+  const submit = async () => {
+    if (!name.trim()) { toast.error('Informe o nome do cartão'); return; }
+    const patch: Partial<FinCard> = {
+      name: name.trim(),
+      brand: brand.trim() || undefined,
+      limitAmount: parseFloat(limitAmount.replace(',', '.')) || 0,
+      closingDay: parseInt(closingDay) || undefined,
+      dueDay: parseInt(dueDay) || undefined,
+      accountId: accountId !== 'none' ? accountId : undefined,
+    };
+    if (editing) {
+      await updateCard(editing.id, patch);
+      toast.success('Cartão atualizado');
+    } else {
+      if (scope === 'pj' && (!companyId || companyId === 'all')) {
+        toast.error('Selecione uma empresa específica'); return;
+      }
+      await addCard({
+        scope, companyId: scope === 'pj' ? companyId! : undefined,
+        color: '#a855f7', ...patch,
+      } as any);
+      toast.success('Cartão cadastrado');
+    }
+    onDone();
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          {editing ? 'Editar cartão' : 'Novo cartão'}
+        </h3>
+        <button onClick={onDone} className="text-[11px] text-muted-foreground">Cancelar</button>
+      </div>
+      <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome (ex.: Nubank Roxinho)" className="rounded-xl h-9 text-sm" />
+      <div className="flex gap-2">
+        <Input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Bandeira" className="rounded-xl h-9 text-sm flex-1" />
+        <Input value={limitAmount} onChange={e => setLimit(e.target.value)} placeholder="Limite" inputMode="decimal" className="rounded-xl h-9 text-sm flex-1" />
+      </div>
+      <div className="flex gap-2">
+        <Input value={closingDay} onChange={e => setClosing(e.target.value)} placeholder="Dia fechamento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
+        <Input value={dueDay} onChange={e => setDue(e.target.value)} placeholder="Dia vencimento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
+      </div>
+      {availableAccounts.length > 0 && (
+        <Select value={accountId} onValueChange={setAccountId}>
+          <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Conta vinculada (opcional)" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem conta vinculada</SelectItem>
+            {availableAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      )}
+      <Button onClick={submit} size="sm" className="w-full rounded-xl h-9">
+        <Plus className="h-3.5 w-3.5 mr-1" /> {editing ? 'Salvar alterações' : 'Cadastrar'}
+      </Button>
+    </div>
+  );
+}
+
 export function CardsManager({ scope, companyId }: Props) {
-  const { cards, accounts, addCard, deleteCard, cardOpenInvoice } = useFinance();
-  const [showForm, setShowForm] = useState(false);
+  const { cards, accounts, deleteCard, cardOpenInvoice } = useFinance();
+  const [formMode, setFormMode] = useState<FormMode>({ kind: 'closed' });
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [brand, setBrand] = useState('');
-  const [limitAmount, setLimit] = useState('');
-  const [closingDay, setClosing] = useState('');
-  const [dueDay, setDue] = useState('');
-  const [accountId, setAccountId] = useState<string>('none');
 
   const visible = useMemo(() => cards.filter(c => {
     if (c.archived) return false;
@@ -40,60 +120,21 @@ export function CardsManager({ scope, companyId }: Props) {
 
   const canAdd = scope === 'pf' || (scope === 'pj' && companyId && companyId !== 'all');
 
-  const handleAdd = async () => {
-    if (!name.trim()) { toast.error('Informe o nome do cartão'); return; }
-    if (scope === 'pj' && (!companyId || companyId === 'all')) {
-      toast.error('Selecione uma empresa específica'); return;
-    }
-    await addCard({
-      scope, companyId: scope === 'pj' ? companyId! : undefined,
-      accountId: accountId !== 'none' ? accountId : undefined,
-      name: name.trim(), brand: brand.trim() || undefined,
-      limitAmount: parseFloat(limitAmount.replace(',', '.')) || 0,
-      closingDay: parseInt(closingDay) || undefined,
-      dueDay: parseInt(dueDay) || undefined,
-      color: '#a855f7',
-    });
-    setName(''); setBrand(''); setLimit(''); setClosing(''); setDue(''); setAccountId('none');
-    toast.success('Cartão cadastrado');
-  };
-
   return (
     <div className="space-y-3">
-      {canAdd && (
-        showForm ? (
-          <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Novo cartão</h3>
-              <button onClick={() => setShowForm(false)} className="text-[11px] text-muted-foreground">Cancelar</button>
-            </div>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome (ex.: Nubank Roxinho)" className="rounded-xl h-9 text-sm" />
-            <div className="flex gap-2">
-              <Input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Bandeira" className="rounded-xl h-9 text-sm flex-1" />
-              <Input value={limitAmount} onChange={e => setLimit(e.target.value)} placeholder="Limite" inputMode="decimal" className="rounded-xl h-9 text-sm flex-1" />
-            </div>
-            <div className="flex gap-2">
-              <Input value={closingDay} onChange={e => setClosing(e.target.value)} placeholder="Dia fechamento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
-              <Input value={dueDay} onChange={e => setDue(e.target.value)} placeholder="Dia vencimento" inputMode="numeric" className="rounded-xl h-9 text-sm flex-1" />
-            </div>
-            {availableAccounts.length > 0 && (
-              <Select value={accountId} onValueChange={setAccountId}>
-                <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue placeholder="Conta vinculada (opcional)" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem conta vinculada</SelectItem>
-                  {availableAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            )}
-            <Button onClick={async () => { await handleAdd(); setShowForm(false); }} size="sm" className="w-full rounded-xl h-9">
-              <Plus className="h-3.5 w-3.5 mr-1" /> Cadastrar
-            </Button>
-          </div>
-        ) : (
-          <Button onClick={() => setShowForm(true)} variant="outline" size="sm" className="w-full rounded-xl h-8 text-xs">
-            <Plus className="h-3.5 w-3.5 mr-1" /> Novo cartão
-          </Button>
-        )
+      {formMode.kind !== 'closed' && (
+        <CardForm
+          mode={formMode}
+          scope={scope}
+          companyId={companyId}
+          availableAccounts={availableAccounts}
+          onDone={() => setFormMode({ kind: 'closed' })}
+        />
+      )}
+      {canAdd && formMode.kind === 'closed' && (
+        <Button onClick={() => setFormMode({ kind: 'create' })} variant="outline" size="sm" className="w-full rounded-xl h-8 text-xs">
+          <Plus className="h-3.5 w-3.5 mr-1" /> Novo cartão
+        </Button>
       )}
 
       <div className="space-y-2">
@@ -118,6 +159,13 @@ export function CardsManager({ scope, companyId }: Props) {
                     {c.brand && `${c.brand} · `}Fechamento dia {c.closingDay || '—'} · Vence dia {c.dueDay || '—'}
                   </div>
                 </div>
+                <button
+                  onClick={() => setFormMode({ kind: 'edit', card: c })}
+                  className="p-1.5 text-muted-foreground hover:text-foreground"
+                  title="Editar cartão"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <button className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
