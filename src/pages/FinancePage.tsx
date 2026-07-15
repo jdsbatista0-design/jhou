@@ -46,11 +46,16 @@ function FinanceInner() {
     { id: 'categories', label: 'Categorias (cad.)', icon: Receipt },
   ];
 
+  const showPeriod = section === 'bills' || section === 'budgets' || section === 'overview' || section === 'transactions';
+
   return (
     <div className="space-y-3">
       {loading && (
         <div className="text-[11px] text-muted-foreground animate-pulse">Atualizando finanças…</div>
       )}
+
+      {showPeriod && <MonthNavigator />}
+
 
       {/* Section nav */}
       <div className="space-y-2">
