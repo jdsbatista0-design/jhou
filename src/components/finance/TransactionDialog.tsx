@@ -469,6 +469,31 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
                 </div>
               </div>
 
+              {!isEdit && isCardExpense && (
+                <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold">Parcelar em</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number" min={1} max={36}
+                        value={installments}
+                        onChange={e => setInstallments(Math.max(1, Math.min(36, parseInt(e.target.value) || 1)))}
+                        className="rounded-lg h-8 w-16 text-sm text-center"
+                      />
+                      <span className="text-xs text-muted-foreground">x</span>
+                    </div>
+                  </div>
+                  {installments > 1 && amount && (
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      {installments}x de <b className="text-foreground">R$ {(parseBRLInput(amount) / installments).toFixed(2)}</b> ·
+                      Total <b className="text-foreground">R$ {parseBRLInput(amount).toFixed(2)}</b>.
+                      Cada parcela vira uma despesa no mês correspondente.
+                    </p>
+                  )}
+                </div>
+              )}
+
+
               <div>
                 <Label className="text-xs">Categoria</Label>
                 <Select value={categoryId} onValueChange={setCategoryId}>
