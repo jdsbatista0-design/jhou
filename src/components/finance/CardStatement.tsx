@@ -19,11 +19,15 @@ function fmtMonth(iso: string) {
 export function CardStatement({ cardId }: Props) {
   const {
     cards, getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, categories,
+    setCardStatementOverride,
   } = useFinance();
   const card = cards.find(c => c.id === cardId);
   const now = new Date();
   const [monthISO, setMonthISO] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const [payOpen, setPayOpen] = useState(false);
+  const [editingOverride, setEditingOverride] = useState(false);
+  const [overrideInput, setOverrideInput] = useState('');
+
 
   const statement = useMemo(() => getCardStatement(cardId, monthISO), [getCardStatement, cardId, monthISO]);
   const breakdown = useMemo(() => getCardCategoryBreakdown(cardId, monthISO), [getCardCategoryBreakdown, cardId, monthISO]);
