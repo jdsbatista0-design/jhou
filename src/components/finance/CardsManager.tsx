@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { FinScope, FinCard, formatBRL } from '@/types/finance';
 import { CardStatement } from './CardStatement';
+import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
