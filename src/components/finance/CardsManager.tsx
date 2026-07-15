@@ -22,7 +22,7 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
   const editing = mode.kind === 'edit' ? mode.card : null;
   const [name, setName] = useState(editing?.name || '');
   const [brand, setBrand] = useState(editing?.brand || '');
-  const [limitAmount, setLimit] = useState(editing ? String(editing.limitAmount || '') : '');
+  const [limitAmount, setLimit] = useState(editing ? numberToBRLInput(editing.limitAmount || 0) : '');
   const [closingDay, setClosing] = useState(editing?.closingDay ? String(editing.closingDay) : '');
   const [dueDay, setDue] = useState(editing?.dueDay ? String(editing.dueDay) : '');
   const [accountId, setAccountId] = useState<string>(editing?.accountId || 'none');
@@ -31,7 +31,7 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
     if (editing) {
       setName(editing.name || '');
       setBrand(editing.brand || '');
-      setLimit(String(editing.limitAmount || ''));
+      setLimit(numberToBRLInput(editing.limitAmount || 0));
       setClosing(editing.closingDay ? String(editing.closingDay) : '');
       setDue(editing.dueDay ? String(editing.dueDay) : '');
       setAccountId(editing.accountId || 'none');
@@ -43,7 +43,7 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
     const patch: Partial<FinCard> = {
       name: name.trim(),
       brand: brand.trim() || undefined,
-      limitAmount: parseFloat(limitAmount.replace(',', '.')) || 0,
+      limitAmount: parseBRLInput(limitAmount),
       closingDay: parseInt(closingDay) || undefined,
       dueDay: parseInt(dueDay) || undefined,
       accountId: accountId !== 'none' ? accountId : undefined,
