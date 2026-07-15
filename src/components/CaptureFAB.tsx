@@ -164,20 +164,23 @@ export default function CaptureFAB() {
         onChange={handlePhoto}
       />
 
-      {/* Single FAB */}
-      <button
-        onClick={openMenu}
-        aria-label="Capturar"
-        className={cn(
-          'fixed z-40 bottom-20 right-4 h-14 w-14 rounded-full',
-          'bg-primary text-primary-foreground shadow-lg shadow-primary/40',
-          'flex items-center justify-center',
-          'active:scale-95 transition-transform',
-          'ring-4 ring-primary/10'
-        )}
-      >
-        <Plus className="h-6 w-6" strokeWidth={2.5} />
-      </button>
+      {/* Single FAB — escondido em Finanças e HD (têm seus próprios CTAs) */}
+      {!hidden && (
+        <button
+          onClick={openMenu}
+          aria-label="Capturar"
+          className={cn(
+            'fixed z-40 right-4 h-14 w-14 rounded-full',
+            'bg-primary text-primary-foreground shadow-lg shadow-primary/40',
+            'flex items-center justify-center',
+            'active:scale-95 transition-transform',
+            'ring-4 ring-primary/10'
+          )}
+          style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom) + 12px)' }}
+        >
+          <Plus className="h-6 w-6" strokeWidth={2.5} />
+        </button>
+      )}
 
       <Sheet open={open} onOpenChange={handleSheetChange}>
         <SheetContent side="bottom" className="rounded-t-2xl border-t pb-8 max-h-[85vh]">
