@@ -985,7 +985,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     scope, setScope, selectedCompanyId, setSelectedCompanyId,
     addCompany, updateCompany, deleteCompany,
     addAccount, updateAccount, deleteAccount,
-    addCard, updateCard, deleteCard,
+    addCard, updateCard, deleteCard, setCardStatementOverride,
     addCategory, updateCategory, deleteCategory,
     addPerson, updatePerson, deletePerson,
     addTransaction, updateTransaction, deleteTransaction, deleteTransactionAndFuture,
