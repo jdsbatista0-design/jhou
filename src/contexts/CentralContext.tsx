@@ -380,6 +380,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   }, [cachePrefix, memories]);
   useEffect(() => { ric(() => saveToStorage(`${cachePrefix}events`, events)); }, [cachePrefix, events]);
   useEffect(() => { ric(() => saveToStorage(`${cachePrefix}recurrences`, recurrences)); }, [cachePrefix, recurrences]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}daily_priorities`, dailyPriorities)); }, [cachePrefix, dailyPriorities]);
 
   // Initial load + realtime (com debounce para evitar refetch em cascata)
   const debounceTimers = useRef<Record<string, number>>({});
