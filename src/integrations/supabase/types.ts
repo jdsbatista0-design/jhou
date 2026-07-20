@@ -35,6 +35,53 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_priorities: {
+        Row: {
+          added_at: string
+          created_at: string
+          date: string
+          done_at: string | null
+          id: string
+          item_id: string
+          replaced_from: string | null
+          slot: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          created_at?: string
+          date: string
+          done_at?: string | null
+          id?: string
+          item_id: string
+          replaced_from?: string | null
+          slot: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          created_at?: string
+          date?: string
+          done_at?: string | null
+          id?: string
+          item_id?: string
+          replaced_from?: string | null
+          slot?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_priorities_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           created_at: string
@@ -674,12 +721,16 @@ export type Database = {
         Row: {
           area: string
           asset: string | null
+          blocked_people: number
           created_at: string
           deadline: string | null
           deadline_time: string | null
           description: string | null
           fase: string
           id: string
+          impact_score: number
+          kind: string
+          last_surfaced_at: string | null
           linked_agenda_ids: Json
           origin: string
           person: string | null
@@ -689,22 +740,28 @@ export type Database = {
           recurrence_id: string | null
           reminder_minutes: number | null
           reminder_sent_at: string | null
+          source_context: Json | null
           tags: Json
           tipo: string
           title: string
           updated_at: string
           user_id: string
           value: number | null
+          waiting_for: string | null
         }
         Insert: {
           area?: string
           asset?: string | null
+          blocked_people?: number
           created_at?: string
           deadline?: string | null
           deadline_time?: string | null
           description?: string | null
           fase?: string
           id?: string
+          impact_score?: number
+          kind?: string
+          last_surfaced_at?: string | null
           linked_agenda_ids?: Json
           origin?: string
           person?: string | null
@@ -714,22 +771,28 @@ export type Database = {
           recurrence_id?: string | null
           reminder_minutes?: number | null
           reminder_sent_at?: string | null
+          source_context?: Json | null
           tags?: Json
           tipo?: string
           title: string
           updated_at?: string
           user_id?: string
           value?: number | null
+          waiting_for?: string | null
         }
         Update: {
           area?: string
           asset?: string | null
+          blocked_people?: number
           created_at?: string
           deadline?: string | null
           deadline_time?: string | null
           description?: string | null
           fase?: string
           id?: string
+          impact_score?: number
+          kind?: string
+          last_surfaced_at?: string | null
           linked_agenda_ids?: Json
           origin?: string
           person?: string | null
@@ -739,12 +802,14 @@ export type Database = {
           recurrence_id?: string | null
           reminder_minutes?: number | null
           reminder_sent_at?: string | null
+          source_context?: Json | null
           tags?: Json
           tipo?: string
           title?: string
           updated_at?: string
           user_id?: string
           value?: number | null
+          waiting_for?: string | null
         }
         Relationships: []
       }
