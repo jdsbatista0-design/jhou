@@ -76,6 +76,10 @@ interface CentralContextType {
   updateRecurrence: (id: string, updates: Partial<Recurrence>) => Promise<void>;
   deleteRecurrence: (id: string, alsoDeleteFutureItems: boolean) => Promise<void>;
   deleteRecurringItem: (itemId: string, scope: 'one' | 'future' | 'all') => Promise<void>;
+  dailyPriorities: DailyPriority[];
+  setPriority: (slot: 1 | 2 | 3, itemId: string, replaceItemId?: string) => Promise<void>;
+  removePriority: (slot: 1 | 2 | 3) => Promise<void>;
+  markPriorityDone: (slot: 1 | 2 | 3) => Promise<void>;
   settings: Settings;
   updateSettings: (updates: Partial<Settings>) => void;
 }
