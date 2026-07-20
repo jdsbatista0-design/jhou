@@ -1266,6 +1266,59 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recurrences.length]);
 
+  // ---- DAILY PRIORITIES CRUD ----
+  const setPriority = useCallback(async (slot: 1 | 2 | 3, itemId: string, replaceItemId?: string) => {
+    const uid = await getUserId();
+    if (!uid) return;
+    const today = todayYMD();
+    // Remove any existing priority for this slot today
+    await (supabase as any).from('daily_priorities')
+      .delete()
+      .eq('user_id', uid)
+      .eq('date', today)
+      .eq('slot', slot);
+    const { data, error } = await (supabase as any).from('daily_priorities')
+      .insert({ user_id: uid, date: today, slot, item_id: itemId })
+      .select('*')
+      .single();
+    if (!error && data) {
+      setDailyPriorities(prev => [
+        ...prev.filter(p => p.slot !== slot),
+        { id: data.id, date: data.date, slot: data.slot as 1 | 2 | 3, itemId: data.item_id, addedAt: data.added_at, doneAt: data.done_at || undefined },
+      ].sort((a, b) => a.slot - b.slot));
+    }
+  }, [getUserId]);
+
+  const removePriority = useCallback(async (slot: 1 | 2 | 3) => {
+    const uid = await getUserId();
+    if (!uid) return;
+    const today = todayYMD();
+    setDailyPriorities(prev => prev.filter(p => p.slot !== slot));
+    await (supabase as any).from('daily_priorities')
+      .delete()
+      .eq('user_id', uid)
+      .eq('date', today)
+      .eq('slot', slot);
+  }, [getUserId]);
+
+  const markPriorityDone = useCallback(async (slot: 1 | 2 | 3) => {
+    const uid = await getUserId();
+    if (!uid) return;
+    const today = todayYMD();
+    const doneAt = new Date().toISOString();
+    setDailyPriorities(prev => prev.map(p => p.slot === slot ? { ...p, doneAt } : p));
+    await (supabase as any).from('daily_priorities')
+      .update({ done_at: doneAt })
+      .eq('user_id', uid)
+      .eq('date', today)
+      .eq('slot', slot);
+    // Also mark linked item as done
+    const priority = dailyPriorities.find(p => p.slot === slot);
+    if (priority) {
+      updateItem(priority.itemId, { fase: 'Concluído' });
+    }
+  }, [getUserId, dailyPriorities, updateItem]);
+
   const ctxValue = useMemo<CentralContextType>(() => ({
     loading,
     inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
@@ -1273,13 +1326,16 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     memories, addMemory, updateMemory, deleteMemory,
     events, addEvent, deleteEvent, agendaEntries,
     recurrences, addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem,
+    dailyPriorities, setPriority, removePriority, markPriorityDone,
     settings, updateSettings,
   }), [
-    loading, inbox, items, memories, events, agendaEntries, recurrences, settings,
+    loading, inbox, items, memories, events, agendaEntries, recurrences, dailyPriorities, settings,
     addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
     addItem, updateItem, deleteItem, addComment, deleteComment,
     addMemory, updateMemory, deleteMemory, addEvent, deleteEvent,
-    addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem, updateSettings,
+    addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem,
+    setPriority, removePriority, markPriorityDone,
+    updateSettings,
   ]);
 
   return (
