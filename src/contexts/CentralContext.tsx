@@ -129,6 +129,12 @@ function dbRowToItem(row: any, comments: ItemComment[]): Item {
     recurrenceId: row.recurrence_id || undefined,
     reminderMinutes: row.reminder_minutes != null ? Number(row.reminder_minutes) : undefined,
     origin: row.origin || 'manual',
+    kind: (row.kind as ItemKind) || 'my_action',
+    waitingFor: row.waiting_for || undefined,
+    impactScore: row.impact_score != null ? Number(row.impact_score) : 0,
+    blockedPeople: row.blocked_people != null ? Number(row.blocked_people) : 0,
+    lastSurfacedAt: row.last_surfaced_at || undefined,
+    sourceContext: row.source_context || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
