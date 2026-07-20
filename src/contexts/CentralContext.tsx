@@ -337,6 +337,26 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     }
   }, []);
 
+  // ---- DAILY PRIORITIES ----
+  const refreshDailyPriorities = useCallback(async () => {
+    const today = todayYMD();
+    const { data, error } = await (supabase as any)
+      .from('daily_priorities')
+      .select('*')
+      .eq('date', today)
+      .order('slot', { ascending: true });
+    if (!error && data) {
+      setDailyPriorities(data.map((r: any) => ({
+        id: r.id,
+        date: r.date,
+        slot: r.slot as 1 | 2 | 3,
+        itemId: r.item_id,
+        addedAt: r.added_at,
+        doneAt: r.done_at || undefined,
+      })));
+    }
+  }, []);
+
   // userId vem da prop — evita auth.getUser() (latência de rede) em cada ação
   const getUserId = useCallback(async (): Promise<string | null> => userId, [userId]);
 
