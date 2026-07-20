@@ -399,6 +399,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       refreshMemories(),
       refreshEvents(),
       refreshRecurrences(),
+      refreshDailyPriorities(),
       refreshSettings(),
     ]).finally(() => setLoading(false));
 
