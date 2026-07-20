@@ -17,6 +17,18 @@ export interface ItemComment {
   createdAt: string;
 }
 
+export type ItemKind = 'my_action' | 'waiting_someone' | 'my_decision' | 'appointment' | 'info';
+
+export interface ItemSourceContext {
+  channel?: 'whatsapp' | 'audio' | 'text' | 'photo' | 'manual';
+  sender?: string;
+  senderPhone?: string;
+  originalMessage?: string;
+  mediaUrl?: string;
+  capturedAt?: string;
+  aiSummary?: string;
+}
+
 export interface Item {
   id: string;
   title: string;
@@ -38,8 +50,23 @@ export interface Item {
   recurrenceId?: string;
   reminderMinutes?: number;
   origin?: 'manual' | 'inbox' | 'finance' | 'recurrence';
+  kind: ItemKind;
+  waitingFor?: string;
+  impactScore: number;
+  blockedPeople: number;
+  lastSurfacedAt?: string;
+  sourceContext?: ItemSourceContext;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DailyPriority {
+  id: string;
+  date: string; // YYYY-MM-DD
+  slot: 1 | 2 | 3;
+  itemId: string;
+  addedAt: string;
+  doneAt?: string;
 }
 
 // ISO weekdays: 1=Mon ... 7=Sun
