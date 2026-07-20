@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { InboxEntry, Item, ItemComment, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS, Recurrence, Weekday } from '@/types/central';
+import { InboxEntry, Item, ItemComment, ItemKind, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS, Recurrence, Weekday, DailyPriority } from '@/types/central';
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDateTime } from '@/lib/dates';
 import { encryptString, decryptString } from '@/lib/crypto';
@@ -76,6 +76,10 @@ interface CentralContextType {
   updateRecurrence: (id: string, updates: Partial<Recurrence>) => Promise<void>;
   deleteRecurrence: (id: string, alsoDeleteFutureItems: boolean) => Promise<void>;
   deleteRecurringItem: (itemId: string, scope: 'one' | 'future' | 'all') => Promise<void>;
+  dailyPriorities: DailyPriority[];
+  setPriority: (slot: 1 | 2 | 3, itemId: string, replaceItemId?: string) => Promise<void>;
+  removePriority: (slot: 1 | 2 | 3) => Promise<void>;
+  markPriorityDone: (slot: 1 | 2 | 3) => Promise<void>;
   settings: Settings;
   updateSettings: (updates: Partial<Settings>) => void;
 }
@@ -129,6 +133,12 @@ function dbRowToItem(row: any, comments: ItemComment[]): Item {
     recurrenceId: row.recurrence_id || undefined,
     reminderMinutes: row.reminder_minutes != null ? Number(row.reminder_minutes) : undefined,
     origin: row.origin || 'manual',
+    kind: (row.kind as ItemKind) || 'my_action',
+    waitingFor: row.waiting_for || undefined,
+    impactScore: row.impact_score != null ? Number(row.impact_score) : 0,
+    blockedPeople: row.blocked_people != null ? Number(row.blocked_people) : 0,
+    lastSurfacedAt: row.last_surfaced_at || undefined,
+    sourceContext: row.source_context || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -227,6 +237,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   const [memories, setMemories] = useState<Memory[]>(() => loadFromStorage(`${cachePrefix}memories`, []));
   const [events, setEvents] = useState<AgendaEvent[]>(() => loadFromStorage(`${cachePrefix}events`, []));
   const [recurrences, setRecurrences] = useState<Recurrence[]>(() => loadFromStorage(`${cachePrefix}recurrences`, []));
+  const [dailyPriorities, setDailyPriorities] = useState<DailyPriority[]>(() => loadFromStorage(`${cachePrefix}daily_priorities`, []));
   const [settings, setSettings] = useState<Settings>(() => loadFromStorage('central_settings', DEFAULT_SETTINGS));
   const [loading, setLoading] = useState(false);
 
@@ -326,6 +337,26 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     }
   }, []);
 
+  // ---- DAILY PRIORITIES ----
+  const refreshDailyPriorities = useCallback(async () => {
+    const today = todayYMD();
+    const { data, error } = await (supabase as any)
+      .from('daily_priorities')
+      .select('*')
+      .eq('date', today)
+      .order('slot', { ascending: true });
+    if (!error && data) {
+      setDailyPriorities(data.map((r: any) => ({
+        id: r.id,
+        date: r.date,
+        slot: r.slot as 1 | 2 | 3,
+        itemId: r.item_id,
+        addedAt: r.added_at,
+        doneAt: r.done_at || undefined,
+      })));
+    }
+  }, []);
+
   // userId vem da prop — evita auth.getUser() (latência de rede) em cada ação
   const getUserId = useCallback(async (): Promise<string | null> => userId, [userId]);
 
@@ -349,6 +380,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   }, [cachePrefix, memories]);
   useEffect(() => { ric(() => saveToStorage(`${cachePrefix}events`, events)); }, [cachePrefix, events]);
   useEffect(() => { ric(() => saveToStorage(`${cachePrefix}recurrences`, recurrences)); }, [cachePrefix, recurrences]);
+  useEffect(() => { ric(() => saveToStorage(`${cachePrefix}daily_priorities`, dailyPriorities)); }, [cachePrefix, dailyPriorities]);
 
   // Initial load + realtime (com debounce para evitar refetch em cascata)
   const debounceTimers = useRef<Record<string, number>>({});
@@ -367,6 +399,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       refreshMemories(),
       refreshEvents(),
       refreshRecurrences(),
+      refreshDailyPriorities(),
       refreshSettings(),
     ]).finally(() => setLoading(false));
 
@@ -620,7 +653,14 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       createdAt: now,
       updatedAt: now,
     };
-    setItems(prev => [optimistic, ...prev]);
+    setItems(prev => [{
+      ...optimistic,
+      kind: item.kind || 'my_action',
+      waitingFor: item.waitingFor,
+      impactScore: item.impactScore ?? 0,
+      blockedPeople: item.blockedPeople ?? 0,
+      sourceContext: item.sourceContext,
+    }, ...prev]);
 
     const { data, error } = await supabase.from('items').insert({
       title: item.title,
@@ -640,6 +680,11 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       recurrence_id: item.recurrenceId || null,
       reminder_minutes: item.reminderMinutes ?? null,
       origin: item.origin || 'manual',
+      kind: item.kind || 'my_action',
+      waiting_for: item.waitingFor || null,
+      impact_score: item.impactScore ?? 0,
+      blocked_people: item.blockedPeople ?? 0,
+      source_context: item.sourceContext || null,
       user_id: userId,
     } as any).select('*').single();
 
@@ -680,6 +725,12 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (updates.value !== undefined) dbUpdates.value = updates.value;
     if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
     if (updates.linkedAgendaIds !== undefined) dbUpdates.linked_agenda_ids = updates.linkedAgendaIds;
+    if (updates.kind !== undefined) dbUpdates.kind = updates.kind;
+    if (updates.waitingFor !== undefined) dbUpdates.waiting_for = updates.waitingFor || null;
+    if (updates.impactScore !== undefined) dbUpdates.impact_score = updates.impactScore;
+    if (updates.blockedPeople !== undefined) dbUpdates.blocked_people = updates.blockedPeople;
+    if (updates.lastSurfacedAt !== undefined) dbUpdates.last_surfaced_at = updates.lastSurfacedAt || null;
+    if (updates.sourceContext !== undefined) dbUpdates.source_context = updates.sourceContext || null;
     const { error } = await supabase.from('items').update(dbUpdates).eq('id', id);
     if (error) {
       // Rollback to snapshot
@@ -1215,6 +1266,59 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recurrences.length]);
 
+  // ---- DAILY PRIORITIES CRUD ----
+  const setPriority = useCallback(async (slot: 1 | 2 | 3, itemId: string, replaceItemId?: string) => {
+    const uid = await getUserId();
+    if (!uid) return;
+    const today = todayYMD();
+    // Remove any existing priority for this slot today
+    await (supabase as any).from('daily_priorities')
+      .delete()
+      .eq('user_id', uid)
+      .eq('date', today)
+      .eq('slot', slot);
+    const { data, error } = await (supabase as any).from('daily_priorities')
+      .insert({ user_id: uid, date: today, slot, item_id: itemId })
+      .select('*')
+      .single();
+    if (!error && data) {
+      setDailyPriorities(prev => [
+        ...prev.filter(p => p.slot !== slot),
+        { id: data.id, date: data.date, slot: data.slot as 1 | 2 | 3, itemId: data.item_id, addedAt: data.added_at, doneAt: data.done_at || undefined },
+      ].sort((a, b) => a.slot - b.slot));
+    }
+  }, [getUserId]);
+
+  const removePriority = useCallback(async (slot: 1 | 2 | 3) => {
+    const uid = await getUserId();
+    if (!uid) return;
+    const today = todayYMD();
+    setDailyPriorities(prev => prev.filter(p => p.slot !== slot));
+    await (supabase as any).from('daily_priorities')
+      .delete()
+      .eq('user_id', uid)
+      .eq('date', today)
+      .eq('slot', slot);
+  }, [getUserId]);
+
+  const markPriorityDone = useCallback(async (slot: 1 | 2 | 3) => {
+    const uid = await getUserId();
+    if (!uid) return;
+    const today = todayYMD();
+    const doneAt = new Date().toISOString();
+    setDailyPriorities(prev => prev.map(p => p.slot === slot ? { ...p, doneAt } : p));
+    await (supabase as any).from('daily_priorities')
+      .update({ done_at: doneAt })
+      .eq('user_id', uid)
+      .eq('date', today)
+      .eq('slot', slot);
+    // Also mark linked item as done
+    const priority = dailyPriorities.find(p => p.slot === slot);
+    if (priority) {
+      updateItem(priority.itemId, { fase: 'Concluído' });
+    }
+  }, [getUserId, dailyPriorities, updateItem]);
+
   const ctxValue = useMemo<CentralContextType>(() => ({
     loading,
     inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
@@ -1222,13 +1326,16 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     memories, addMemory, updateMemory, deleteMemory,
     events, addEvent, deleteEvent, agendaEntries,
     recurrences, addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem,
+    dailyPriorities, setPriority, removePriority, markPriorityDone,
     settings, updateSettings,
   }), [
-    loading, inbox, items, memories, events, agendaEntries, recurrences, settings,
+    loading, inbox, items, memories, events, agendaEntries, recurrences, dailyPriorities, settings,
     addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
     addItem, updateItem, deleteItem, addComment, deleteComment,
     addMemory, updateMemory, deleteMemory, addEvent, deleteEvent,
-    addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem, updateSettings,
+    addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem,
+    setPriority, removePriority, markPriorityDone,
+    updateSettings,
   ]);
 
   return (

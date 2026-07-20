@@ -1,5 +1,7 @@
 import { useCentral } from '@/contexts/CentralContext';
-import DashboardStories from '@/components/DashboardStories';
+import HomeAgora from '@/components/HomeAgora';
+import HomeToday from '@/components/HomeToday';
+import HomePending from '@/components/HomePending';
 import { Sparkles } from 'lucide-react';
 
 export default function Dashboard() {
@@ -27,7 +29,11 @@ export default function Dashboard() {
           </p>
         </div>
       ) : (
-        <DashboardStories />
+        <>
+          <HomeAgora />
+          <HomeToday />
+          <HomePending />
+        </>
       )}
     </div>
   );
