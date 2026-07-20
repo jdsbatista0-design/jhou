@@ -698,6 +698,12 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (updates.value !== undefined) dbUpdates.value = updates.value;
     if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
     if (updates.linkedAgendaIds !== undefined) dbUpdates.linked_agenda_ids = updates.linkedAgendaIds;
+    if (updates.kind !== undefined) dbUpdates.kind = updates.kind;
+    if (updates.waitingFor !== undefined) dbUpdates.waiting_for = updates.waitingFor || null;
+    if (updates.impactScore !== undefined) dbUpdates.impact_score = updates.impactScore;
+    if (updates.blockedPeople !== undefined) dbUpdates.blocked_people = updates.blockedPeople;
+    if (updates.lastSurfacedAt !== undefined) dbUpdates.last_surfaced_at = updates.lastSurfacedAt || null;
+    if (updates.sourceContext !== undefined) dbUpdates.source_context = updates.sourceContext || null;
     const { error } = await supabase.from('items').update(dbUpdates).eq('id', id);
     if (error) {
       // Rollback to snapshot
