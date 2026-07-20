@@ -626,7 +626,14 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       createdAt: now,
       updatedAt: now,
     };
-    setItems(prev => [optimistic, ...prev]);
+    setItems(prev => [{
+      ...optimistic,
+      kind: item.kind || 'my_action',
+      waitingFor: item.waitingFor,
+      impactScore: item.impactScore ?? 0,
+      blockedPeople: item.blockedPeople ?? 0,
+      sourceContext: item.sourceContext,
+    }, ...prev]);
 
     const { data, error } = await supabase.from('items').insert({
       title: item.title,
@@ -646,6 +653,11 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       recurrence_id: item.recurrenceId || null,
       reminder_minutes: item.reminderMinutes ?? null,
       origin: item.origin || 'manual',
+      kind: item.kind || 'my_action',
+      waiting_for: item.waitingFor || null,
+      impact_score: item.impactScore ?? 0,
+      blocked_people: item.blockedPeople ?? 0,
+      source_context: item.sourceContext || null,
       user_id: userId,
     } as any).select('*').single();
 
