@@ -50,10 +50,10 @@ export interface Item {
   recurrenceId?: string;
   reminderMinutes?: number;
   origin?: 'manual' | 'inbox' | 'finance' | 'recurrence';
-  kind: ItemKind;
+  kind?: ItemKind;
   waitingFor?: string;
-  impactScore: number;
-  blockedPeople: number;
+  impactScore?: number;
+  blockedPeople?: number;
   lastSurfacedAt?: string;
   sourceContext?: ItemSourceContext;
   createdAt: string;
