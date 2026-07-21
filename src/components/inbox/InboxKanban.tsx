@@ -104,27 +104,7 @@ export default function InboxKanban() {
         )}
       </div>
 
-      {/* Capturas brutas - strip */}
-      {capturas.length > 0 && (
-        <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-2 space-y-1.5">
-          <button
-            onClick={() => setShowCapturas(v => !v)}
-            className="w-full flex items-center justify-between text-[11px] font-semibold text-primary uppercase tracking-wide"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <InboxIcon className="h-3 w-3" /> {capturas.length} captura{capturas.length > 1 ? 's' : ''} a triar
-            </span>
-            <span>{showCapturas ? '−' : '+'}</span>
-          </button>
-          {showCapturas && (
-            <div className="space-y-1.5">
-              {capturas.map(entry => (
-                <InboxEntryCard key={entry.id} entry={entry} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Capturas rendered at page level (InboxPage) */}
 
       {/* Kanban board */}
       <div className="-mx-4 px-4 overflow-x-auto pb-2">
