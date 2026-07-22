@@ -6,9 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Item } from '@/types/central';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 export default function HomeToday() {
-  const { dailyPriorities, items, setPriority, removePriority, markPriorityDone } = useCentral();
+  const { dailyPriorities, items, setPriority, removePriority, markPriorityDone, addItem, settings } = useCentral();
   const navigate = useNavigate();
   const [pickingSlot, setPickingSlot] = useState<1 | 2 | 3 | null>(null);
 
