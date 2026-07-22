@@ -6,11 +6,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Item } from '@/types/central';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 export default function HomeToday() {
-  const { dailyPriorities, items, setPriority, removePriority, markPriorityDone } = useCentral();
+  const { dailyPriorities, items, setPriority, removePriority, markPriorityDone, addItem, settings } = useCentral();
   const navigate = useNavigate();
   const [pickingSlot, setPickingSlot] = useState<1 | 2 | 3 | null>(null);
+  const [customText, setCustomText] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const itemById = useMemo(() => {
     const m = new Map<string, Item>();
@@ -33,11 +37,42 @@ export default function HomeToday() {
       .slice(0, 40);
   }, [items, dailyPriorities]);
 
+  const closePicker = () => {
+    setPickingSlot(null);
+    setCustomText('');
+  };
+
   const handlePick = async (itemId: string) => {
     if (!pickingSlot) return;
     await setPriority(pickingSlot, itemId);
-    setPickingSlot(null);
+    closePicker();
     toast.success(`Definido como prioridade ${pickingSlot}`);
+  };
+
+  const handleCreateCustom = async () => {
+    const text = customText.trim();
+    if (!text || !pickingSlot || creating) return;
+    setCreating(true);
+    try {
+      const newId = await addItem({
+        title: text,
+        tipo: settings.tipos[0] || 'Ação',
+        fase: 'Em andamento',
+        area: settings.areas[0] || 'Pessoal',
+        tags: [],
+        kind: 'my_action',
+        origin: 'manual',
+      });
+      if (newId) {
+        await setPriority(pickingSlot, newId);
+        toast.success(`Definido como prioridade ${pickingSlot}`);
+        closePicker();
+      } else {
+        toast.error('Não foi possível criar');
+      }
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -106,28 +141,47 @@ export default function HomeToday() {
         </div>
       </section>
 
-      <Dialog open={pickingSlot !== null} onOpenChange={(open) => !open && setPickingSlot(null)}>
+      <Dialog open={pickingSlot !== null} onOpenChange={(open) => !open && closePicker()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Escolher prioridade {pickingSlot}</DialogTitle>
+            <DialogTitle>Prioridade {pickingSlot}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto space-y-1">
-            {candidates.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">Nenhum item aberto disponível.</p>
-            ) : (
-              candidates.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => handlePick(item.id)}
-                  className="w-full text-left p-3 rounded-lg hover:bg-surface-2 transition-colors border border-transparent hover:border-surface-2"
-                >
-                  <div className="text-sm font-medium text-foreground">{item.title}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {item.area} · {item.fase}
-                  </div>
-                </button>
-              ))
-            )}
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                autoFocus
+                placeholder="Escrever prioridade…"
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); handleCreateCustom(); }
+                }}
+              />
+              <Button onClick={handleCreateCustom} disabled={!customText.trim() || creating}>
+                Adicionar
+              </Button>
+            </div>
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground pt-1">
+              ou escolher item existente
+            </div>
+            <div className="max-h-[45vh] overflow-y-auto space-y-1">
+              {candidates.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum item aberto disponível.</p>
+              ) : (
+                candidates.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => handlePick(item.id)}
+                    className="w-full text-left p-3 rounded-lg hover:bg-surface-2 transition-colors border border-transparent hover:border-surface-2"
+                  >
+                    <div className="text-sm font-medium text-foreground">{item.title}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {item.area} · {item.fase}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

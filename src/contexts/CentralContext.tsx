@@ -58,7 +58,7 @@ interface CentralContextType {
   convertInboxToMemory: (id: string, title?: string) => void;
   refreshInbox: () => Promise<void>;
   items: Item[];
-  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => void;
+  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => Promise<string | null>;
   updateItem: (id: string, updates: Partial<Item>) => void;
   deleteItem: (id: string) => void;
   addComment: (itemId: string, text: string) => void;
@@ -691,13 +691,15 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (error) {
       // Rollback optimistic add
       setItems(prev => prev.filter(i => i.id !== tempId));
-      return;
+      return null;
     }
     if (data) {
       // Replace temp with real row (preserves order at top)
       setItems(prev => prev.map(i => (i.id === tempId ? dbRowToItem(data, []) : i)));
       if (item.deadline) pushToGoogle(data.id, 'upsert');
+      return data.id as string;
     }
+    return null;
   }, [getUserId, pushToGoogle]);
 
   const updateItem = useCallback(async (id: string, updates: Partial<Item>) => {
