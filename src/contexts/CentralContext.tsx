@@ -691,13 +691,15 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (error) {
       // Rollback optimistic add
       setItems(prev => prev.filter(i => i.id !== tempId));
-      return;
+      return null;
     }
     if (data) {
       // Replace temp with real row (preserves order at top)
       setItems(prev => prev.map(i => (i.id === tempId ? dbRowToItem(data, []) : i)));
       if (item.deadline) pushToGoogle(data.id, 'upsert');
+      return data.id as string;
     }
+    return null;
   }, [getUserId, pushToGoogle]);
 
   const updateItem = useCallback(async (id: string, updates: Partial<Item>) => {
