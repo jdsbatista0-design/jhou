@@ -13,6 +13,8 @@ export default function HomeToday() {
   const { dailyPriorities, items, setPriority, removePriority, markPriorityDone, addItem, settings } = useCentral();
   const navigate = useNavigate();
   const [pickingSlot, setPickingSlot] = useState<1 | 2 | 3 | null>(null);
+  const [customText, setCustomText] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const itemById = useMemo(() => {
     const m = new Map<string, Item>();
@@ -35,11 +37,42 @@ export default function HomeToday() {
       .slice(0, 40);
   }, [items, dailyPriorities]);
 
+  const closePicker = () => {
+    setPickingSlot(null);
+    setCustomText('');
+  };
+
   const handlePick = async (itemId: string) => {
     if (!pickingSlot) return;
     await setPriority(pickingSlot, itemId);
-    setPickingSlot(null);
+    closePicker();
     toast.success(`Definido como prioridade ${pickingSlot}`);
+  };
+
+  const handleCreateCustom = async () => {
+    const text = customText.trim();
+    if (!text || !pickingSlot || creating) return;
+    setCreating(true);
+    try {
+      const newId = await addItem({
+        title: text,
+        tipo: settings.tipos[0] || 'Ação',
+        fase: 'Em andamento',
+        area: settings.areas[0] || 'Pessoal',
+        tags: [],
+        kind: 'my_action',
+        origin: 'manual',
+      });
+      if (newId) {
+        await setPriority(pickingSlot, newId);
+        toast.success(`Definido como prioridade ${pickingSlot}`);
+        closePicker();
+      } else {
+        toast.error('Não foi possível criar');
+      }
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
