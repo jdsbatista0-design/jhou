@@ -180,7 +180,7 @@ export default function InboxList() {
                             <span>{item.area}</span>
                             {item.priority === 'alta' && <span className="text-red-500">·  alta</span>}
                             {item.person && <span className="inline-flex items-center gap-0.5">· <User className="h-2.5 w-2.5" />{item.person}</span>}
-                            {item.deadline && <span className={cn(overdue && 'text-red-500 font-medium')}>· {item.deadline.slice(5).replace('-', '/')}</span>}
+                            {item.deadline && <span className={cn('inline-flex items-center gap-0.5', overdue && 'text-red-500 font-medium')}>· <Clock className="h-2.5 w-2.5" />{item.deadline.slice(5).replace('-', '/')}{item.deadlineTime ? ` ${item.deadlineTime}` : ''}</span>}
                             <span className="ml-auto" data-mono>{daysAgo(item.updatedAt)}</span>
                           </div>
                         </button>
