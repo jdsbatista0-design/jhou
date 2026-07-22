@@ -141,28 +141,47 @@ export default function HomeToday() {
         </div>
       </section>
 
-      <Dialog open={pickingSlot !== null} onOpenChange={(open) => !open && setPickingSlot(null)}>
+      <Dialog open={pickingSlot !== null} onOpenChange={(open) => !open && closePicker()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Escolher prioridade {pickingSlot}</DialogTitle>
+            <DialogTitle>Prioridade {pickingSlot}</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto space-y-1">
-            {candidates.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">Nenhum item aberto disponível.</p>
-            ) : (
-              candidates.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => handlePick(item.id)}
-                  className="w-full text-left p-3 rounded-lg hover:bg-surface-2 transition-colors border border-transparent hover:border-surface-2"
-                >
-                  <div className="text-sm font-medium text-foreground">{item.title}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {item.area} · {item.fase}
-                  </div>
-                </button>
-              ))
-            )}
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                autoFocus
+                placeholder="Escrever prioridade…"
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); handleCreateCustom(); }
+                }}
+              />
+              <Button onClick={handleCreateCustom} disabled={!customText.trim() || creating}>
+                Adicionar
+              </Button>
+            </div>
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground pt-1">
+              ou escolher item existente
+            </div>
+            <div className="max-h-[45vh] overflow-y-auto space-y-1">
+              {candidates.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum item aberto disponível.</p>
+              ) : (
+                candidates.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => handlePick(item.id)}
+                    className="w-full text-left p-3 rounded-lg hover:bg-surface-2 transition-colors border border-transparent hover:border-surface-2"
+                  >
+                    <div className="text-sm font-medium text-foreground">{item.title}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {item.area} · {item.fase}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
