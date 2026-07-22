@@ -58,7 +58,7 @@ interface CentralContextType {
   convertInboxToMemory: (id: string, title?: string) => void;
   refreshInbox: () => Promise<void>;
   items: Item[];
-  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => void;
+  addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt' | 'linkedAgendaIds' | 'comments'> & Partial<Pick<Item, 'tags' | 'linkedAgendaIds' | 'comments'>>) => Promise<string | null>;
   updateItem: (id: string, updates: Partial<Item>) => void;
   deleteItem: (id: string) => void;
   addComment: (itemId: string, text: string) => void;
