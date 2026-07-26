@@ -1,10 +1,9 @@
-import { Sun, Inbox as InboxIcon, CalendarDays, Wallet, Brain } from 'lucide-react';
+import { Inbox as InboxIcon, CalendarDays, Wallet, Brain } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useCentral } from '@/contexts/CentralContext';
 
 const tabs = [
-  { path: '/', icon: Sun, label: 'Hoje' },
   { path: '/inbox', icon: InboxIcon, label: 'Inbox' },
   { path: '/agenda', icon: CalendarDays, label: 'Agenda' },
   { path: '/financas', icon: Wallet, label: 'Finanças' },
