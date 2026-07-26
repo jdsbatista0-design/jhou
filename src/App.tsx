@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,7 +10,6 @@ import { FinanceProvider } from "@/contexts/FinanceContext";
 import { supabase } from "@/integrations/supabase/client";
 import AppShell from "@/components/AppShell";
 import Auth from "@/pages/Auth";
-import Dashboard from "@/pages/Dashboard";
 
 // Lazy-loaded routes — initial bundle stays small
 const ItemDetail = lazy(() => import("@/pages/ItemDetail"));
@@ -27,6 +26,18 @@ const queryClient = new QueryClient();
 const RouteFallback = () => (
   <div className="text-sm text-muted-foreground p-4 animate-pulse">Carregando…</div>
 );
+
+// Prefetch other routes when the browser is idle, so tab switches feel instant.
+const prefetchRoutes = () => {
+  const idle = (cb: () => void) =>
+    (window as any).requestIdleCallback ? (window as any).requestIdleCallback(cb) : setTimeout(cb, 300);
+  idle(() => {
+    import("@/pages/InboxPage");
+    import("@/pages/AgendaPage");
+    import("@/pages/FinancePage");
+    import("@/pages/MemoryPage");
+  });
+};
 
 const App = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -48,6 +59,10 @@ const App = () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (session) prefetchRoutes();
+  }, [session]);
 
   if (loading) {
     return (
@@ -80,7 +95,7 @@ const App = () => {
               <AppShell>
                 <Suspense fallback={<RouteFallback />}>
                   <Routes>
-                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/" element={<Navigate to="/inbox" replace />} />
                     <Route path="/inbox" element={<InboxPage />} />
                     <Route path="/agenda" element={<AgendaPage />} />
                     <Route path="/financas" element={<FinancePage />} />
@@ -88,7 +103,6 @@ const App = () => {
                     {/* Acessíveis via menu de perfil */}
                     <Route path="/memoria" element={<MemoryPage />} />
                     <Route path="/memory" element={<MemoryPage />} />
-                    <Route path="/painel" element={<Dashboard />} />
                     <Route path="/relatorios" element={<ReportsPage />} />
                     <Route path="/reports" element={<ReportsPage />} />
                     <Route path="/configuracoes" element={<SettingsPage />} />
