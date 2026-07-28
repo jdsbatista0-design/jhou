@@ -96,7 +96,7 @@ function FinanceInner() {
           {section === 'budgets' && <CategoryBudgets scope="pf" />}
           {section === 'overview' && <FinanceOverview scope="pf" companyId={null} />}
           {section === 'accounts' && <AccountsManager scope="pf" companyId={null} />}
-          {section === 'cards' && <CardsManager scope="pf" companyId={null} />}
+          {section === 'cards' && <CardsDashboard scope="pf" companyId={null} />}
         </Suspense>
       </div>
 
