@@ -254,9 +254,10 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
   // ---- ITEMS ----
   const refreshItems = useCallback(async () => {
+    // JOIN items + comments em uma única roundtrip via nested select (PostgREST).
     const { data: itemRows, error } = await supabase
       .from('items')
-      .select('*')
+      .select('*, item_comments(*)')
       .order('created_at', { ascending: false });
     if (error || !itemRows) return;
 
@@ -281,25 +282,17 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     }
     if (toDelete.length > 0) {
       cleanRows = cleanRows.filter((r: any) => !toDelete.includes(r.id));
-      await supabase.from('items').delete().in('id', toDelete);
+      supabase.from('items').delete().in('id', toDelete).then(() => {});
     }
 
-    const itemIds = cleanRows.map((r: any) => r.id);
-    const { data: commentRows } = itemIds.length
-      ? await supabase
-        .from('item_comments')
-        .select('*')
-        .in('item_id', itemIds)
-        .order('created_at', { ascending: true })
-      : { data: [] };
-
-    const commentsByItem: Record<string, ItemComment[]> = {};
-    (commentRows || []).forEach((c: any) => {
-      if (!commentsByItem[c.item_id]) commentsByItem[c.item_id] = [];
-      commentsByItem[c.item_id].push({ id: c.id, text: c.text, createdAt: c.created_at });
-    });
-
-    setItems(cleanRows.map((r: any) => dbRowToItem(r, commentsByItem[r.id] || [])));
+    setItems(cleanRows.map((r: any) => {
+      const rawComments: any[] = Array.isArray(r.item_comments) ? r.item_comments : [];
+      const comments: ItemComment[] = rawComments
+        .slice()
+        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+        .map((c: any) => ({ id: c.id, text: c.text, createdAt: c.created_at }));
+      return dbRowToItem(r, comments);
+    }));
   }, []);
 
 
