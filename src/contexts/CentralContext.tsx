@@ -383,63 +383,47 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     timers[key] = window.setTimeout(() => { fn().catch(() => {}); }, ms);
   }, []);
 
+  // Lazy load das memórias: só descriptografa quando alguém pedir (MemoryPage).
+  const memoriesLoadedRef = useRef(false);
+  const ensureMemoriesLoaded = useCallback(async () => {
+    if (memoriesLoadedRef.current) return;
+    memoriesLoadedRef.current = true;
+    await refreshMemories();
+  }, [refreshMemories]);
+
   useEffect(() => {
-    // Carrega tudo em paralelo — boot rápido
+    // Carrega essenciais em paralelo — memórias ficam lazy.
     setLoading(true);
     Promise.allSettled([
       refreshInbox(),
       refreshItems(),
-      refreshMemories(),
       refreshEvents(),
       refreshRecurrences(),
       refreshDailyPriorities(),
       refreshSettings(),
     ]).finally(() => setLoading(false));
 
-    const inboxCh = supabase.channel('inbox_changes')
+    // Um único canal com múltiplos handlers → 1 WS handshake ao invés de 7.
+    const ch = supabase.channel('central_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' },
         () => debouncedRefresh('inbox', refreshInbox, 1500))
-      .subscribe();
-
-    const itemsCh = supabase.channel('items_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'items' },
         () => debouncedRefresh('items', refreshItems, 1500))
-      .subscribe();
-
-    const commentsCh = supabase.channel('comments_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'item_comments' },
         () => debouncedRefresh('items', refreshItems, 1500))
-      .subscribe();
-
-    const memoriesCh = supabase.channel('memories_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'memories' },
-        () => debouncedRefresh('memories', refreshMemories, 1500))
-      .subscribe();
-
-    const eventsCh = supabase.channel('events_changes')
+        () => { if (memoriesLoadedRef.current) debouncedRefresh('memories', refreshMemories, 1500); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' },
         () => debouncedRefresh('events', refreshEvents, 1500))
-      .subscribe();
-
-    const recurrencesCh = supabase.channel('recurrences_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'recurrences' },
         () => debouncedRefresh('recurrences', refreshRecurrences, 1500))
-      .subscribe();
-
-    const settingsCh = supabase.channel('settings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' },
         () => debouncedRefresh('settings', refreshSettings, 1500))
       .subscribe();
 
     return () => {
       Object.values(debounceTimers.current).forEach(t => window.clearTimeout(t));
-      supabase.removeChannel(inboxCh);
-      supabase.removeChannel(itemsCh);
-      supabase.removeChannel(commentsCh);
-      supabase.removeChannel(memoriesCh);
-      supabase.removeChannel(eventsCh);
-      supabase.removeChannel(recurrencesCh);
-      supabase.removeChannel(settingsCh);
+      supabase.removeChannel(ch);
     };
   }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshRecurrences, refreshSettings, debouncedRefresh]);
 
