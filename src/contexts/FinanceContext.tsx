@@ -161,6 +161,22 @@ interface FinanceContextType {
     nextDueOn: string | null;
   }>;
   getCardPaymentsForMonth: (monthISO: string) => number;
+  // Aggregated across all cards
+  getCardsSummary: () => {
+    totalOpen: number; totalLimit: number; utilization: number;
+    inInstallments: number;
+    nextDue: { cardId: string; cardName: string; color: string; amount: number; dueOn: string; daysUntil: number } | null;
+    cardsCount: number;
+  };
+  getCardsForecast: (months: number) => Array<{
+    monthISO: string; label: string; total: number;
+    perCard: Array<{ cardId: string; cardName: string; color: string; amount: number }>;
+    isPeak: boolean;
+  }>;
+  getCardsGlobalBreakdown: (monthsBack: number) => Array<{
+    categoryId: string | null; name: string; color: string; total: number;
+    pct: number; deltaPct: number | null;
+  }>;
 }
 
 
