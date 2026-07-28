@@ -1,17 +1,27 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { useCentral } from '@/contexts/CentralContext';
 import InboxKanban from '@/components/inbox/InboxKanban';
 import InboxList from '@/components/inbox/InboxList';
 import InboxEntryCard from '@/components/InboxEntryCard';
 import { cn } from '@/lib/utils';
-import { List, LayoutGrid, Inbox as InboxIcon } from 'lucide-react';
+import { List, LayoutGrid, GanttChartSquare, Inbox as InboxIcon } from 'lucide-react';
+
+const InboxGantt = lazy(() => import('@/components/inbox/InboxGantt'));
+
+type View = 'list' | 'kanban' | 'gantt';
 
 export default function InboxPage() {
   const { items, inbox } = useCentral();
-  const [view, setView] = useState<'list' | 'kanban'>('list');
+  const [view, setView] = useState<View>('list');
   const [showCapturas, setShowCapturas] = useState(true);
 
   const capturas = useMemo(() => inbox.filter(e => e.status === 'pending'), [inbox]);
+
+  const viewButtons: { key: View; icon: typeof List; label: string }[] = [
+    { key: 'list', icon: List, label: 'Lista' },
+    { key: 'kanban', icon: LayoutGrid, label: 'Kanban' },
+    { key: 'gantt', icon: GanttChartSquare, label: 'Gantt' },
+  ];
 
   return (
     <div className="space-y-3 pb-4">
@@ -20,31 +30,27 @@ export default function InboxPage() {
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground" data-mono>{items.length}</span>
           <div className="flex gap-0.5 bg-surface rounded-chip p-0.5">
-            <button
-              onClick={() => setView('list')}
-              className={cn(
-                'tap-target px-2.5 rounded-chip transition-colors flex items-center gap-1 text-xs',
-                view === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
-              )}
-              aria-label="Lista"
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setView('kanban')}
-              className={cn(
-                'tap-target px-2.5 rounded-chip transition-colors flex items-center gap-1 text-xs',
-                view === 'kanban' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
-              )}
-              aria-label="Kanban"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
+            {viewButtons.map(b => {
+              const Icon = b.icon;
+              return (
+                <button
+                  key={b.key}
+                  onClick={() => setView(b.key)}
+                  className={cn(
+                    'tap-target px-2.5 rounded-chip transition-colors flex items-center gap-1 text-xs',
+                    view === b.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
+                  )}
+                  aria-label={b.label}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {capturas.length > 0 && (
+      {capturas.length > 0 && view !== 'gantt' && (
         <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-2 space-y-1.5">
           <button
             onClick={() => setShowCapturas(v => !v)}
@@ -65,7 +71,13 @@ export default function InboxPage() {
         </div>
       )}
 
-      {view === 'list' ? <InboxList /> : <InboxKanban />}
+      {view === 'list' && <InboxList />}
+      {view === 'kanban' && <InboxKanban />}
+      {view === 'gantt' && (
+        <Suspense fallback={<div className="text-[11px] text-muted-foreground animate-pulse pt-3">Carregando…</div>}>
+          <InboxGantt />
+        </Suspense>
+      )}
     </div>
   );
 }
