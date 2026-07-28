@@ -42,13 +42,6 @@ const prefetchRoutes = () => {
   if (idle) idle(kick, { timeout: 500 }); else setTimeout(kick, 0);
 };
 
-// FinanceProvider só carrega quando o usuário abre /financas — evita 6-8 queries
-// desnecessárias em Inbox, Agenda, Memória e Configurações.
-const FinanceRoute = () => (
-  <FinanceProvider>
-    <FinancePage />
-  </FinanceProvider>
-);
 
 const App = () => {
   const [session, setSession] = useState<Session | null>(null);
