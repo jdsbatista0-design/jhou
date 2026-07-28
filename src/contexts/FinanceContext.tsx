@@ -161,6 +161,22 @@ interface FinanceContextType {
     nextDueOn: string | null;
   }>;
   getCardPaymentsForMonth: (monthISO: string) => number;
+  // Aggregated across all cards
+  getCardsSummary: () => {
+    totalOpen: number; totalLimit: number; utilization: number;
+    inInstallments: number;
+    nextDue: { cardId: string; cardName: string; color: string; amount: number; dueOn: string; daysUntil: number } | null;
+    cardsCount: number;
+  };
+  getCardsForecast: (months: number) => Array<{
+    monthISO: string; label: string; total: number;
+    perCard: Array<{ cardId: string; cardName: string; color: string; amount: number }>;
+    isPeak: boolean;
+  }>;
+  getCardsGlobalBreakdown: (monthsBack: number) => Array<{
+    categoryId: string | null; name: string; color: string; total: number;
+    pct: number; deltaPct: number | null;
+  }>;
 }
 
 
@@ -944,6 +960,119 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
       .reduce((s, t) => s + t.amount, 0);
   }, [transactions, monthBounds]);
 
+  // ---------- Aggregated across all cards ----------
+  const activeCards = useMemo(() => cards.filter(c => !c.archived), [cards]);
+
+  const getCardsSummary = useCallback(() => {
+    const nowISO = currentMonthISOFn();
+    let totalOpen = 0;
+    let totalLimit = 0;
+    let inInstallments = 0;
+    let nextDue: { cardId: string; cardName: string; color: string; amount: number; dueOn: string; daysUntil: number } | null = null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+
+    for (const c of activeCards) {
+      totalLimit += c.limitAmount || 0;
+      const st = getCardStatement(c.id, nowISO);
+      totalOpen += st.remaining;
+      if (st.due && st.remaining > 0) {
+        const dd = new Date(st.due + 'T00:00:00');
+        const days = Math.round((dd.getTime() - today.getTime()) / 86400000);
+        if (!nextDue || dd < new Date(nextDue.dueOn + 'T00:00:00')) {
+          nextDue = {
+            cardId: c.id, cardName: c.name, color: c.color,
+            amount: st.remaining, dueOn: st.due, daysUntil: days,
+          };
+        }
+      }
+      // Installments still to pay on this card
+      const inst = getCardActiveInstallments(c.id);
+      for (const p of inst) inInstallments += p.installmentAmount * p.remaining;
+    }
+    const utilization = totalLimit > 0 ? Math.min(100, (totalOpen / totalLimit) * 100) : 0;
+    return {
+      totalOpen, totalLimit, utilization,
+      inInstallments, nextDue, cardsCount: activeCards.length,
+    };
+  }, [activeCards, currentMonthISOFn, getCardStatement, getCardActiveInstallments]);
+
+  const getCardsForecast = useCallback((months: number) => {
+    const now = new Date();
+    const monthsList: string[] = [];
+    for (let i = 0; i < months; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      monthsList.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    const rows = monthsList.map(mISO => {
+      const perCard: Array<{ cardId: string; cardName: string; color: string; amount: number }> = [];
+      let total = 0;
+      for (const c of activeCards) {
+        const st = getCardStatement(c.id, mISO);
+        // Future obligation = total on the invoice minus what's already paid.
+        const amt = Math.max(0, st.total - st.paid);
+        if (amt > 0.005) {
+          perCard.push({ cardId: c.id, cardName: c.name, color: c.color, amount: amt });
+          total += amt;
+        }
+      }
+      perCard.sort((a, b) => b.amount - a.amount);
+      const [y, m] = mISO.split('-').map(Number);
+      const label = new Date(y, m - 1, 1)
+        .toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+        .replace('.', '');
+      return { monthISO: mISO, label, total, perCard, isPeak: false };
+    });
+    const avg = rows.reduce((s, r) => s + r.total, 0) / (rows.length || 1);
+    return rows.map(r => ({ ...r, isPeak: avg > 0 && r.total > avg * 1.2 }));
+  }, [activeCards, getCardStatement]);
+
+  const getCardsGlobalBreakdown = useCallback((monthsBack: number) => {
+    const now = new Date();
+    const curStart = new Date(now.getFullYear(), now.getMonth() - (monthsBack - 1), 1);
+    const curStartISO = ymd(curStart);
+    const curEndISO = ymd(now);
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - (monthsBack * 2 - 1), 1);
+    const prevEnd = new Date(now.getFullYear(), now.getMonth() - (monthsBack - 1), 0);
+    const prevStartISO = ymd(prevStart);
+    const prevEndISO = ymd(prevEnd);
+
+    const cur = new Map<string, number>(); let curUncat = 0; let curTotal = 0;
+    const prev = new Map<string, number>(); let prevUncat = 0;
+    for (const t of transactions) {
+      if (!t.cardId || t.kind !== 'expense') continue;
+      if (t.occurredOn >= curStartISO && t.occurredOn <= curEndISO) {
+        curTotal += t.amount;
+        if (t.categoryId) cur.set(t.categoryId, (cur.get(t.categoryId) || 0) + t.amount);
+        else curUncat += t.amount;
+      } else if (t.occurredOn >= prevStartISO && t.occurredOn <= prevEndISO) {
+        if (t.categoryId) prev.set(t.categoryId, (prev.get(t.categoryId) || 0) + t.amount);
+        else prevUncat += t.amount;
+      }
+    }
+    const denom = curTotal || 1;
+    const rows = categories
+      .filter(c => !c.archived && (cur.get(c.id) || 0) > 0)
+      .map(c => {
+        const t = cur.get(c.id) || 0;
+        const p = prev.get(c.id) || 0;
+        return {
+          categoryId: c.id as string | null,
+          name: c.name, color: c.color, total: t,
+          pct: (t / denom) * 100,
+          deltaPct: p > 0 ? ((t - p) / p) * 100 : null,
+        };
+      });
+    if (curUncat > 0) {
+      rows.push({
+        categoryId: null, name: 'Sem categoria', color: '#94a3b8', total: curUncat,
+        pct: (curUncat / denom) * 100,
+        deltaPct: prevUncat > 0 ? ((curUncat - prevUncat) / prevUncat) * 100 : null,
+      });
+    }
+    return rows.sort((a, b) => b.total - a.total);
+  }, [transactions, categories]);
+
+
   // ---------- Card actions ----------
   const addInstallmentPurchase: FinanceContextType['addInstallmentPurchase'] = async (data) => {
     const userId = await getUserId(); if (!userId) return;
@@ -1002,11 +1131,13 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     accountBalance, cardOpenInvoice,
     getMonthTotals, getUpcomingBills, getCategoryTotals, getYearMatrix,
     getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, getCardPaymentsForMonth,
+    getCardsSummary, getCardsForecast, getCardsGlobalBreakdown,
   }), [loading, companies, accounts, cards, categories, people, recurrences, transactions,
        scope, setScope, selectedCompanyId, setSelectedCompanyId,
        accountBalance, cardOpenInvoice,
        getMonthTotals, getUpcomingBills, getCategoryTotals, getYearMatrix,
-       getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, getCardPaymentsForMonth]);
+       getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, getCardPaymentsForMonth,
+       getCardsSummary, getCardsForecast, getCardsGlobalBreakdown]);
 
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;

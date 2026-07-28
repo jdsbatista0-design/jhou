@@ -1,39 +1,65 @@
-## Ajustes propostos
+## Objetivo
 
-### 1. Hoje — prioridade personalizada
-No `HomeToday.tsx`, além de "Escolher item existente", permitir digitar uma prioridade livre (texto puro).
-- Bottom sheet do slot ganha um campo de texto no topo: "Escrever prioridade…" com botão "Adicionar".
-- Ao confirmar, cria um `Item` mínimo (title = texto, fase = "Em andamento", area = padrão do usuário, origin = "manual", kind = "my_action") e atribui ao slot via `setPriority`.
-- Abaixo continua a lista de itens existentes para quem quiser vincular.
+Transformar a aba **Cartões** num centro de controle do seu maior fluxo de dinheiro: saber, em segundos, **quanto vai sair nos próximos meses**, **onde você está gastando mais** e **o que está parcelado**.
 
-### 2. Inbox — regras de exibição
-No `InboxList.tsx` / `InboxKanban.tsx` e no filtro base de itens:
-- **Ocultar concluídos**: itens com `fase === 'Concluído'` saem da view padrão (mantém toggle "mostrar concluídos" opcional, colapsado).
-- **Ocultar recorrentes materializados**: qualquer item com `recurrenceId` não aparece no Inbox (já é regra na Home; estender ao Inbox).
-- **Mostrar data/hora quando houver**: cada card do Inbox exibe `deadline + deadlineTime` formatado (ex: "qua 22/07 · 16:00") com ícone de relógio, quando presentes.
+## Diagnóstico do que existe hoje
 
-Resultado: Inbox vira exclusivamente "tarefas e itens em organização" — sem ruído de rotina nem concluídos.
+- Cada cartão só mostra a fatura do mês selecionado — não dá pra ver o horizonte.
+- Não há visão consolidada "todos os cartões juntos".
+- Ranking de categorias existe só dentro de 1 cartão/1 mês. Sem visão agregada nem "top 5 do trimestre".
+- Parcelamentos aparecem por cartão, sem soma total nem cronograma futuro.
+- Recorrências financeiras (Netflix, escola no cartão etc.) não entram na projeção.
 
-### 3. Agenda — fonte unificada + criação manual
-`AgendaPage.tsx` já agrega Items com data + finanças pendentes + recorrências. Confirmar/reforçar:
-- **Items com data/hora** (inclusive os criados via prioridade livre da Home, se tiverem deadline).
-- **Recorrências** (pilates, rotina do HD) via materialização existente.
-- **Finanças** (vencimentos pendentes) já entram via `financeEntries`.
-- **Lançamento manual de compromisso**: o FAB contextual em `/agenda` já abre `AppointmentSheet`. Garantir que esse fluxo esteja visível e funcional (revisar copy do botão e do sheet para deixar claro "Novo compromisso").
+## Nova jornada — 3 blocos dentro da aba Cartões
 
-### 4. Consistência de origem
-Padronizar `origin` nos itens criados:
-- Prioridade livre da Home → `origin: 'manual'`.
-- Compromisso via AppointmentSheet → `origin: 'manual'` (recorrente = `'recurrence'`).
-- Rotina do HD → `origin: 'recurrence'`.
-Assim os filtros de Inbox/Agenda ficam previsíveis.
+### 1. Topo — Panorama de todos os cartões
+Um único card no topo, sempre visível:
+- **Total em aberto agora** (soma de faturas em aberto de todos os cartões).
+- **Próximo vencimento** (cartão, valor, quantos dias faltam).
+- **Comprometido em parcelas** (soma de todas as parcelas futuras).
+- **Utilização média do limite** (barra agregada).
 
-### Detalhes técnicos
-- `HomeToday.tsx`: novo estado `customText`; handler cria item via `addItem({ title, fase: 'Em andamento', area, kind: 'my_action', origin: 'manual' })` e em seguida `setPriority(slot, newItem.id)`.
-- `InboxList.tsx` + `InboxKanban.tsx`: adicionar filtro `.filter(i => i.fase !== 'Concluído' && !i.recurrenceId)` na fonte de dados. Renderizar chip de data/hora quando `deadline` presente (usar `parseLocalDateTime` de `src/lib/dates.ts`).
-- `AgendaPage.tsx`: sem mudança estrutural; validar FAB e copy do AppointmentSheet.
-- Sem mudanças de schema nem migrations.
+### 2. Previsão dos próximos 6 meses
+Nova seção **"Próximos meses"**: uma linha por mês (mês atual + 5 seguintes) mostrando:
+- Total previsto a pagar no mês (parcelas em aberto + recorrências no cartão + fatura fechada quando existir).
+- Detalhe expansível: quanto vem de cada cartão.
+- Alerta visual quando o mês tem pico acima da média.
 
-### Fora de escopo
-- Financeiro (não mexer).
-- Recompor lógica de recorrência ou push.
+```text
+Nov/26  R$ 4.820   ██████████░░  [Nubank 2.100 · Itaú 1.720 · Inter 1.000]
+Dez/26  R$ 6.150   ████████████  ↑ acima da média  [pico: parcela final TV]
+Jan/27  R$ 3.900   ████████░░░░
+...
+```
+
+### 3. Onde você mais gasta (todos os cartões, últimos 3 meses)
+Ranking agregado de categorias somando compras de **todos os cartões** dos últimos 90 dias:
+- Top 8 categorias com valor total, % do gasto e variação vs. os 3 meses anteriores.
+- Toque na categoria abre as compras que a compõem.
+
+### 4. Lista de cartões (mantém, mas mais enxuta)
+Cada cartão vira um card compacto com: nome, fatura em aberto, próxima parcela, utilização.
+Ao expandir → detalhe atual (extrato mensal, parcelamentos, quitar fatura) que já existe.
+
+## Detalhes técnicos
+
+Novos helpers em `FinanceContext`:
+- `getCardsForecast(months: number)` → soma por mês futuro (parcelas + recorrências no cartão + fatura fechada não paga).
+- `getCardsGlobalBreakdown(monthsBack: number)` → ranking de categorias agregando todos os cartões.
+- `getCardsSummary()` → totais globais para o cabeçalho.
+
+Novos componentes:
+- `src/components/finance/CardsDashboard.tsx` — orquestra os 3 blocos.
+- `src/components/finance/CardsForecast.tsx` — previsão 6 meses.
+- `src/components/finance/CardsTopCategories.tsx` — ranking agregado.
+- `src/components/finance/CardsSummary.tsx` — panorama do topo.
+
+`CardsManager.tsx` continua existindo, mas passa a ser renderizado abaixo dos novos blocos (lista dos cartões).
+
+Sem migration de banco — todas as informações já estão em `fin_transactions` (`purchaseGroupId`, `installmentNo/Total`, `paidCardMonth`, `cardId`, `categoryId`).
+
+## Fora de escopo desta rodada
+
+- Mudanças no fluxo de "Pagar fatura" (já refinado).
+- Mudanças na aba **Tudo/A Pagar/Categorias/Resumo**.
+- Recorrências e outras áreas do sistema.

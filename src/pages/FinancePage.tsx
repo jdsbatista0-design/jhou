@@ -10,7 +10,7 @@ const BillsToPay = lazy(() => import('@/components/finance/BillsToPay').then(m =
 const TransactionsList = lazy(() => import('@/components/finance/TransactionsList').then(m => ({ default: m.TransactionsList })));
 const FinanceOverview = lazy(() => import('@/components/finance/FinanceOverview').then(m => ({ default: m.FinanceOverview })));
 const AccountsManager = lazy(() => import('@/components/finance/AccountsManager').then(m => ({ default: m.AccountsManager })));
-const CardsManager = lazy(() => import('@/components/finance/CardsManager').then(m => ({ default: m.CardsManager })));
+const CardsDashboard = lazy(() => import('@/components/finance/CardsDashboard').then(m => ({ default: m.CardsDashboard })));
 const CategoryBudgets = lazy(() => import('@/components/finance/CategoryBudgets').then(m => ({ default: m.CategoryBudgets })));
 const TransactionDialog = lazy(() => import('@/components/finance/TransactionDialog').then(m => ({ default: m.TransactionDialog })));
 
@@ -96,7 +96,7 @@ function FinanceInner() {
           {section === 'budgets' && <CategoryBudgets scope="pf" />}
           {section === 'overview' && <FinanceOverview scope="pf" companyId={null} />}
           {section === 'accounts' && <AccountsManager scope="pf" companyId={null} />}
-          {section === 'cards' && <CardsManager scope="pf" companyId={null} />}
+          {section === 'cards' && <CardsDashboard scope="pf" companyId={null} />}
         </Suspense>
       </div>
 
