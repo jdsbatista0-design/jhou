@@ -354,9 +354,14 @@ export default function MemoryPage() {
             <span className="text-sm flex-shrink-0">{catInfo?.icon}</span>
             <h3 className="text-sm font-medium text-foreground truncate">{m.title}</h3>
           </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => { deleteMemory(m.id); toast.success('Removido'); }}>
-            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(m)} aria-label="Editar">
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { deleteMemory(m.id); toast.success('Removido'); }} aria-label="Excluir">
+              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </div>
         </div>
 
         {/* Reuniões */}
