@@ -567,12 +567,12 @@ export default function MemoryPage() {
     <div className="space-y-4 pb-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground">Memória / HD</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(form.category); }}>
           <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full gap-1"><Plus className="h-4 w-4" /> Nova</Button>
+            <Button size="sm" className="rounded-full gap-1" onClick={() => resetForm(activeCategory === 'all' ? 'geral' : activeCategory)}><Plus className="h-4 w-4" /> Nova</Button>
           </DialogTrigger>
           <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Nova Memória</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingId ? 'Editar Memória' : 'Nova Memória'}</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v as MemoryCategory }))}>
                 <SelectTrigger className="rounded-xl">
