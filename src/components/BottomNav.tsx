@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils';
 import { useCentral } from '@/contexts/CentralContext';
 
 const tabs = [
-  { path: '/inbox', icon: InboxIcon, label: 'Inbox' },
-  { path: '/agenda', icon: CalendarDays, label: 'Agenda' },
-  { path: '/financas', icon: Wallet, label: 'Finanças' },
-  { path: '/memory', icon: Brain, label: 'HD' },
+  { path: '/inbox', icon: InboxIcon, label: 'Inbox', prefetch: () => import('@/pages/InboxPage') },
+  { path: '/agenda', icon: CalendarDays, label: 'Agenda', prefetch: () => import('@/pages/AgendaPage') },
+  { path: '/financas', icon: Wallet, label: 'Finanças', prefetch: () => import('@/pages/FinancePage') },
+  { path: '/memory', icon: Brain, label: 'HD', prefetch: () => import('@/pages/MemoryPage') },
 ];
 
 export default function BottomNav() {
