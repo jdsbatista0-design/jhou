@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Trash2, Eye, EyeOff, Copy, ExternalLink, ListChecks, Link as LinkIcon } from 'lucide-react';
+import { Plus, Search, Trash2, Eye, EyeOff, Copy, ExternalLink, ListChecks, Link as LinkIcon, Pencil } from 'lucide-react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,8 @@ export default function MemoryPage() {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<MemoryCategory | 'all'>('all');
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const emptyForm = {
     title: '', content: '', tags: '', category: 'geral' as MemoryCategory,
     login: '', password: '', url: '', city: '',
     travelKind: 'lugar' as 'hotel' | 'restaurante' | 'lugar' | 'dica',
@@ -41,8 +42,47 @@ export default function MemoryPage() {
     weekdays: [] as number[], routineTime: '08:00',
     meetingDate: todayISO(), participants: '', decisions: '', nextSteps: '',
     linkedItemId: '__none__',
-  });
+  };
+  const [form, setForm] = useState(emptyForm);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+
+  const openEdit = (m: Memory) => {
+    setEditingId(m.id);
+    setForm({
+      title: m.title || '',
+      content: m.content || '',
+      tags: (m.tags || []).join(', '),
+      category: (m.category || 'geral') as MemoryCategory,
+      login: m.login || '',
+      password: m.password || '',
+      url: m.url || '',
+      city: m.city || '',
+      travelKind: (m.travelKind || 'lugar') as any,
+      address: m.address || '',
+      rating: m.rating || 0,
+      priceRange: (m.priceRange || '') as any,
+      mapsUrl: m.mapsUrl || '',
+      attachmentUrl: m.attachmentUrl || '',
+      comment: m.comment || '',
+      ingredients: m.ingredients || '',
+      steps: m.steps || '',
+      servings: m.servings || 0,
+      timeMinutes: m.timeMinutes || 0,
+      weekdays: m.weekdays || [],
+      routineTime: m.routineTime || '08:00',
+      meetingDate: m.meetingDate || todayISO(),
+      participants: m.participants || '',
+      decisions: m.decisions || '',
+      nextSteps: m.nextSteps || '',
+      linkedItemId: m.linkedItemId || '__none__',
+    });
+    setOpen(true);
+  };
+
+  const resetForm = (keepCategory?: MemoryCategory) => {
+    setEditingId(null);
+    setForm({ ...emptyForm, category: keepCategory || 'geral' });
+  };
 
   const agendaItemOptions = useMemo(() => {
     return items
@@ -72,7 +112,7 @@ export default function MemoryPage() {
     const cat = form.category;
     let linkedRecurrenceId: string | undefined;
 
-    if (cat === 'rotina' && form.weekdays.length > 0 && form.routineTime) {
+    if (!editingId && cat === 'rotina' && form.weekdays.length > 0 && form.routineTime) {
       try {
         const recId = await addRecurrence({
           title: form.title,
@@ -91,7 +131,7 @@ export default function MemoryPage() {
       }
     }
 
-    await addMemory({
+    const payload: Partial<Memory> = {
       title: form.title,
       content: form.content,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
@@ -113,25 +153,23 @@ export default function MemoryPage() {
       timeMinutes: cat === 'receitas' && form.timeMinutes > 0 ? form.timeMinutes : undefined,
       weekdays: cat === 'rotina' ? form.weekdays : undefined,
       routineTime: cat === 'rotina' ? form.routineTime : undefined,
-      linkedRecurrenceId,
       meetingDate: cat === 'reunioes' ? (form.meetingDate || undefined) : undefined,
       participants: cat === 'reunioes' ? (form.participants || undefined) : undefined,
       decisions: cat === 'reunioes' ? (form.decisions || undefined) : undefined,
       nextSteps: cat === 'reunioes' ? (form.nextSteps || undefined) : undefined,
       linkedItemId: cat === 'reunioes' && form.linkedItemId !== '__none__' ? form.linkedItemId : undefined,
-    });
-    setForm({
-      title: '', content: '', tags: '', category: cat,
-      login: '', password: '', url: '', city: '',
-      travelKind: 'lugar', address: '', rating: 0, priceRange: '', mapsUrl: '',
-      attachmentUrl: '', comment: '',
-      ingredients: '', steps: '', servings: 0, timeMinutes: 0,
-      weekdays: [], routineTime: '08:00',
-      meetingDate: todayISO(), participants: '', decisions: '', nextSteps: '',
-      linkedItemId: '__none__',
-    });
+    };
+    if (linkedRecurrenceId) (payload as any).linkedRecurrenceId = linkedRecurrenceId;
+
+    if (editingId) {
+      await updateMemory(editingId, payload);
+      toast.success('Memória atualizada');
+    } else {
+      await addMemory(payload as any);
+      toast.success('Memória salva');
+    }
+    resetForm(cat);
     setOpen(false);
-    toast.success('Memória salva');
   };
 
   const togglePassword = (id: string) => {
@@ -316,9 +354,14 @@ export default function MemoryPage() {
             <span className="text-sm flex-shrink-0">{catInfo?.icon}</span>
             <h3 className="text-sm font-medium text-foreground truncate">{m.title}</h3>
           </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => { deleteMemory(m.id); toast.success('Removido'); }}>
-            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(m)} aria-label="Editar">
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { deleteMemory(m.id); toast.success('Removido'); }} aria-label="Excluir">
+              <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </div>
         </div>
 
         {/* Reuniões */}
@@ -524,12 +567,12 @@ export default function MemoryPage() {
     <div className="space-y-4 pb-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground">Memória / HD</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(form.category); }}>
           <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full gap-1"><Plus className="h-4 w-4" /> Nova</Button>
+            <Button size="sm" className="rounded-full gap-1" onClick={() => resetForm(activeCategory === 'all' ? 'geral' : activeCategory)}><Plus className="h-4 w-4" /> Nova</Button>
           </DialogTrigger>
           <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Nova Memória</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingId ? 'Editar Memória' : 'Nova Memória'}</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v as MemoryCategory }))}>
                 <SelectTrigger className="rounded-xl">
@@ -556,7 +599,7 @@ export default function MemoryPage() {
                 rows={4}
               />
               <Input placeholder="Tags (vírgula)" value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} className="rounded-xl text-xs" />
-              <Button onClick={handleAdd} className="w-full rounded-xl">Salvar</Button>
+              <Button onClick={handleAdd} className="w-full rounded-xl">{editingId ? 'Atualizar' : 'Salvar'}</Button>
             </div>
           </DialogContent>
         </Dialog>
