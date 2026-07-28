@@ -31,7 +31,8 @@ export default function MemoryPage() {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<MemoryCategory | 'all'>('all');
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const emptyForm = {
     title: '', content: '', tags: '', category: 'geral' as MemoryCategory,
     login: '', password: '', url: '', city: '',
     travelKind: 'lugar' as 'hotel' | 'restaurante' | 'lugar' | 'dica',
@@ -41,8 +42,47 @@ export default function MemoryPage() {
     weekdays: [] as number[], routineTime: '08:00',
     meetingDate: todayISO(), participants: '', decisions: '', nextSteps: '',
     linkedItemId: '__none__',
-  });
+  };
+  const [form, setForm] = useState(emptyForm);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+
+  const openEdit = (m: Memory) => {
+    setEditingId(m.id);
+    setForm({
+      title: m.title || '',
+      content: m.content || '',
+      tags: (m.tags || []).join(', '),
+      category: (m.category || 'geral') as MemoryCategory,
+      login: m.login || '',
+      password: m.password || '',
+      url: m.url || '',
+      city: m.city || '',
+      travelKind: (m.travelKind || 'lugar') as any,
+      address: m.address || '',
+      rating: m.rating || 0,
+      priceRange: (m.priceRange || '') as any,
+      mapsUrl: m.mapsUrl || '',
+      attachmentUrl: m.attachmentUrl || '',
+      comment: m.comment || '',
+      ingredients: m.ingredients || '',
+      steps: m.steps || '',
+      servings: m.servings || 0,
+      timeMinutes: m.timeMinutes || 0,
+      weekdays: m.weekdays || [],
+      routineTime: m.routineTime || '08:00',
+      meetingDate: m.meetingDate || todayISO(),
+      participants: m.participants || '',
+      decisions: m.decisions || '',
+      nextSteps: m.nextSteps || '',
+      linkedItemId: m.linkedItemId || '__none__',
+    });
+    setOpen(true);
+  };
+
+  const resetForm = (keepCategory?: MemoryCategory) => {
+    setEditingId(null);
+    setForm({ ...emptyForm, category: keepCategory || 'geral' });
+  };
 
   const agendaItemOptions = useMemo(() => {
     return items
