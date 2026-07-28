@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils';
 import { useCentral } from '@/contexts/CentralContext';
 
 const tabs = [
-  { path: '/inbox', icon: InboxIcon, label: 'Inbox' },
-  { path: '/agenda', icon: CalendarDays, label: 'Agenda' },
-  { path: '/financas', icon: Wallet, label: 'Finanças' },
-  { path: '/memory', icon: Brain, label: 'HD' },
+  { path: '/inbox', icon: InboxIcon, label: 'Inbox', prefetch: () => import('@/pages/InboxPage') },
+  { path: '/agenda', icon: CalendarDays, label: 'Agenda', prefetch: () => import('@/pages/AgendaPage') },
+  { path: '/financas', icon: Wallet, label: 'Finanças', prefetch: () => import('@/pages/FinancePage') },
+  { path: '/memory', icon: Brain, label: 'HD', prefetch: () => import('@/pages/MemoryPage') },
 ];
 
 export default function BottomNav() {
@@ -23,7 +23,7 @@ export default function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-stretch justify-around h-16 max-w-lg mx-auto">
-        {tabs.map(({ path, icon: Icon, label }) => {
+        {tabs.map(({ path, icon: Icon, label, prefetch }) => {
           const active = path === '/'
             ? location.pathname === '/'
             : location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -32,6 +32,9 @@ export default function BottomNav() {
             <button
               key={path}
               onClick={() => navigate(path)}
+              onPointerDown={() => { prefetch?.().catch(() => {}); }}
+              onMouseEnter={() => { prefetch?.().catch(() => {}); }}
+              onTouchStart={() => { prefetch?.().catch(() => {}); }}
               aria-current={active ? 'page' : undefined}
               aria-label={label}
               className={cn(

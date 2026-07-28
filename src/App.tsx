@@ -23,20 +23,19 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
-const RouteFallback = () => (
-  <div className="text-sm text-muted-foreground p-4 animate-pulse">Carregando…</div>
-);
+const RouteFallback = () => null;
 
-// Prefetch other routes when the browser is idle, so tab switches feel instant.
+// Prefetch all main routes right after the session is ready so tab switches are instant.
 const prefetchRoutes = () => {
-  const idle = (cb: () => void) =>
-    (window as any).requestIdleCallback ? (window as any).requestIdleCallback(cb) : setTimeout(cb, 300);
-  idle(() => {
+  const kick = () => {
     import("@/pages/InboxPage");
     import("@/pages/AgendaPage");
     import("@/pages/FinancePage");
     import("@/pages/MemoryPage");
-  });
+    import("@/pages/ItemDetail");
+  };
+  const idle = (window as any).requestIdleCallback;
+  if (idle) idle(kick, { timeout: 500 }); else setTimeout(kick, 0);
 };
 
 const App = () => {
