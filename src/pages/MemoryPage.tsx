@@ -599,7 +599,7 @@ export default function MemoryPage() {
                 rows={4}
               />
               <Input placeholder="Tags (vírgula)" value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} className="rounded-xl text-xs" />
-              <Button onClick={handleAdd} className="w-full rounded-xl">Salvar</Button>
+              <Button onClick={handleAdd} className="w-full rounded-xl">{editingId ? 'Atualizar' : 'Salvar'}</Button>
             </div>
           </DialogContent>
         </Dialog>
