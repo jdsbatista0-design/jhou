@@ -1,12 +1,17 @@
 // Client-side AES-GCM encryption for sensitive Memory fields (password/login/url).
-// Key is derived from the Central PIN + a per-installation salt persisted in app_settings.
+// The encryption key is derived from a user-supplied passphrase entered at runtime.
+// The passphrase is NEVER persisted to disk — it lives only in the tab's in-memory
+// cache (sessionStorage) so it is cleared when the tab closes and is not present in
+// the shipped JavaScript bundle.
 
 const PREFIX = 'enc:v1:';
-const PIN = '0507'; // Same PIN used by the lock screen
-const ITERATIONS = 100_000;
+const ITERATIONS = 150_000;
+const SESSION_KEY = 'central_vault_passphrase_v1';
+const SALT_KEY = 'central_crypto_salt_v1';
 
 let cachedKey: CryptoKey | null = null;
 let cachedSalt: string | null = null;
+let cachedPassphrase: string | null = null;
 
 function bufToBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -23,24 +28,80 @@ function base64ToBuf(b64: string): Uint8Array {
 }
 
 function getOrCreateSalt(): string {
-  // Salt persisted in localStorage so it survives sessions on this device.
-  // For multi-device sync, the salt is also written to app_settings (not implemented
-  // here to keep this util self-contained — same PIN derives the same key).
-  const KEY = 'central_crypto_salt_v1';
-  let salt = localStorage.getItem(KEY);
+  let salt = localStorage.getItem(SALT_KEY);
   if (!salt) {
     const random = crypto.getRandomValues(new Uint8Array(16));
     salt = bufToBase64(random.buffer);
-    localStorage.setItem(KEY, salt);
+    localStorage.setItem(SALT_KEY, salt);
   }
   return salt;
 }
 
-async function deriveKey(pin: string, saltB64: string): Promise<CryptoKey> {
+function readSessionPassphrase(): string | null {
+  if (cachedPassphrase) return cachedPassphrase;
+  try {
+    const v = sessionStorage.getItem(SESSION_KEY);
+    if (v) cachedPassphrase = v;
+    return cachedPassphrase;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionPassphrase(pp: string) {
+  cachedPassphrase = pp;
+  try { sessionStorage.setItem(SESSION_KEY, pp); } catch { /* ignore */ }
+}
+
+/**
+ * Set the vault passphrase for this session. Call once (e.g. from a UI prompt)
+ * before encrypting or decrypting sensitive Memory fields.
+ */
+export function setVaultPassphrase(passphrase: string) {
+  if (!passphrase || passphrase.length < 4) {
+    throw new Error('Passphrase muito curta.');
+  }
+  // Reset cached key so next getKey() re-derives with the new passphrase.
+  cachedKey = null;
+  cachedSalt = null;
+  writeSessionPassphrase(passphrase);
+}
+
+/** Clear the in-memory passphrase (e.g. on logout). */
+export function clearVaultPassphrase() {
+  cachedKey = null;
+  cachedSalt = null;
+  cachedPassphrase = null;
+  try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+}
+
+/** True when a passphrase is available for this session. */
+export function hasVaultPassphrase(): boolean {
+  return !!readSessionPassphrase();
+}
+
+async function ensurePassphrase(): Promise<string> {
+  const existing = readSessionPassphrase();
+  if (existing) return existing;
+  // Fallback prompt so the vault continues to work without extra UI wiring.
+  // The prompt happens exactly once per browser tab.
+  if (typeof window !== 'undefined' && typeof window.prompt === 'function') {
+    const entered = window.prompt(
+      'Digite a senha do cofre para acessar logins e senhas guardados.\nA senha fica apenas nesta aba do navegador.'
+    );
+    if (entered && entered.length >= 4) {
+      writeSessionPassphrase(entered);
+      return entered;
+    }
+  }
+  throw new Error('VAULT_PASSPHRASE_REQUIRED');
+}
+
+async function deriveKey(passphrase: string, saltB64: string): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const baseKey = await crypto.subtle.importKey(
     'raw',
-    enc.encode(pin) as BufferSource,
+    enc.encode(passphrase) as BufferSource,
     { name: 'PBKDF2' },
     false,
     ['deriveKey'],
@@ -61,8 +122,9 @@ async function deriveKey(pin: string, saltB64: string): Promise<CryptoKey> {
 
 async function getKey(): Promise<CryptoKey> {
   const salt = getOrCreateSalt();
+  const passphrase = await ensurePassphrase();
   if (cachedKey && cachedSalt === salt) return cachedKey;
-  cachedKey = await deriveKey(PIN, salt);
+  cachedKey = await deriveKey(passphrase, salt);
   cachedSalt = salt;
   return cachedKey;
 }
@@ -98,12 +160,14 @@ export async function decryptString(value: string | null | undefined): Promise<s
     );
     return new TextDecoder().decode(pt);
   } catch (e) {
-    console.error('decryptString failed', e);
+    if (e instanceof Error && e.message === 'VAULT_PASSPHRASE_REQUIRED') {
+      return '🔒 cofre bloqueado';
+    }
+    console.error('decryptString failed');
     return '⚠️ erro ao descriptografar';
   }
 }
 
-// Helper for object fields
 export async function encryptFields<T extends Record<string, unknown>>(
   obj: T,
   fields: (keyof T)[],
