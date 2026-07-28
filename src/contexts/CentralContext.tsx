@@ -64,6 +64,7 @@ interface CentralContextType {
   addComment: (itemId: string, text: string) => void;
   deleteComment: (itemId: string, commentId: string) => void;
   memories: Memory[];
+  ensureMemoriesLoaded: () => Promise<void>;
   addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => Promise<string | void>;
   updateMemory: (id: string, updates: Partial<Memory>) => Promise<void>;
   deleteMemory: (id: string) => void;
@@ -254,9 +255,10 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
   // ---- ITEMS ----
   const refreshItems = useCallback(async () => {
+    // JOIN items + comments em uma única roundtrip via nested select (PostgREST).
     const { data: itemRows, error } = await supabase
       .from('items')
-      .select('*')
+      .select('*, item_comments(*)')
       .order('created_at', { ascending: false });
     if (error || !itemRows) return;
 
@@ -281,25 +283,17 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     }
     if (toDelete.length > 0) {
       cleanRows = cleanRows.filter((r: any) => !toDelete.includes(r.id));
-      await supabase.from('items').delete().in('id', toDelete);
+      supabase.from('items').delete().in('id', toDelete).then(() => {});
     }
 
-    const itemIds = cleanRows.map((r: any) => r.id);
-    const { data: commentRows } = itemIds.length
-      ? await supabase
-        .from('item_comments')
-        .select('*')
-        .in('item_id', itemIds)
-        .order('created_at', { ascending: true })
-      : { data: [] };
-
-    const commentsByItem: Record<string, ItemComment[]> = {};
-    (commentRows || []).forEach((c: any) => {
-      if (!commentsByItem[c.item_id]) commentsByItem[c.item_id] = [];
-      commentsByItem[c.item_id].push({ id: c.id, text: c.text, createdAt: c.created_at });
-    });
-
-    setItems(cleanRows.map((r: any) => dbRowToItem(r, commentsByItem[r.id] || [])));
+    setItems(cleanRows.map((r: any) => {
+      const rawComments: any[] = Array.isArray(r.item_comments) ? r.item_comments : [];
+      const comments: ItemComment[] = rawComments
+        .slice()
+        .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+        .map((c: any) => ({ id: c.id, text: c.text, createdAt: c.created_at }));
+      return dbRowToItem(r, comments);
+    }));
   }, []);
 
 
@@ -390,63 +384,47 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     timers[key] = window.setTimeout(() => { fn().catch(() => {}); }, ms);
   }, []);
 
+  // Lazy load das memórias: só descriptografa quando alguém pedir (MemoryPage).
+  const memoriesLoadedRef = useRef(false);
+  const ensureMemoriesLoaded = useCallback(async () => {
+    if (memoriesLoadedRef.current) return;
+    memoriesLoadedRef.current = true;
+    await refreshMemories();
+  }, [refreshMemories]);
+
   useEffect(() => {
-    // Carrega tudo em paralelo — boot rápido
+    // Carrega essenciais em paralelo — memórias ficam lazy.
     setLoading(true);
     Promise.allSettled([
       refreshInbox(),
       refreshItems(),
-      refreshMemories(),
       refreshEvents(),
       refreshRecurrences(),
       refreshDailyPriorities(),
       refreshSettings(),
     ]).finally(() => setLoading(false));
 
-    const inboxCh = supabase.channel('inbox_changes')
+    // Um único canal com múltiplos handlers → 1 WS handshake ao invés de 7.
+    const ch = supabase.channel('central_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'inbox_entries' },
         () => debouncedRefresh('inbox', refreshInbox, 1500))
-      .subscribe();
-
-    const itemsCh = supabase.channel('items_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'items' },
         () => debouncedRefresh('items', refreshItems, 1500))
-      .subscribe();
-
-    const commentsCh = supabase.channel('comments_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'item_comments' },
         () => debouncedRefresh('items', refreshItems, 1500))
-      .subscribe();
-
-    const memoriesCh = supabase.channel('memories_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'memories' },
-        () => debouncedRefresh('memories', refreshMemories, 1500))
-      .subscribe();
-
-    const eventsCh = supabase.channel('events_changes')
+        () => { if (memoriesLoadedRef.current) debouncedRefresh('memories', refreshMemories, 1500); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' },
         () => debouncedRefresh('events', refreshEvents, 1500))
-      .subscribe();
-
-    const recurrencesCh = supabase.channel('recurrences_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'recurrences' },
         () => debouncedRefresh('recurrences', refreshRecurrences, 1500))
-      .subscribe();
-
-    const settingsCh = supabase.channel('settings_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' },
         () => debouncedRefresh('settings', refreshSettings, 1500))
       .subscribe();
 
     return () => {
       Object.values(debounceTimers.current).forEach(t => window.clearTimeout(t));
-      supabase.removeChannel(inboxCh);
-      supabase.removeChannel(itemsCh);
-      supabase.removeChannel(commentsCh);
-      supabase.removeChannel(memoriesCh);
-      supabase.removeChannel(eventsCh);
-      supabase.removeChannel(recurrencesCh);
-      supabase.removeChannel(settingsCh);
+      supabase.removeChannel(ch);
     };
   }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshRecurrences, refreshSettings, debouncedRefresh]);
 
@@ -1325,7 +1303,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     loading,
     inbox, addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
     items, addItem, updateItem, deleteItem, addComment, deleteComment,
-    memories, addMemory, updateMemory, deleteMemory,
+    memories, ensureMemoriesLoaded, addMemory, updateMemory, deleteMemory,
     events, addEvent, deleteEvent, agendaEntries,
     recurrences, addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem,
     dailyPriorities, setPriority, removePriority, markPriorityDone,
@@ -1334,7 +1312,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     loading, inbox, items, memories, events, agendaEntries, recurrences, dailyPriorities, settings,
     addInboxEntry, archiveInboxEntry, deleteInboxEntry, convertInboxToItem, convertInboxToMemory, refreshInbox,
     addItem, updateItem, deleteItem, addComment, deleteComment,
-    addMemory, updateMemory, deleteMemory, addEvent, deleteEvent,
+    ensureMemoriesLoaded, addMemory, updateMemory, deleteMemory, addEvent, deleteEvent,
     addRecurrence, updateRecurrence, deleteRecurrence, deleteRecurringItem,
     setPriority, removePriority, markPriorityDone,
     updateSettings,

@@ -23,9 +23,13 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
-const RouteFallback = () => null;
+const RouteFallback = () => (
+  <div className="pt-6 flex justify-center">
+    <div className="h-6 w-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+  </div>
+);
 
-// Prefetch all main routes right after the session is ready so tab switches are instant.
+// Prefetch principal routes right after session is ready so tab switches are instant.
 const prefetchRoutes = () => {
   const kick = () => {
     import("@/pages/InboxPage");
@@ -37,6 +41,7 @@ const prefetchRoutes = () => {
   const idle = (window as any).requestIdleCallback;
   if (idle) idle(kick, { timeout: 500 }); else setTimeout(kick, 0);
 };
+
 
 const App = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -87,31 +92,35 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <CentralProvider key={`central-${session.user.id}`} userId={session.user.id}>
-          <FinanceProvider key={`finance-${session.user.id}`} userId={session.user.id}>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppShell>
-                <Suspense fallback={<RouteFallback />}>
-                  <Routes>
-                    <Route path="/" element={<Navigate to="/inbox" replace />} />
-                    <Route path="/inbox" element={<InboxPage />} />
-                    <Route path="/agenda" element={<AgendaPage />} />
-                    <Route path="/financas" element={<FinancePage />} />
-                    <Route path="/items/:id" element={<ItemDetail />} />
-                    {/* Acessíveis via menu de perfil */}
-                    <Route path="/memoria" element={<MemoryPage />} />
-                    <Route path="/memory" element={<MemoryPage />} />
-                    <Route path="/relatorios" element={<ReportsPage />} />
-                    <Route path="/reports" element={<ReportsPage />} />
-                    <Route path="/configuracoes" element={<SettingsPage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-              </AppShell>
-            </BrowserRouter>
-          </FinanceProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppShell session={session}>
+              <Suspense fallback={<RouteFallback />}>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/inbox" replace />} />
+                  <Route path="/inbox" element={<InboxPage />} />
+                  <Route path="/agenda" element={<AgendaPage />} />
+                  <Route
+                    path="/financas"
+                    element={
+                      <FinanceProvider key={`finance-${session.user.id}`} userId={session.user.id}>
+                        <FinancePage />
+                      </FinanceProvider>
+                    }
+                  />
+                  <Route path="/items/:id" element={<ItemDetail />} />
+                  <Route path="/memoria" element={<MemoryPage />} />
+                  <Route path="/memory" element={<MemoryPage />} />
+                  <Route path="/relatorios" element={<ReportsPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/configuracoes" element={<SettingsPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </AppShell>
+          </BrowserRouter>
         </CentralProvider>
       </TooltipProvider>
     </QueryClientProvider>

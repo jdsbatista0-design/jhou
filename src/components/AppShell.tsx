@@ -1,13 +1,14 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
-import { supabase } from '@/integrations/supabase/client';
+import type { Session } from '@supabase/supabase-js';
 import ProfileMenu from './ProfileMenu';
 import BottomNav from './BottomNav';
 import CaptureFAB from './CaptureFAB';
 
 interface AppShellProps {
   children: ReactNode;
+  session: Session;
 }
 
 function greeting(hour: number) {
@@ -17,22 +18,17 @@ function greeting(hour: number) {
   return 'Boa noite';
 }
 
-export default function AppShell({ children }: AppShellProps) {
-  const [profile, setProfile] = useState<{ email?: string; fullName?: string; avatarUrl?: string }>({});
-
-  useEffect(() => {
-    let active = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!active || !data.user) return;
-      const meta = data.user.user_metadata || {};
-      setProfile({
-        email: data.user.email || undefined,
-        fullName: meta.full_name || meta.name,
-        avatarUrl: meta.avatar_url || meta.picture,
-      });
-    });
-    return () => { active = false; };
-  }, []);
+export default function AppShell({ children, session }: AppShellProps) {
+  // Usa a sessão já resolvida no App.tsx — sem chamada extra ao supabase.auth.getUser().
+  const profile = useMemo(() => {
+    const user = session.user;
+    const meta = (user.user_metadata || {}) as Record<string, string | undefined>;
+    return {
+      email: user.email || undefined,
+      fullName: meta.full_name || meta.name,
+      avatarUrl: meta.avatar_url || meta.picture,
+    };
+  }, [session]);
 
   const now = new Date();
   const firstName = profile.fullName?.split(' ')[0];
