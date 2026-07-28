@@ -23,7 +23,7 @@ export default function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-stretch justify-around h-16 max-w-lg mx-auto">
-        {tabs.map(({ path, icon: Icon, label }) => {
+        {tabs.map(({ path, icon: Icon, label, prefetch }) => {
           const active = path === '/'
             ? location.pathname === '/'
             : location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -32,6 +32,9 @@ export default function BottomNav() {
             <button
               key={path}
               onClick={() => navigate(path)}
+              onPointerDown={() => { prefetch?.().catch(() => {}); }}
+              onMouseEnter={() => { prefetch?.().catch(() => {}); }}
+              onTouchStart={() => { prefetch?.().catch(() => {}); }}
               aria-current={active ? 'page' : undefined}
               aria-label={label}
               className={cn(
