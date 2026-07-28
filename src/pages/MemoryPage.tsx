@@ -112,7 +112,7 @@ export default function MemoryPage() {
     const cat = form.category;
     let linkedRecurrenceId: string | undefined;
 
-    if (cat === 'rotina' && form.weekdays.length > 0 && form.routineTime) {
+    if (!editingId && cat === 'rotina' && form.weekdays.length > 0 && form.routineTime) {
       try {
         const recId = await addRecurrence({
           title: form.title,
@@ -131,7 +131,7 @@ export default function MemoryPage() {
       }
     }
 
-    await addMemory({
+    const payload: Partial<Memory> = {
       title: form.title,
       content: form.content,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
@@ -153,25 +153,23 @@ export default function MemoryPage() {
       timeMinutes: cat === 'receitas' && form.timeMinutes > 0 ? form.timeMinutes : undefined,
       weekdays: cat === 'rotina' ? form.weekdays : undefined,
       routineTime: cat === 'rotina' ? form.routineTime : undefined,
-      linkedRecurrenceId,
       meetingDate: cat === 'reunioes' ? (form.meetingDate || undefined) : undefined,
       participants: cat === 'reunioes' ? (form.participants || undefined) : undefined,
       decisions: cat === 'reunioes' ? (form.decisions || undefined) : undefined,
       nextSteps: cat === 'reunioes' ? (form.nextSteps || undefined) : undefined,
       linkedItemId: cat === 'reunioes' && form.linkedItemId !== '__none__' ? form.linkedItemId : undefined,
-    });
-    setForm({
-      title: '', content: '', tags: '', category: cat,
-      login: '', password: '', url: '', city: '',
-      travelKind: 'lugar', address: '', rating: 0, priceRange: '', mapsUrl: '',
-      attachmentUrl: '', comment: '',
-      ingredients: '', steps: '', servings: 0, timeMinutes: 0,
-      weekdays: [], routineTime: '08:00',
-      meetingDate: todayISO(), participants: '', decisions: '', nextSteps: '',
-      linkedItemId: '__none__',
-    });
+    };
+    if (linkedRecurrenceId) (payload as any).linkedRecurrenceId = linkedRecurrenceId;
+
+    if (editingId) {
+      await updateMemory(editingId, payload);
+      toast.success('Memória atualizada');
+    } else {
+      await addMemory(payload as any);
+      toast.success('Memória salva');
+    }
+    resetForm(cat);
     setOpen(false);
-    toast.success('Memória salva');
   };
 
   const togglePassword = (id: string) => {
