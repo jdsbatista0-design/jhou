@@ -26,7 +26,8 @@ function generatePassword(len = 16): string {
 }
 
 export default function MemoryPage() {
-  const { memories, addMemory, updateMemory, deleteMemory, items, addItem, addRecurrence, settings } = useCentral();
+  const { memories, ensureMemoriesLoaded, addMemory, updateMemory, deleteMemory, items, addItem, addRecurrence, settings } = useCentral();
+  useEffect(() => { ensureMemoriesLoaded(); }, [ensureMemoriesLoaded]);
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<MemoryCategory | 'all'>('all');
