@@ -64,6 +64,7 @@ interface CentralContextType {
   addComment: (itemId: string, text: string) => void;
   deleteComment: (itemId: string, commentId: string) => void;
   memories: Memory[];
+  ensureMemoriesLoaded: () => Promise<void>;
   addMemory: (memory: Omit<Memory, 'id' | 'createdAt'>) => Promise<string | void>;
   updateMemory: (id: string, updates: Partial<Memory>) => Promise<void>;
   deleteMemory: (id: string) => void;
