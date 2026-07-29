@@ -393,16 +393,25 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   }, [refreshMemories]);
 
   useEffect(() => {
-    // Carrega essenciais em paralelo — memórias ficam lazy.
+    // Boot em duas ondas para acelerar o primeiro paint (/inbox):
+    //  1) Onda crítica: inbox + items — o que a tela default precisa.
+    //  2) Onda secundária (idle): events, recurrences, prioridades, settings.
     setLoading(true);
-    Promise.allSettled([
-      refreshInbox(),
-      refreshItems(),
-      refreshEvents(),
-      refreshRecurrences(),
-      refreshDailyPriorities(),
-      refreshSettings(),
-    ]).finally(() => setLoading(false));
+    Promise.allSettled([refreshInbox(), refreshItems()])
+      .finally(() => setLoading(false));
+
+    const kickSecondary = () => {
+      Promise.allSettled([
+        refreshEvents(),
+        refreshRecurrences(),
+        refreshDailyPriorities(),
+        refreshSettings(),
+      ]).catch(() => {});
+    };
+    const idle = (globalThis as any).requestIdleCallback;
+    const handle = idle
+      ? idle(kickSecondary, { timeout: 1200 })
+      : window.setTimeout(kickSecondary, 300);
 
     // Um único canal com múltiplos handlers → 1 WS handshake ao invés de 7.
     const ch = supabase.channel('central_changes')
@@ -424,9 +433,15 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
     return () => {
       Object.values(debounceTimers.current).forEach(t => window.clearTimeout(t));
+      if (idle && (globalThis as any).cancelIdleCallback) {
+        (globalThis as any).cancelIdleCallback(handle);
+      } else {
+        window.clearTimeout(handle as any);
+      }
       supabase.removeChannel(ch);
     };
-  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshRecurrences, refreshSettings, debouncedRefresh]);
+  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshRecurrences, refreshSettings, refreshDailyPriorities, debouncedRefresh]);
+
 
   // Auto-pull do Google Calendar a cada 5 minutos quando a aba está visível.
   // Adiamos a 1ª verificação em 30s para não competir com o boot inicial.
@@ -487,10 +502,14 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
         ? `rec:${entry.item.recurrenceId}:${entry.item.deadline || ''}:${entry.item.deadlineTime || ''}`
         : `${entry.source}:${normalizeForMatch(entry.title)}:${entry.datetime}:${normalizeForMatch(entry.type)}`;
       const current = unique.get(key);
-      if (!current || (entry.item?.createdAt || '') < (current.item?.createdAt || '')) {
-        unique.set(key, entry);
-      }
+      // Mantém a ocorrência mais antiga (a "original") para evitar oscilação
+      // quando o realtime materializa novas cópias antes do dedupe do refreshItems.
+      if (!current) { unique.set(key, entry); continue; }
+      const curTs = current.item?.createdAt || '';
+      const newTs = entry.item?.createdAt || '';
+      if (newTs && curTs && newTs < curTs) unique.set(key, entry);
     }
+
 
     return Array.from(unique.values()).sort((a, b) => {
       const aDate = parseLocalDateTime(a.datetime) || new Date(a.datetime);
@@ -1286,18 +1305,23 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (!uid) return;
     const today = todayYMD();
     const doneAt = new Date().toISOString();
-    setDailyPriorities(prev => prev.map(p => p.slot === slot ? { ...p, doneAt } : p));
+    // Captura o priority ANTES de atualizar o estado — evita closure stale
+    // caso alguém chame novamente antes do commit.
+    let target: DailyPriority | undefined;
+    setDailyPriorities(prev => {
+      target = prev.find(p => p.slot === slot);
+      return prev.map(p => p.slot === slot ? { ...p, doneAt } : p);
+    });
     await (supabase as any).from('daily_priorities')
       .update({ done_at: doneAt })
       .eq('user_id', uid)
       .eq('date', today)
       .eq('slot', slot);
-    // Also mark linked item as done
-    const priority = dailyPriorities.find(p => p.slot === slot);
-    if (priority) {
-      updateItem(priority.itemId, { fase: 'Concluído' });
+    if (target) {
+      updateItem(target.itemId, { fase: 'Concluído' });
     }
-  }, [getUserId, dailyPriorities, updateItem]);
+  }, [getUserId, updateItem]);
+
 
   const ctxValue = useMemo<CentralContextType>(() => ({
     loading,
