@@ -502,10 +502,14 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
         ? `rec:${entry.item.recurrenceId}:${entry.item.deadline || ''}:${entry.item.deadlineTime || ''}`
         : `${entry.source}:${normalizeForMatch(entry.title)}:${entry.datetime}:${normalizeForMatch(entry.type)}`;
       const current = unique.get(key);
-      if (!current || (entry.item?.createdAt || '') < (current.item?.createdAt || '')) {
-        unique.set(key, entry);
-      }
+      // Mantém a ocorrência mais antiga (a "original") para evitar oscilação
+      // quando o realtime materializa novas cópias antes do dedupe do refreshItems.
+      if (!current) { unique.set(key, entry); continue; }
+      const curTs = current.item?.createdAt || '';
+      const newTs = entry.item?.createdAt || '';
+      if (newTs && curTs && newTs < curTs) unique.set(key, entry);
     }
+
 
     return Array.from(unique.values()).sort((a, b) => {
       const aDate = parseLocalDateTime(a.datetime) || new Date(a.datetime);
