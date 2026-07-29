@@ -1301,18 +1301,23 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (!uid) return;
     const today = todayYMD();
     const doneAt = new Date().toISOString();
-    setDailyPriorities(prev => prev.map(p => p.slot === slot ? { ...p, doneAt } : p));
+    // Captura o priority ANTES de atualizar o estado — evita closure stale
+    // caso alguém chame novamente antes do commit.
+    let target: DailyPriority | undefined;
+    setDailyPriorities(prev => {
+      target = prev.find(p => p.slot === slot);
+      return prev.map(p => p.slot === slot ? { ...p, doneAt } : p);
+    });
     await (supabase as any).from('daily_priorities')
       .update({ done_at: doneAt })
       .eq('user_id', uid)
       .eq('date', today)
       .eq('slot', slot);
-    // Also mark linked item as done
-    const priority = dailyPriorities.find(p => p.slot === slot);
-    if (priority) {
-      updateItem(priority.itemId, { fase: 'Concluído' });
+    if (target) {
+      updateItem(target.itemId, { fase: 'Concluído' });
     }
-  }, [getUserId, dailyPriorities, updateItem]);
+  }, [getUserId, updateItem]);
+
 
   const ctxValue = useMemo<CentralContextType>(() => ({
     loading,
