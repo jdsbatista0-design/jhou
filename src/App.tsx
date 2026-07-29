@@ -100,7 +100,14 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<Navigate to="/inbox" replace />} />
                   <Route path="/inbox" element={<InboxPage />} />
-                  <Route path="/agenda" element={<AgendaPage />} />
+                  <Route
+                    path="/agenda"
+                    element={
+                      <FinanceProvider key={`finance-${session.user.id}`} userId={session.user.id}>
+                        <AgendaPage />
+                      </FinanceProvider>
+                    }
+                  />
                   <Route
                     path="/financas"
                     element={
