@@ -393,16 +393,25 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   }, [refreshMemories]);
 
   useEffect(() => {
-    // Carrega essenciais em paralelo — memórias ficam lazy.
+    // Boot em duas ondas para acelerar o primeiro paint (/inbox):
+    //  1) Onda crítica: inbox + items — o que a tela default precisa.
+    //  2) Onda secundária (idle): events, recurrences, prioridades, settings.
     setLoading(true);
-    Promise.allSettled([
-      refreshInbox(),
-      refreshItems(),
-      refreshEvents(),
-      refreshRecurrences(),
-      refreshDailyPriorities(),
-      refreshSettings(),
-    ]).finally(() => setLoading(false));
+    Promise.allSettled([refreshInbox(), refreshItems()])
+      .finally(() => setLoading(false));
+
+    const kickSecondary = () => {
+      Promise.allSettled([
+        refreshEvents(),
+        refreshRecurrences(),
+        refreshDailyPriorities(),
+        refreshSettings(),
+      ]).catch(() => {});
+    };
+    const idle = (globalThis as any).requestIdleCallback;
+    const handle = idle
+      ? idle(kickSecondary, { timeout: 1200 })
+      : window.setTimeout(kickSecondary, 300);
 
     // Um único canal com múltiplos handlers → 1 WS handshake ao invés de 7.
     const ch = supabase.channel('central_changes')
@@ -424,9 +433,15 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
     return () => {
       Object.values(debounceTimers.current).forEach(t => window.clearTimeout(t));
+      if (idle && (globalThis as any).cancelIdleCallback) {
+        (globalThis as any).cancelIdleCallback(handle);
+      } else {
+        window.clearTimeout(handle as any);
+      }
       supabase.removeChannel(ch);
     };
-  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshRecurrences, refreshSettings, debouncedRefresh]);
+  }, [refreshInbox, refreshItems, refreshMemories, refreshEvents, refreshRecurrences, refreshSettings, refreshDailyPriorities, debouncedRefresh]);
+
 
   // Auto-pull do Google Calendar a cada 5 minutos quando a aba está visível.
   // Adiamos a 1ª verificação em 30s para não competir com o boot inicial.
