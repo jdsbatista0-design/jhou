@@ -123,13 +123,50 @@ export function BillsToPay({ scope, companyId }: Props) {
     return { atrasadas, hoje, semana, mes, proximas };
   }, [list, tab, today, weekEnd, monthEnd]);
 
+  // ---- Faturas de cartão (automáticas: valor somado dos gastos + dia de vencimento do cartão) ----
+  const invoiceBills = useMemo<InvoiceBill[]>(() => {
+    const selectedISO = monthStart.slice(0, 7);
+    const visibleCards = cards.filter(c =>
+      !c.archived && c.scope === scope &&
+      (scope !== 'pj' || companyId === 'all' || c.companyId === companyId));
+    // A fatura fechada no mês M vence no mês M+1 → para o mês selecionado olhamos M-1.
+    // No mês corrente também trazemos faturas anteriores ainda não pagas (atrasadas).
+    const deltas = isCurrentMonth ? [-4, -3, -2, -1] : [-1];
+    const out: InvoiceBill[] = [];
+    for (const c of visibleCards) {
+      for (const d of deltas) {
+        const mISO = shiftISO(selectedISO, d);
+        const st = getCardStatement(c.id, mISO);
+        if (!st.due || st.remaining <= 0.009) continue;
+        if (st.due > monthEnd) continue;
+        if (d !== -1 && st.due >= monthStart) continue; // evita duplicar o mês corrente
+        out.push({
+          cardId: c.id, cardName: c.name, color: c.color, monthISO: mISO,
+          amount: st.remaining, dueOn: st.due, accountId: c.accountId,
+          isOverdue: st.due < today,
+        });
+      }
+    }
+    return out.sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+  }, [cards, scope, companyId, monthStart, monthEnd, isCurrentMonth, getCardStatement, today]);
+
+  const invoiceTotals = useMemo(() => ({
+    month: invoiceBills.reduce((s, b) => s + b.amount, 0),
+    overdue: invoiceBills.filter(b => b.isOverdue).reduce((s, b) => s + b.amount, 0),
+    overdueCount: invoiceBills.filter(b => b.isOverdue).length,
+  }), [invoiceBills]);
+
   const totals = useMemo(() => {
     const pendingScope = scoped.filter(t => t.status === 'pending' && inSelectedPeriod(t, 'pending'));
     const overdue = pendingScope.filter(t => t.occurredOn < today).reduce((s, t) => s + t.amount, 0);
     const month = pendingScope.reduce((s, t) => s + t.amount, 0);
     const overdueCount = pendingScope.filter(t => t.occurredOn < today).length;
-    return { overdue, month, overdueCount };
-  }, [scoped, today, monthStart, monthEnd, isCurrentMonth]);
+    return {
+      overdue: overdue + invoiceTotals.overdue,
+      month: month + invoiceTotals.month,
+      overdueCount: overdueCount + invoiceTotals.overdueCount,
+    };
+  }, [scoped, today, monthStart, monthEnd, isCurrentMonth, invoiceTotals]);
 
   const handlePay = (t: FinTransaction) => {
     updateTransaction(t.id, { status: 'confirmed' });
