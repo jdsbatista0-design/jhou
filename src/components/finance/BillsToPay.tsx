@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
 import { FinScope, FinTransaction, formatBRL } from '@/types/finance';
-import { Check, Trash2, AlertCircle, CalendarDays, Pencil, CheckCircle2, Search, Repeat } from 'lucide-react';
+import { Check, Trash2, AlertCircle, CalendarDays, Pencil, CheckCircle2, Search, Repeat, CreditCard, Wallet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
