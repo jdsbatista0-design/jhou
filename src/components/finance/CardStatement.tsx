@@ -33,6 +33,7 @@ export function CardStatement({ cardId, onEditCard }: Props) {
   const now = new Date();
   const [monthISO, setMonthISO] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const [payOpen, setPayOpen] = useState(false);
+  const [expenseOpen, setExpenseOpen] = useState(false);
   const [editingOverride, setEditingOverride] = useState(false);
   const [overrideInput, setOverrideInput] = useState('');
 
