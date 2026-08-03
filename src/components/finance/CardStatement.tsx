@@ -232,6 +232,9 @@ export function CardStatement({ cardId, onEditCard }: Props) {
 
         {/* Ações */}
         <div className="flex flex-col gap-1.5 pt-1">
+          <Button onClick={() => setExpenseOpen(true)} variant="outline" size="sm" className="w-full rounded-xl h-9 text-[11px]">
+            <Plus className="h-3.5 w-3.5 mr-1" /> Lançar gasto neste cartão
+          </Button>
           {hasDiff && (
             <Button onClick={lançarAjuste} variant="outline" size="sm" className="w-full rounded-xl h-8 text-[11px] border-primary/40 text-primary">
               Lançar diferença como "Ajuste de fatura"
@@ -244,6 +247,7 @@ export function CardStatement({ cardId, onEditCard }: Props) {
           )}
         </div>
       </div>
+
 
       {breakdown.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
