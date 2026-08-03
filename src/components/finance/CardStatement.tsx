@@ -337,6 +337,16 @@ export function CardStatement({ cardId, onEditCard }: Props) {
           }}
         />
       )}
+
+      {expenseOpen && (
+        <TransactionDialog
+          open={expenseOpen}
+          onClose={() => setExpenseOpen(false)}
+          scope={card.scope}
+          companyId={card.companyId || null}
+          prefill={{ kind: 'expense', cardId: card.id, occurredOn: new Date().toISOString().slice(0, 10) }}
+        />
+      )}
     </div>
   );
 }
