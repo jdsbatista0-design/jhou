@@ -38,16 +38,34 @@ const BILL_KINDS = new Set([
   'supplier_payment', 'employee_loan', 'tax',
 ]);
 
+const shiftISO = (monthISO: string, delta: number) => {
+  const [y, m] = monthISO.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+interface InvoiceBill {
+  cardId: string;
+  cardName: string;
+  color: string;
+  monthISO: string;
+  amount: number;
+  dueOn: string;
+  accountId?: string;
+  isOverdue: boolean;
+}
+
 export function BillsToPay({ scope, companyId }: Props) {
   const {
     transactions, accounts, cards, categories, companies,
-    updateTransaction, deleteTransaction,
+    updateTransaction, deleteTransaction, getCardStatement,
   } = useFinance();
   const { monthStart, monthEnd, isCurrentMonth } = useFinancePeriod();
 
   const [tab, setTab] = useState<Tab>('pending');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<FinTransaction | null>(null);
+  const [payingInvoice, setPayingInvoice] = useState<InvoiceBill | null>(null);
 
   const today = todayYMD();
   const weekEnd = endOfWeekYMD();
