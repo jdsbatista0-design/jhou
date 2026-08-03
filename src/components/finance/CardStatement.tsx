@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Pencil, X, Trash2, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Pencil, X, Trash2, Info, Plus } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { formatBRL, FinAccount } from '@/types/finance';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ export function CardStatement({ cardId, onEditCard }: Props) {
   const now = new Date();
   const [monthISO, setMonthISO] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const [payOpen, setPayOpen] = useState(false);
+  const [expenseOpen, setExpenseOpen] = useState(false);
   const [editingOverride, setEditingOverride] = useState(false);
   const [overrideInput, setOverrideInput] = useState('');
 
@@ -232,6 +233,9 @@ export function CardStatement({ cardId, onEditCard }: Props) {
 
         {/* Ações */}
         <div className="flex flex-col gap-1.5 pt-1">
+          <Button onClick={() => setExpenseOpen(true)} variant="outline" size="sm" className="w-full rounded-xl h-9 text-[11px]">
+            <Plus className="h-3.5 w-3.5 mr-1" /> Lançar gasto neste cartão
+          </Button>
           {hasDiff && (
             <Button onClick={lançarAjuste} variant="outline" size="sm" className="w-full rounded-xl h-8 text-[11px] border-primary/40 text-primary">
               Lançar diferença como "Ajuste de fatura"
@@ -244,6 +248,7 @@ export function CardStatement({ cardId, onEditCard }: Props) {
           )}
         </div>
       </div>
+
 
       {breakdown.length > 0 && (
         <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
@@ -330,6 +335,16 @@ export function CardStatement({ cardId, onEditCard }: Props) {
             paidCardMonth: monthISO,
             description: `Pagamento fatura ${fmtMonth(monthISO)} — ${card.name}`,
           }}
+        />
+      )}
+
+      {expenseOpen && (
+        <TransactionDialog
+          open={expenseOpen}
+          onClose={() => setExpenseOpen(false)}
+          scope={card.scope}
+          companyId={card.companyId || null}
+          prefill={{ kind: 'expense', cardId: card.id, occurredOn: new Date().toISOString().slice(0, 10) }}
         />
       )}
     </div>

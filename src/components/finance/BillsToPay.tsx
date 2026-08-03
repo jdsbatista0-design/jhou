@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
 import { FinScope, FinTransaction, formatBRL } from '@/types/finance';
-import { Check, Trash2, AlertCircle, CalendarDays, Pencil, CheckCircle2, Search, Repeat } from 'lucide-react';
+import { Check, Trash2, AlertCircle, CalendarDays, Pencil, CheckCircle2, Search, Repeat, CreditCard, Wallet } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -38,16 +38,34 @@ const BILL_KINDS = new Set([
   'supplier_payment', 'employee_loan', 'tax',
 ]);
 
+const shiftISO = (monthISO: string, delta: number) => {
+  const [y, m] = monthISO.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+interface InvoiceBill {
+  cardId: string;
+  cardName: string;
+  color: string;
+  monthISO: string;
+  amount: number;
+  dueOn: string;
+  accountId?: string;
+  isOverdue: boolean;
+}
+
 export function BillsToPay({ scope, companyId }: Props) {
   const {
     transactions, accounts, cards, categories, companies,
-    updateTransaction, deleteTransaction,
+    updateTransaction, deleteTransaction, getCardStatement,
   } = useFinance();
   const { monthStart, monthEnd, isCurrentMonth } = useFinancePeriod();
 
   const [tab, setTab] = useState<Tab>('pending');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<FinTransaction | null>(null);
+  const [payingInvoice, setPayingInvoice] = useState<InvoiceBill | null>(null);
 
   const today = todayYMD();
   const weekEnd = endOfWeekYMD();
@@ -105,13 +123,50 @@ export function BillsToPay({ scope, companyId }: Props) {
     return { atrasadas, hoje, semana, mes, proximas };
   }, [list, tab, today, weekEnd, monthEnd]);
 
+  // ---- Faturas de cartão (automáticas: valor somado dos gastos + dia de vencimento do cartão) ----
+  const invoiceBills = useMemo<InvoiceBill[]>(() => {
+    const selectedISO = monthStart.slice(0, 7);
+    const visibleCards = cards.filter(c =>
+      !c.archived && c.scope === scope &&
+      (scope !== 'pj' || companyId === 'all' || c.companyId === companyId));
+    // A fatura fechada no mês M vence no mês M+1 → para o mês selecionado olhamos M-1.
+    // No mês corrente também trazemos faturas anteriores ainda não pagas (atrasadas).
+    const deltas = isCurrentMonth ? [-4, -3, -2, -1] : [-1];
+    const out: InvoiceBill[] = [];
+    for (const c of visibleCards) {
+      for (const d of deltas) {
+        const mISO = shiftISO(selectedISO, d);
+        const st = getCardStatement(c.id, mISO);
+        if (!st.due || st.remaining <= 0.009) continue;
+        if (st.due > monthEnd) continue;
+        if (d !== -1 && st.due >= monthStart) continue; // evita duplicar o mês corrente
+        out.push({
+          cardId: c.id, cardName: c.name, color: c.color, monthISO: mISO,
+          amount: st.remaining, dueOn: st.due, accountId: c.accountId,
+          isOverdue: st.due < today,
+        });
+      }
+    }
+    return out.sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+  }, [cards, scope, companyId, monthStart, monthEnd, isCurrentMonth, getCardStatement, today]);
+
+  const invoiceTotals = useMemo(() => ({
+    month: invoiceBills.reduce((s, b) => s + b.amount, 0),
+    overdue: invoiceBills.filter(b => b.isOverdue).reduce((s, b) => s + b.amount, 0),
+    overdueCount: invoiceBills.filter(b => b.isOverdue).length,
+  }), [invoiceBills]);
+
   const totals = useMemo(() => {
     const pendingScope = scoped.filter(t => t.status === 'pending' && inSelectedPeriod(t, 'pending'));
     const overdue = pendingScope.filter(t => t.occurredOn < today).reduce((s, t) => s + t.amount, 0);
     const month = pendingScope.reduce((s, t) => s + t.amount, 0);
     const overdueCount = pendingScope.filter(t => t.occurredOn < today).length;
-    return { overdue, month, overdueCount };
-  }, [scoped, today, monthStart, monthEnd, isCurrentMonth]);
+    return {
+      overdue: overdue + invoiceTotals.overdue,
+      month: month + invoiceTotals.month,
+      overdueCount: overdueCount + invoiceTotals.overdueCount,
+    };
+  }, [scoped, today, monthStart, monthEnd, isCurrentMonth, invoiceTotals]);
 
   const handlePay = (t: FinTransaction) => {
     updateTransaction(t.id, { status: 'confirmed' });
@@ -341,8 +396,55 @@ export function BillsToPay({ scope, companyId }: Props) {
         />
       </div>
 
+      {/* Faturas de cartão — automáticas */}
+      {tab === 'pending' && invoiceBills.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <CreditCard className="h-3 w-3" /> Faturas de cartão
+              <span className="text-[10px] opacity-60 font-medium">({invoiceBills.length})</span>
+            </div>
+            <span className="text-[11px] font-bold font-mono text-destructive">
+              {formatBRL(invoiceTotals.month).replace('R$', '').trim()}
+            </span>
+          </div>
+          {invoiceBills.map(b => (
+            <div
+              key={`${b.cardId}-${b.monthISO}`}
+              className={cn(
+                'rounded-xl border bg-card p-3 flex items-center gap-3',
+                b.isOverdue ? 'border-destructive/40 bg-destructive/5' : 'border-border',
+              )}
+            >
+              <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: b.color + '22' }}>
+                <CreditCard className="h-4 w-4" style={{ color: b.color }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground truncate">Fatura {b.cardName}</div>
+                <div className="text-[10px] text-muted-foreground font-mono truncate">
+                  Vence {fmtDate(b.dueOn)} · fatura {b.monthISO} · calculada dos gastos
+                </div>
+              </div>
+              <div className="text-sm font-bold font-mono text-foreground shrink-0">
+                {formatBRL(b.amount).replace('R$', '').trim()}
+              </div>
+              <button
+                onClick={() => setPayingInvoice(b)}
+                className="h-8 px-2 rounded-lg text-[10px] font-bold uppercase tracking-wide text-emerald-500 hover:bg-emerald-500/10 flex items-center gap-1 shrink-0"
+                title="Pagar fatura"
+              >
+                <Wallet className="h-3.5 w-3.5" /> Pagar
+              </button>
+            </div>
+          ))}
+          <p className="text-[10px] text-muted-foreground px-1">
+            Valor e vencimento vêm dos lançamentos e do cartão. Para incluir gastos, use a aba <b>Cartões</b>.
+          </p>
+        </div>
+      )}
+
       {/* Lista */}
-      {list.length === 0 && (
+      {list.length === 0 && !(tab === 'pending' && invoiceBills.length > 0) && (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-6 text-center">
           <p className="text-sm text-foreground font-semibold">
             {tab === 'pending' ? 'Nenhuma conta a pagar 🎉' : 'Nenhuma conta paga ainda.'}
@@ -378,6 +480,24 @@ export function BillsToPay({ scope, companyId }: Props) {
         companyId={companyId}
         editTransaction={editing}
       />
+
+      {payingInvoice && (
+        <TransactionDialog
+          open={!!payingInvoice}
+          onClose={() => setPayingInvoice(null)}
+          scope={scope}
+          companyId={companyId}
+          prefill={{
+            kind: 'card_payment',
+            cardId: payingInvoice.cardId,
+            accountId: payingInvoice.accountId,
+            amount: payingInvoice.amount,
+            paidCardMonth: payingInvoice.monthISO,
+            occurredOn: payingInvoice.dueOn,
+            description: `Pagamento fatura ${payingInvoice.monthISO} — ${payingInvoice.cardName}`,
+          }}
+        />
+      )}
     </div>
   );
 }

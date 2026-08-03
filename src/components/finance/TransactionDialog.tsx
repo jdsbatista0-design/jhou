@@ -476,27 +476,37 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
           {(isEdit || (!isTransfer && !isInter && !isCardPayment)) && (
             <>
               <div className="flex gap-2">
-                <div className="flex-1">
-                  <Label className="text-xs">Conta</Label>
-                  <Select value={accountId} onValueChange={(v) => { setAccountId(v); if (v !== 'none') setCardId('none'); }}>
-                    <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">—</SelectItem>
-                      {availableAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex-1">
-                  <Label className="text-xs">Cartão</Label>
-                  <Select value={cardId} onValueChange={(v) => { setCardId(v); if (v !== 'none') setAccountId('none'); }}>
-                    <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">—</SelectItem>
-                      {availableCards.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {!(!isEdit && prefill?.cardId) && (
+                  <div className="flex-1">
+                    <Label className="text-xs">Conta</Label>
+                    <Select value={accountId} onValueChange={(v) => { setAccountId(v); if (v !== 'none') setCardId('none'); }}>
+                      <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">—</SelectItem>
+                        {availableAccounts.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {(isEdit || prefill?.cardId) && (
+                  <div className="flex-1">
+                    <Label className="text-xs">Cartão</Label>
+                    <Select value={cardId} onValueChange={(v) => { setCardId(v); if (v !== 'none') setAccountId('none'); }}>
+                      <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">—</SelectItem>
+                        {availableCards.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
+              {!isEdit && !prefill?.cardId && (
+                <p className="text-[10px] text-muted-foreground -mt-1">
+                  Gastos no cartão de crédito são lançados na aba <b>Cartões</b> — a fatura e o vencimento aparecem sozinhos em <b>A Pagar</b>.
+                </p>
+              )}
+
 
               {!isEdit && isCardExpense && (
                 <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2">
