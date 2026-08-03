@@ -396,8 +396,55 @@ export function BillsToPay({ scope, companyId }: Props) {
         />
       </div>
 
+      {/* Faturas de cartão — automáticas */}
+      {tab === 'pending' && invoiceBills.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <CreditCard className="h-3 w-3" /> Faturas de cartão
+              <span className="text-[10px] opacity-60 font-medium">({invoiceBills.length})</span>
+            </div>
+            <span className="text-[11px] font-bold font-mono text-destructive">
+              {formatBRL(invoiceTotals.month).replace('R$', '').trim()}
+            </span>
+          </div>
+          {invoiceBills.map(b => (
+            <div
+              key={`${b.cardId}-${b.monthISO}`}
+              className={cn(
+                'rounded-xl border bg-card p-3 flex items-center gap-3',
+                b.isOverdue ? 'border-destructive/40 bg-destructive/5' : 'border-border',
+              )}
+            >
+              <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: b.color + '22' }}>
+                <CreditCard className="h-4 w-4" style={{ color: b.color }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground truncate">Fatura {b.cardName}</div>
+                <div className="text-[10px] text-muted-foreground font-mono truncate">
+                  Vence {fmtDate(b.dueOn)} · fatura {b.monthISO} · calculada dos gastos
+                </div>
+              </div>
+              <div className="text-sm font-bold font-mono text-foreground shrink-0">
+                {formatBRL(b.amount).replace('R$', '').trim()}
+              </div>
+              <button
+                onClick={() => setPayingInvoice(b)}
+                className="h-8 px-2 rounded-lg text-[10px] font-bold uppercase tracking-wide text-emerald-500 hover:bg-emerald-500/10 flex items-center gap-1 shrink-0"
+                title="Pagar fatura"
+              >
+                <Wallet className="h-3.5 w-3.5" /> Pagar
+              </button>
+            </div>
+          ))}
+          <p className="text-[10px] text-muted-foreground px-1">
+            Valor e vencimento vêm dos lançamentos e do cartão. Para incluir gastos, use a aba <b>Cartões</b>.
+          </p>
+        </div>
+      )}
+
       {/* Lista */}
-      {list.length === 0 && (
+      {list.length === 0 && !(tab === 'pending' && invoiceBills.length > 0) && (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-6 text-center">
           <p className="text-sm text-foreground font-semibold">
             {tab === 'pending' ? 'Nenhuma conta a pagar 🎉' : 'Nenhuma conta paga ainda.'}
@@ -433,6 +480,24 @@ export function BillsToPay({ scope, companyId }: Props) {
         companyId={companyId}
         editTransaction={editing}
       />
+
+      {payingInvoice && (
+        <TransactionDialog
+          open={!!payingInvoice}
+          onClose={() => setPayingInvoice(null)}
+          scope={scope}
+          companyId={companyId}
+          prefill={{
+            kind: 'card_payment',
+            cardId: payingInvoice.cardId,
+            accountId: payingInvoice.accountId,
+            amount: payingInvoice.amount,
+            paidCardMonth: payingInvoice.monthISO,
+            occurredOn: payingInvoice.dueOn,
+            description: `Pagamento fatura ${payingInvoice.monthISO} — ${payingInvoice.cardName}`,
+          }}
+        />
+      )}
     </div>
   );
 }
