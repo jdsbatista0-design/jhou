@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Pencil, X, Trash2, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Pencil, X, Trash2, Info, Plus } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { formatBRL, FinAccount } from '@/types/finance';
 import { Button } from '@/components/ui/button';
