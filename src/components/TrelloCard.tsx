@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
+import { isTrelloRealtimeEnabled, setTrelloRealtimeEnabled } from '@/hooks/useTrelloAutoSync';
 
 type Config = {
   board_id: string;
@@ -15,6 +17,7 @@ export function TrelloCard() {
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [realtime, setRealtime] = useState(isTrelloRealtimeEnabled());
 
   const call = async (action: string) => {
     const { data, error } = await supabase.functions.invoke('trello-sync', { body: { action } });
@@ -41,7 +44,10 @@ export function TrelloCard() {
     try {
       const res = await call('connect');
       setConfig(res.config);
-      toast.success('Board do Trello conectado');
+      toast.success('Board conectado — enviando seus itens…');
+      const s = await call('sync');
+      setConfig(c => (c ? { ...c, last_sync_at: new Date().toISOString() } : c));
+      toast.success(`${s.created_in_trello} itens enviados para o Trello`);
     } catch (e: any) {
       toast.error('Erro ao conectar: ' + e.message);
     } finally {
@@ -143,6 +149,22 @@ export function TrelloCard() {
           </Button>
         )}
       </div>
+
+      {config && (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <p className="text-[10px] text-muted-foreground leading-snug flex-1">
+            Sincronização em tempo real (envia mudanças na hora e busca o Trello a cada 45s)
+          </p>
+          <Switch
+            checked={realtime}
+            onCheckedChange={(v) => {
+              setRealtime(v);
+              setTrelloRealtimeEnabled(v);
+              toast.success(v ? 'Sincronização em tempo real ativada' : 'Sincronização automática desativada');
+            }}
+          />
+        </div>
+      )}
 
       {config && (
         <p className="text-[10px] text-muted-foreground leading-snug">

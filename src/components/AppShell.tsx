@@ -5,6 +5,8 @@ import type { Session } from '@supabase/supabase-js';
 import ProfileMenu from './ProfileMenu';
 import BottomNav from './BottomNav';
 import CaptureFAB from './CaptureFAB';
+import { useTrelloAutoSync } from '@/hooks/useTrelloAutoSync';
+
 
 interface AppShellProps {
   children: ReactNode;
@@ -19,7 +21,10 @@ function greeting(hour: number) {
 }
 
 export default function AppShell({ children, session }: AppShellProps) {
+  useTrelloAutoSync();
+
   // Usa a sessão já resolvida no App.tsx — sem chamada extra ao supabase.auth.getUser().
+
   const profile = useMemo(() => {
     const user = session.user;
     const meta = (user.user_metadata || {}) as Record<string, string | undefined>;
