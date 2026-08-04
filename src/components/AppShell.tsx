@@ -21,7 +21,10 @@ function greeting(hour: number) {
 }
 
 export default function AppShell({ children, session }: AppShellProps) {
+  useTrelloAutoSync();
+
   // Usa a sessão já resolvida no App.tsx — sem chamada extra ao supabase.auth.getUser().
+
   const profile = useMemo(() => {
     const user = session.user;
     const meta = (user.user_metadata || {}) as Record<string, string | undefined>;
