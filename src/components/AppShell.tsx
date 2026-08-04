@@ -5,6 +5,8 @@ import type { Session } from '@supabase/supabase-js';
 import ProfileMenu from './ProfileMenu';
 import BottomNav from './BottomNav';
 import CaptureFAB from './CaptureFAB';
+import { useTrelloAutoSync } from '@/hooks/useTrelloAutoSync';
+
 
 interface AppShellProps {
   children: ReactNode;
