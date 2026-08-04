@@ -351,6 +351,8 @@ export default function SettingsPage() {
         </div>
       )}
 
+      <GoogleCalendarCard />
+
       <TrelloCard />
 
 
