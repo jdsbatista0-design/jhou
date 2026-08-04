@@ -1023,6 +1023,89 @@ export type Database = {
         }
         Relationships: []
       }
+      trello_config: {
+        Row: {
+          board_id: string
+          board_url: string | null
+          created_at: string
+          enabled: boolean
+          last_sync_at: string | null
+          lists: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          board_id: string
+          board_url?: string | null
+          created_at?: string
+          enabled?: boolean
+          last_sync_at?: string | null
+          lists?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          board_id?: string
+          board_url?: string | null
+          created_at?: string
+          enabled?: boolean
+          last_sync_at?: string | null
+          lists?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trello_sync: {
+        Row: {
+          card_id: string
+          card_short_url: string | null
+          created_at: string
+          deleted: boolean
+          id: string
+          item_id: string | null
+          last_local_updated_at: string | null
+          last_remote_updated_at: string | null
+          list_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          card_id: string
+          card_short_url?: string | null
+          created_at?: string
+          deleted?: boolean
+          id?: string
+          item_id?: string | null
+          last_local_updated_at?: string | null
+          last_remote_updated_at?: string | null
+          list_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          card_id?: string
+          card_short_url?: string | null
+          created_at?: string
+          deleted?: boolean
+          id?: string
+          item_id?: string | null
+          last_local_updated_at?: string | null
+          last_remote_updated_at?: string | null
+          list_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trello_sync_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
