@@ -259,26 +259,38 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ---- PUSH: itens sem card ----
-    for (const item of syncable) {
-      if (byItem.has(item.id)) continue;
-      const targetList = await ensureList(areaOf(item));
-      const params = new URLSearchParams({
-        name: item.title,
-        desc: itemDesc(item),
-        idList: targetList,
-      });
-      if (item.deadline) params.set('due', new Date(item.deadline).toISOString());
-      const card = await trello(`/cards?${params.toString()}`, { method: 'POST' });
-      if (item.fase === DONE_FASE) await trello(`/cards/${card.id}?closed=true`, { method: 'PUT' });
-      createdRemote++;
-      upserts.push({
-        user_id: user.id, item_id: item.id, card_id: card.id, list_id: targetList,
-        card_short_url: card.shortUrl,
-        last_local_updated_at: item.updated_at,
-        last_remote_updated_at: card.dateLastActivity ?? new Date().toISOString(),
-      });
+    // ---- PUSH: itens sem card (em lotes paralelos) ----
+    const missing = syncable.filter((i: any) => !byItem.has(i.id));
+    for (const item of missing) await ensureList(areaOf(item));
+
+    const CHUNK = 8;
+    for (let i = 0; i < missing.length; i += CHUNK) {
+      const chunk = missing.slice(i, i + CHUNK);
+      const results = await Promise.all(chunk.map(async (item: any) => {
+        const targetList = lists[areaOf(item)];
+        const params = new URLSearchParams({
+          name: item.title,
+          desc: itemDesc(item),
+          idList: targetList,
+        });
+        if (item.deadline) params.set('due', new Date(item.deadline).toISOString());
+        try {
+          const card = await trello(`/cards?${params.toString()}`, { method: 'POST' });
+          if (item.fase === DONE_FASE) await trello(`/cards/${card.id}?closed=true`, { method: 'PUT' });
+          return {
+            user_id: user.id, item_id: item.id, card_id: card.id, list_id: targetList,
+            card_short_url: card.shortUrl,
+            last_local_updated_at: item.updated_at,
+            last_remote_updated_at: card.dateLastActivity ?? new Date().toISOString(),
+          };
+        } catch (err) {
+          console.error('falha ao criar card', item.id, (err as Error).message);
+          return null;
+        }
+      }));
+      for (const r of results) if (r) { upserts.push(r); createdRemote++; }
     }
+
 
     if (upserts.length) {
       const dedup = new Map(upserts.map((u) => [u.card_id, u]));
