@@ -168,9 +168,10 @@ export function TrelloCard() {
 
       {config && (
         <p className="text-[10px] text-muted-foreground leading-snug">
-          As listas do board seguem as fases (Inbox, Em andamento, Aguardando, Travado, Concluído). Ao concluir, o card é arquivado no Trello. Rotinas não são sincronizadas.
+          Cada lista do board é uma <strong>área</strong> (Pessoal, Izi, Daytona…). Mover um card entre listas troca a área do item. Ao concluir, o card é arquivado no Trello. Rotinas não são sincronizadas.
         </p>
       )}
+
     </div>
   );
 }
