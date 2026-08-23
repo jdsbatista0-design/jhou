@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useCentral } from '@/contexts/CentralContext';
 import { RefreshCw, Trello, ExternalLink, Unplug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
