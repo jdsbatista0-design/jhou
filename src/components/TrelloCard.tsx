@@ -55,7 +55,7 @@ export function TrelloCard() {
       toast.success('Board conectado — enviando seus itens…');
       const s = await call('sync');
       setConfig(c => (c ? { ...c, last_sync_at: new Date().toISOString() } : c));
-      toast.success(`${s.created_in_trello} itens enviados para o Trello`);
+      toast.success(`${s.created_in_trello} de ${syncable} itens sincronizáveis enviados`);
     } catch (e: any) {
       toast.error('Erro ao conectar: ' + e.message);
     } finally {
