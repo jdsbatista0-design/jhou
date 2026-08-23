@@ -41,7 +41,7 @@ export default function InboxPage() {
       <div className="flex items-end justify-between gap-2">
         <h1 className="text-2xl font-bold text-foreground">Inbox</h1>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground" data-mono>{items.length}</span>
+          <span className="text-xs text-muted-foreground" data-mono>{visibleCount}</span>
           <div className="flex gap-0.5 bg-surface rounded-chip p-0.5">
             {viewButtons.map(b => {
               const Icon = b.icon;
