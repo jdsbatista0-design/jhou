@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useCentral } from '@/contexts/CentralContext';
 import { RefreshCw, Trello, ExternalLink, Unplug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -18,6 +19,13 @@ export function TrelloCard() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [realtime, setRealtime] = useState(isTrelloRealtimeEnabled());
+  const { items } = useCentral();
+
+  // rotinas (recorrências) não vão para o Trello
+  const syncable = useMemo(
+    () => items.filter(i => !i.recurrenceId && i.origin !== 'recurrence').length,
+    [items],
+  );
 
   const call = async (action: string) => {
     const { data, error } = await supabase.functions.invoke('trello-sync', { body: { action } });
@@ -47,7 +55,7 @@ export function TrelloCard() {
       toast.success('Board conectado — enviando seus itens…');
       const s = await call('sync');
       setConfig(c => (c ? { ...c, last_sync_at: new Date().toISOString() } : c));
-      toast.success(`${s.created_in_trello} itens enviados para o Trello`);
+      toast.success(`${s.created_in_trello} de ${syncable} itens sincronizáveis enviados`);
     } catch (e: any) {
       toast.error('Erro ao conectar: ' + e.message);
     } finally {
@@ -61,7 +69,7 @@ export function TrelloCard() {
       const res = await call('sync');
       setConfig(c => (c ? { ...c, last_sync_at: new Date().toISOString() } : c));
       toast.success(
-        `Sincronizado · ${res.created_in_trello} novos no Trello · ${res.created_in_central} novos no Inbox · ${res.pushed + res.pulled} atualizados`,
+        `Sincronizado · ${res.created_in_trello} novos no Trello · ${res.created_in_central} novos no Inbox · ${res.pushed + res.pulled} atualizados · ${syncable} sincronizáveis`,
       );
     } catch (e: any) {
       toast.error('Erro ao sincronizar: ' + e.message);
@@ -97,6 +105,9 @@ export function TrelloCard() {
                   ? `Última sincronização: ${new Date(config.last_sync_at).toLocaleString('pt-BR')}`
                   : 'Conectado — sincronize para enviar seus itens'
                 : 'Sincronize o Inbox com um board do Trello (mão dupla)'}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            {syncable} itens sincronizáveis · rotinas não vão para o Trello
           </p>
         </div>
         {config?.board_url && (

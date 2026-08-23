@@ -17,6 +17,19 @@ export default function InboxPage() {
 
   const capturas = useMemo(() => inbox.filter(e => e.status === 'pending'), [inbox]);
 
+  // conta só o que aparece na tela: sem rotinas (recorrências) e sem concluídos/arquivados
+  const visibleCount = useMemo(
+    () =>
+      items.filter(
+        i =>
+          !i.recurrenceId &&
+          i.origin !== 'recurrence' &&
+          i.fase !== 'Concluído' &&
+          i.fase !== 'Arquivado',
+      ).length,
+    [items],
+  );
+
   const viewButtons: { key: View; icon: typeof List; label: string }[] = [
     { key: 'list', icon: List, label: 'Lista' },
     { key: 'kanban', icon: LayoutGrid, label: 'Kanban' },
@@ -28,7 +41,7 @@ export default function InboxPage() {
       <div className="flex items-end justify-between gap-2">
         <h1 className="text-2xl font-bold text-foreground">Inbox</h1>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground" data-mono>{items.length}</span>
+          <span className="text-xs text-muted-foreground" data-mono>{visibleCount}</span>
           <div className="flex gap-0.5 bg-surface rounded-chip p-0.5">
             {viewButtons.map(b => {
               const Icon = b.icon;
