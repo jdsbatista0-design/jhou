@@ -106,6 +106,9 @@ export function TrelloCard() {
                   : 'Conectado — sincronize para enviar seus itens'
                 : 'Sincronize o Inbox com um board do Trello (mão dupla)'}
           </p>
+          <p className="text-[10px] text-muted-foreground">
+            {syncable} itens sincronizáveis · rotinas não vão para o Trello
+          </p>
         </div>
         {config?.board_url && (
           <a
