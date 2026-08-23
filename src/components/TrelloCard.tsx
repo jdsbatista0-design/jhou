@@ -19,6 +19,13 @@ export function TrelloCard() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [realtime, setRealtime] = useState(isTrelloRealtimeEnabled());
+  const { items } = useCentral();
+
+  // rotinas (recorrências) não vão para o Trello
+  const syncable = useMemo(
+    () => items.filter(i => !i.recurrenceId && i.origin !== 'recurrence').length,
+    [items],
+  );
 
   const call = async (action: string) => {
     const { data, error } = await supabase.functions.invoke('trello-sync', { body: { action } });
