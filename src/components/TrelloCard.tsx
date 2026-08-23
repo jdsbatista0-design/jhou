@@ -69,7 +69,7 @@ export function TrelloCard() {
       const res = await call('sync');
       setConfig(c => (c ? { ...c, last_sync_at: new Date().toISOString() } : c));
       toast.success(
-        `Sincronizado · ${res.created_in_trello} novos no Trello · ${res.created_in_central} novos no Inbox · ${res.pushed + res.pulled} atualizados`,
+        `Sincronizado · ${res.created_in_trello} novos no Trello · ${res.created_in_central} novos no Inbox · ${res.pushed + res.pulled} atualizados · ${syncable} sincronizáveis`,
       );
     } catch (e: any) {
       toast.error('Erro ao sincronizar: ' + e.message);
