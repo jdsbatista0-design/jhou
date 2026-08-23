@@ -17,6 +17,19 @@ export default function InboxPage() {
 
   const capturas = useMemo(() => inbox.filter(e => e.status === 'pending'), [inbox]);
 
+  // conta só o que aparece na tela: sem rotinas (recorrências) e sem concluídos/arquivados
+  const visibleCount = useMemo(
+    () =>
+      items.filter(
+        i =>
+          !i.recurrenceId &&
+          i.origin !== 'recurrence' &&
+          i.fase !== 'Concluído' &&
+          i.fase !== 'Arquivado',
+      ).length,
+    [items],
+  );
+
   const viewButtons: { key: View; icon: typeof List; label: string }[] = [
     { key: 'list', icon: List, label: 'Lista' },
     { key: 'kanban', icon: LayoutGrid, label: 'Kanban' },
