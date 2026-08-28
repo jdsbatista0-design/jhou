@@ -74,10 +74,17 @@ interface CentralContextType {
   deleteEvent: (id: string) => void;
   agendaEntries: AgendaEntry[];
   recurrences: Recurrence[];
-  addRecurrence: (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>) => Promise<string | null>;
+  recurrenceExceptions: RecurrenceException[];
+  addRecurrence: (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil' | 'kind'> & { kind?: RecurrenceKind }) => Promise<string | null>;
   updateRecurrence: (id: string, updates: Partial<Recurrence>) => Promise<void>;
   deleteRecurrence: (id: string, alsoDeleteFutureItems: boolean) => Promise<void>;
   deleteRecurringItem: (itemId: string, scope: 'one' | 'future' | 'all') => Promise<void>;
+  /** Marca/desmarca uma ocorrência virtual como concluída (grava exceção). */
+  setOccurrenceDone: (recurrenceId: string, date: string, done: boolean) => Promise<void>;
+  /** Cancela apenas uma ocorrência da série (grava exceção). */
+  cancelOccurrence: (recurrenceId: string, date: string) => Promise<void>;
+  /** Encerra a série a partir de uma data (esta e as próximas). */
+  endRecurrenceFrom: (recurrenceId: string, date: string) => Promise<void>;
   dailyPriorities: DailyPriority[];
   setPriority: (slot: 1 | 2 | 3, itemId: string, replaceItemId?: string) => Promise<void>;
   removePriority: (slot: 1 | 2 | 3) => Promise<void>;
@@ -91,10 +98,15 @@ export interface AgendaEntry {
   title: string;
   datetime: string;
   type: string;
-  source: 'item' | 'event';
+  source: 'item' | 'event' | 'recurrence';
   sourceId: string;
   item?: Item;
+  /** Presente quando a entrada é uma ocorrência virtual de recorrência. */
+  recurrence?: Recurrence;
+  occurrenceDate?: string;
+  done?: boolean;
 }
+
 
 const CentralContext = createContext<CentralContextType | null>(null);
 
