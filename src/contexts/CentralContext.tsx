@@ -328,8 +328,19 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       .order('created_at', { ascending: false });
     if (!error && data) {
       setRecurrences(data.map(dbRowToRecurrence));
+      // Limpa ocorrências órfãs: itens que apontam para uma recorrência já excluída
+      // (ex.: rotina removida no HD mas ocorrências passadas ainda na Agenda).
+      const validIds = new Set<string>(data.map((r: any) => r.id));
+      setItems(prev => {
+        const orphans = prev.filter(i => i.recurrenceId && !validIds.has(i.recurrenceId));
+        if (orphans.length === 0) return prev;
+        const orphanIds = orphans.map(o => o.id);
+        supabase.from('items').delete().in('id', orphanIds).then(() => {});
+        return prev.filter(i => !orphanIds.includes(i.id));
+      });
     }
   }, []);
+
 
   // ---- DAILY PRIORITIES ----
   const refreshDailyPriorities = useCallback(async () => {
