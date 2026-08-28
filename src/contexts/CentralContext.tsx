@@ -265,6 +265,8 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   const [memories, setMemories] = useState<Memory[]>(() => loadFromStorage(`${cachePrefix}memories`, []));
   const [events, setEvents] = useState<AgendaEvent[]>(() => loadFromStorage(`${cachePrefix}events`, []));
   const [recurrences, setRecurrences] = useState<Recurrence[]>(() => loadFromStorage(`${cachePrefix}recurrences`, []));
+  const [recurrenceExceptions, setRecurrenceExceptions] = useState<RecurrenceException[]>(() => loadFromStorage(`${cachePrefix}rec_exceptions`, []));
+
   const [dailyPriorities, setDailyPriorities] = useState<DailyPriority[]>(() => loadFromStorage(`${cachePrefix}daily_priorities`, []));
   const [settings, setSettings] = useState<Settings>(() => loadFromStorage('central_settings', DEFAULT_SETTINGS));
   const [loading, setLoading] = useState(false);
