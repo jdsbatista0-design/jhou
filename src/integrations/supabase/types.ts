@@ -972,6 +972,53 @@ export type Database = {
         }
         Relationships: []
       }
+      recurrence_exceptions: {
+        Row: {
+          created_at: string
+          date: string
+          done_at: string | null
+          id: string
+          override_time: string | null
+          override_title: string | null
+          recurrence_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          done_at?: string | null
+          id?: string
+          override_time?: string | null
+          override_title?: string | null
+          recurrence_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          done_at?: string | null
+          id?: string
+          override_time?: string | null
+          override_title?: string | null
+          recurrence_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurrence_exceptions_recurrence_id_fkey"
+            columns: ["recurrence_id"]
+            isOneToOne: false
+            referencedRelation: "recurrences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recurrences: {
         Row: {
           active: boolean
@@ -979,6 +1026,7 @@ export type Database = {
           created_at: string
           end_date: string | null
           id: string
+          kind: string
           last_materialized_until: string | null
           reminder_minutes: number
           start_date: string
@@ -995,6 +1043,7 @@ export type Database = {
           created_at?: string
           end_date?: string | null
           id?: string
+          kind?: string
           last_materialized_until?: string | null
           reminder_minutes?: number
           start_date?: string
@@ -1011,6 +1060,7 @@ export type Database = {
           created_at?: string
           end_date?: string | null
           id?: string
+          kind?: string
           last_materialized_until?: string | null
           reminder_minutes?: number
           start_date?: string

@@ -46,9 +46,32 @@ export function nextHorizonDate(): Date {
   return d;
 }
 
+export const OCCURRENCE_PAST_DAYS = 60;
+export const OCCURRENCE_FUTURE_DAYS = 180;
+
+/**
+ * Janela padrão de expansão de ocorrências virtuais na Agenda.
+ * Nada é gravado no banco — a expansão acontece em memória.
+ */
+export function occurrenceWindow(): { from: Date; to: Date } {
+  const from = new Date();
+  from.setDate(from.getDate() - OCCURRENCE_PAST_DAYS);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date();
+  to.setDate(to.getDate() + OCCURRENCE_FUTURE_DAYS);
+  to.setHours(0, 0, 0, 0);
+  return { from, to };
+}
+
 export function todayYMD(): string {
   return ymd(new Date());
 }
+
+export function addDaysYMD(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return ymd(new Date(y, m - 1, d + days));
+}
+
 
 export function weekdaysSummary(days: Weekday[]): string {
   if (days.length === 0) return '—';

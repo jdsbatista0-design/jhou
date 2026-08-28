@@ -72,11 +72,14 @@ export interface DailyPriority {
 // ISO weekdays: 1=Mon ... 7=Sun
 export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
+export type RecurrenceKind = 'rotina' | 'compromisso';
+
 export interface Recurrence {
   id: string;
   title: string;
   area: string;
   type: string;
+  kind: RecurrenceKind;
   time: string; // HH:mm
   weekdays: Weekday[];
   startDate: string; // YYYY-MM-DD
@@ -86,6 +89,19 @@ export interface Recurrence {
   active: boolean;
   createdAt: string;
 }
+
+export type OccurrenceStatus = 'cancelled' | 'done' | 'moved';
+
+export interface RecurrenceException {
+  id: string;
+  recurrenceId: string;
+  date: string; // YYYY-MM-DD
+  status: OccurrenceStatus;
+  overrideTime?: string;
+  overrideTitle?: string;
+  doneAt?: string;
+}
+
 
 export const REMINDER_OPTIONS = [
   { value: 10, label: '10 min antes' },
