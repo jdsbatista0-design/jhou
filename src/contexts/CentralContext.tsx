@@ -1186,18 +1186,19 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
   const deleteRecurrence = useCallback(async (id: string, alsoDeleteFutureItems: boolean) => {
     if (alsoDeleteFutureItems) {
-      const today = todayYMD();
+      // Remove TODAS as ocorrências da série (passadas e futuras), para a rotina
+      // não continuar aparecendo na Agenda depois de excluída.
       await (supabase as any).from('items')
         .delete()
-        .eq('recurrence_id', id)
-        .gte('deadline', today)
-        .neq('fase', 'Concluído');
+        .eq('recurrence_id', id);
+      setItems(prev => prev.filter(i => i.recurrenceId !== id));
     }
     const { error } = await (supabase as any).from('recurrences').delete().eq('id', id);
     if (error) return;
     setRecurrences(prev => prev.filter(r => r.id !== id));
     if (alsoDeleteFutureItems) refreshItems();
   }, [refreshItems]);
+
 
   /**
    * Google-Calendar-style delete for a recurring item:
