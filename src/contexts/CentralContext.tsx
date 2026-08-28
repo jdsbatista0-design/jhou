@@ -3,7 +3,7 @@ import { InboxEntry, Item, ItemComment, ItemKind, Memory, AgendaEvent, Settings,
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDateTime } from '@/lib/dates';
 import { encryptString, decryptString } from '@/lib/crypto';
-import { expandRecurrence, todayYMD, occurrenceWindow } from '@/lib/recurrence';
+import { expandRecurrence, todayYMD, occurrenceWindow, addDaysYMD } from '@/lib/recurrence';
 
 
 function loadFromStorage<T>(key: string, fallback: T): T {
