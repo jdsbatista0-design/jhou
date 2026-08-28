@@ -14,7 +14,6 @@ import Auth from "@/pages/Auth";
 // Lazy-loaded routes — initial bundle stays small
 const ItemDetail = lazy(() => import("@/pages/ItemDetail"));
 const AgendaPage = lazy(() => import("@/pages/AgendaPage"));
-const InboxPage = lazy(() => import("@/pages/InboxPage"));
 const MemoryPage = lazy(() => import("@/pages/MemoryPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
@@ -32,7 +31,6 @@ const RouteFallback = () => (
 // Prefetch principal routes right after session is ready so tab switches are instant.
 const prefetchRoutes = () => {
   const kick = () => {
-    import("@/pages/InboxPage");
     import("@/pages/AgendaPage");
     import("@/pages/FinancePage");
     import("@/pages/MemoryPage");
@@ -98,8 +96,8 @@ const App = () => {
             <AppShell session={session}>
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
-                  <Route path="/" element={<Navigate to="/inbox" replace />} />
-                  <Route path="/inbox" element={<InboxPage />} />
+                  <Route path="/" element={<Navigate to="/agenda" replace />} />
+                  <Route path="/inbox" element={<Navigate to="/agenda" replace />} />
                   <Route
                     path="/agenda"
                     element={

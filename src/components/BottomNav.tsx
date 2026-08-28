@@ -1,20 +1,16 @@
-import { Inbox as InboxIcon, CalendarDays, Wallet, Brain } from 'lucide-react';
+import { CalendarDays, Wallet, Repeat } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { useCentral } from '@/contexts/CentralContext';
 
 const tabs = [
-  { path: '/inbox', icon: InboxIcon, label: 'Inbox', prefetch: () => import('@/pages/InboxPage') },
   { path: '/agenda', icon: CalendarDays, label: 'Agenda', prefetch: () => import('@/pages/AgendaPage') },
   { path: '/financas', icon: Wallet, label: 'Finanças', prefetch: () => import('@/pages/FinancePage') },
-  { path: '/memory', icon: Brain, label: 'HD', prefetch: () => import('@/pages/MemoryPage') },
+  { path: '/memory', icon: Repeat, label: 'Rotinas', prefetch: () => import('@/pages/MemoryPage') },
 ];
 
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { inbox } = useCentral();
-  const pendingCount = inbox.filter(e => e.status === 'pending').length;
 
   return (
     <nav
@@ -24,10 +20,7 @@ export default function BottomNav() {
     >
       <div className="flex items-stretch justify-around h-16 max-w-lg mx-auto">
         {tabs.map(({ path, icon: Icon, label, prefetch }) => {
-          const active = path === '/'
-            ? location.pathname === '/'
-            : location.pathname === path || location.pathname.startsWith(`${path}/`);
-          const showBadge = label === 'Inbox' && pendingCount > 0;
+          const active = location.pathname === path || location.pathname.startsWith(`${path}/`);
           return (
             <button
               key={path}
@@ -45,11 +38,6 @@ export default function BottomNav() {
             >
               <Icon className="h-5 w-5" strokeWidth={active ? 2.5 : 2} aria-hidden />
               <span className="text-[10px] font-medium leading-none">{label}</span>
-              {showBadge && (
-                <span className="absolute top-1.5 right-1/2 translate-x-[18px] h-4 min-w-[16px] px-1 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold" data-mono>
-                  {pendingCount > 99 ? '99+' : pendingCount}
-                </span>
-              )}
             </button>
           );
         })}
