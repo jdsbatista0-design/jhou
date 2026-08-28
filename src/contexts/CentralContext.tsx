@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { InboxEntry, Item, ItemComment, ItemKind, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS, Recurrence, Weekday, DailyPriority } from '@/types/central';
+import { InboxEntry, Item, ItemComment, ItemKind, Memory, AgendaEvent, Settings, DEFAULT_SETTINGS, Recurrence, RecurrenceException, RecurrenceKind, Weekday, DailyPriority } from '@/types/central';
 import { supabase } from '@/integrations/supabase/client';
 import { parseLocalDateTime } from '@/lib/dates';
 import { encryptString, decryptString } from '@/lib/crypto';
-import { expandRecurrence, nextHorizonDate, todayYMD } from '@/lib/recurrence';
+import { expandRecurrence, todayYMD, occurrenceWindow } from '@/lib/recurrence';
+
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
