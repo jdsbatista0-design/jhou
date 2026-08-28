@@ -164,6 +164,7 @@ function dbRowToRecurrence(row: any): Recurrence {
     title: row.title,
     area: row.area,
     type: row.type,
+    kind: (row.kind as Recurrence['kind']) || 'compromisso',
     time: row.time,
     weekdays: Array.isArray(row.weekdays) ? (row.weekdays as Weekday[]) : [],
     startDate: row.start_date,
@@ -174,6 +175,19 @@ function dbRowToRecurrence(row: any): Recurrence {
     createdAt: row.created_at,
   };
 }
+
+function dbRowToException(row: any): RecurrenceException {
+  return {
+    id: row.id,
+    recurrenceId: row.recurrence_id,
+    date: row.date,
+    status: row.status,
+    overrideTime: row.override_time || undefined,
+    overrideTitle: row.override_title || undefined,
+    doneAt: row.done_at || undefined,
+  };
+}
+
 
 async function dbRowToMemory(row: any): Promise<Memory> {
   const [login, password, url] = await Promise.all([
