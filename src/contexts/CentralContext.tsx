@@ -1033,67 +1033,21 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     });
   }, [getUserId]);
 
-  // ---- RECURRENCE ACTIONS ----
+  // ---- RECURRENCE ACTIONS (modelo v2: regra única + exceções, sem materializar) ----
 
-  /**
-   * Materializes occurrences of a recurrence as Items.
-   * Skips dates already materialized (based on recurrence_id + deadline).
-   * Returns the new horizon date (lastMaterializedUntil).
-   */
-  const materializeRecurrence = useCallback(async (rec: Recurrence, userId: string): Promise<string> => {
-    const horizon = nextHorizonDate();
-    const horizonYMD = horizon.toISOString().slice(0, 10);
-    const fromDate = rec.lastMaterializedUntil
-      ? new Date(rec.lastMaterializedUntil + 'T00:00:00')
-      : new Date(rec.startDate + 'T00:00:00');
-    // Always start from max(today, fromDate) to never create past occurrences
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const start = fromDate > today ? fromDate : today;
-
-    const dates = expandRecurrence(rec, start, horizon);
-    if (dates.length === 0) return horizonYMD;
-
-    // Filter dates that already exist (recurrence_id + deadline)
-    const { data: existing } = await (supabase as any)
-      .from('items')
-      .select('deadline')
-      .eq('recurrence_id', rec.id)
-      .in('deadline', dates);
-    const existingSet = new Set((existing || []).map((r: any) => r.deadline));
-
-    const rows = dates
-      .filter(d => !existingSet.has(d))
-      .map(d => ({
-        title: rec.title,
-        tipo: rec.type || 'Compromisso',
-        fase: 'Em andamento',
-        area: rec.area,
-        deadline: d,
-        deadline_time: rec.time,
-        tags: [rec.type || 'Compromisso'],
-        recurrence_id: rec.id,
-        reminder_minutes: rec.reminderMinutes,
-        origin: 'recurrence',
-        user_id: userId,
-      }));
-
-    if (rows.length > 0) {
-      const { error } = await (supabase as any).from('items').insert(rows);
-      if (error) console.error('materialize insert failed', error);
-    }
-    return horizonYMD;
-  }, []);
-
-  const addRecurrence = useCallback(async (rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil'>): Promise<string | null> => {
+  const addRecurrence = useCallback(async (
+    rec: Omit<Recurrence, 'id' | 'createdAt' | 'lastMaterializedUntil' | 'kind'> & { kind?: RecurrenceKind },
+  ): Promise<string | null> => {
     const userId = await getUserId();
     if (!userId) return null;
+    const kind: RecurrenceKind = rec.kind || 'compromisso';
 
+    // Evita séries duplicadas: mesmo título + horário + dias da semana.
     const { data: possibleExisting } = await (supabase as any)
       .from('recurrences')
       .select('*')
       .eq('user_id', userId)
-      .eq('time', rec.time)
-      .eq('active', true);
+      .eq('time', rec.time);
 
     const existingRow = (possibleExisting || []).find((row: any) =>
       normalizeForMatch(row.title) === normalizeForMatch(rec.title) &&
@@ -1101,56 +1055,31 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     );
 
     if (existingRow) {
-      const existing = dbRowToRecurrence(existingRow);
       const patch = {
         title: rec.title,
         area: rec.area,
         type: rec.type,
+        kind,
         reminder_minutes: rec.reminderMinutes,
-        end_date: rec.endDate || existing.endDate || null,
+        end_date: rec.endDate || null,
+        active: true,
       };
-      await (supabase as any).from('recurrences').update(patch).eq('id', existing.id);
-
-      const today = todayYMD();
-      await (supabase as any).from('items')
-        .update({
-          title: rec.title,
-          area: rec.area,
-          tipo: rec.type,
-          tags: [rec.type],
-          reminder_minutes: rec.reminderMinutes,
-          origin: 'recurrence',
-        })
-        .eq('recurrence_id', existing.id)
-        .gte('deadline', today)
-        .neq('fase', 'Concluído');
-
-      const reused: Recurrence = {
-        ...existing,
-        title: rec.title,
-        area: rec.area,
-        type: rec.type,
-        reminderMinutes: rec.reminderMinutes,
-        endDate: rec.endDate || existing.endDate,
-      };
-      const newHorizon = await materializeRecurrence(reused, userId);
-      await (supabase as any)
-        .from('recurrences')
-        .update({ last_materialized_until: newHorizon })
-        .eq('id', reused.id);
-      const finalRec = { ...reused, lastMaterializedUntil: newHorizon };
-      setRecurrences(prev => {
-        const exists = prev.some(r => r.id === finalRec.id);
-        return exists ? prev.map(r => r.id === finalRec.id ? finalRec : r) : [finalRec, ...prev];
-      });
-      refreshItems();
-      return existing.id;
+      const { data } = await (supabase as any).from('recurrences')
+        .update(patch).eq('id', existingRow.id).select('*').single();
+      if (data) {
+        const updated = dbRowToRecurrence(data);
+        setRecurrences(prev => prev.some(r => r.id === updated.id)
+          ? prev.map(r => r.id === updated.id ? updated : r)
+          : [updated, ...prev]);
+      }
+      return existingRow.id;
     }
 
     const { data, error } = await (supabase as any).from('recurrences').insert({
       title: rec.title,
       area: rec.area,
       type: rec.type,
+      kind,
       time: rec.time,
       weekdays: rec.weekdays,
       start_date: rec.startDate,
@@ -1164,24 +1093,16 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       return null;
     }
     const created = dbRowToRecurrence(data);
-
-    // Materializa antes de publicar no estado; assim o top-up não roda em paralelo
-    // para a mesma série recém-criada.
-    const newHorizon = await materializeRecurrence(created, userId);
-    await (supabase as any)
-      .from('recurrences')
-      .update({ last_materialized_until: newHorizon })
-      .eq('id', created.id);
-    setRecurrences(prev => [{ ...created, lastMaterializedUntil: newHorizon }, ...prev]);
-    refreshItems();
+    setRecurrences(prev => [created, ...prev]);
     return created.id;
-  }, [getUserId, materializeRecurrence, refreshItems]);
+  }, [getUserId]);
 
   const updateRecurrence = useCallback(async (id: string, updates: Partial<Recurrence>) => {
     const dbUpdates: any = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
     if (updates.area !== undefined) dbUpdates.area = updates.area;
     if (updates.type !== undefined) dbUpdates.type = updates.type;
+    if (updates.kind !== undefined) dbUpdates.kind = updates.kind;
     if (updates.time !== undefined) dbUpdates.time = updates.time;
     if (updates.weekdays !== undefined) dbUpdates.weekdays = updates.weekdays;
     if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
@@ -1189,146 +1110,93 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
     if (updates.reminderMinutes !== undefined) dbUpdates.reminder_minutes = updates.reminderMinutes;
     if (updates.active !== undefined) dbUpdates.active = updates.active;
 
-    // Structural changes invalidate future occurrences — wipe and rebuild
-    const structural = updates.weekdays !== undefined || updates.time !== undefined ||
-      updates.startDate !== undefined || updates.endDate !== undefined ||
-      updates.active !== undefined;
-    if (structural) dbUpdates.last_materialized_until = null;
-
     const { data, error } = await (supabase as any).from('recurrences')
       .update(dbUpdates).eq('id', id).select('*').single();
     if (error || !data) return;
     const updated = dbRowToRecurrence(data);
     setRecurrences(prev => prev.map(r => r.id === id ? updated : r));
+  }, []);
 
-    if (structural) {
-      // Delete future non-completed items linked to this recurrence
-      const today = todayYMD();
-      await (supabase as any).from('items')
-        .delete()
-        .eq('recurrence_id', id)
-        .gte('deadline', today)
-        .neq('fase', 'Concluído');
-
-      const userId = await getUserId();
-      if (userId && updated.active) {
-        const newHorizon = await materializeRecurrence(updated, userId);
-        await (supabase as any).from('recurrences')
-          .update({ last_materialized_until: newHorizon })
-          .eq('id', id);
-        setRecurrences(prev => prev.map(r => r.id === id ? { ...r, lastMaterializedUntil: newHorizon } : r));
-      }
-      refreshItems();
-    } else if (updates.title !== undefined || updates.area !== undefined ||
-               updates.type !== undefined || updates.reminderMinutes !== undefined) {
-      // Propagate label/reminder changes to future, non-completed occurrences
-      const today = todayYMD();
-      const itemPatch: any = {};
-      if (updates.title !== undefined) itemPatch.title = updates.title;
-      if (updates.area !== undefined) itemPatch.area = updates.area;
-      if (updates.type !== undefined) itemPatch.tipo = updates.type;
-      if (updates.reminderMinutes !== undefined) itemPatch.reminder_minutes = updates.reminderMinutes;
-      await (supabase as any).from('items')
-        .update(itemPatch)
-        .eq('recurrence_id', id)
-        .gte('deadline', today)
-        .neq('fase', 'Concluído');
-      refreshItems();
-    }
-  }, [getUserId, materializeRecurrence, refreshItems]);
-
-  const deleteRecurrence = useCallback(async (id: string, alsoDeleteFutureItems: boolean) => {
-    if (alsoDeleteFutureItems) {
-      // Remove TODAS as ocorrências da série (passadas e futuras), para a rotina
-      // não continuar aparecendo na Agenda depois de excluída.
-      await (supabase as any).from('items')
-        .delete()
-        .eq('recurrence_id', id);
-      setItems(prev => prev.filter(i => i.recurrenceId !== id));
-    }
+  const deleteRecurrence = useCallback(async (id: string, _alsoDeleteFutureItems = true) => {
+    // Limpa eventuais itens legados materializados dessa série.
+    await (supabase as any).from('items').delete().eq('recurrence_id', id);
+    setItems(prev => prev.filter(i => i.recurrenceId !== id));
     const { error } = await (supabase as any).from('recurrences').delete().eq('id', id);
     if (error) return;
     setRecurrences(prev => prev.filter(r => r.id !== id));
-    if (alsoDeleteFutureItems) refreshItems();
-  }, [refreshItems]);
+    setRecurrenceExceptions(prev => prev.filter(e => e.recurrenceId !== id));
+  }, []);
 
+  /** Grava (ou remove) uma exceção para uma data da série. */
+  const upsertException = useCallback(async (
+    recurrenceId: string,
+    date: string,
+    patch: { status: RecurrenceException['status']; overrideTime?: string; overrideTitle?: string } | null,
+  ) => {
+    const userId = await getUserId();
+    if (!userId) return;
+    if (patch === null) {
+      setRecurrenceExceptions(prev => prev.filter(e => !(e.recurrenceId === recurrenceId && e.date === date)));
+      await (supabase as any).from('recurrence_exceptions')
+        .delete().eq('recurrence_id', recurrenceId).eq('date', date);
+      return;
+    }
+    const row = {
+      user_id: userId,
+      recurrence_id: recurrenceId,
+      date,
+      status: patch.status,
+      override_time: patch.overrideTime ?? null,
+      override_title: patch.overrideTitle ?? null,
+      done_at: patch.status === 'done' ? new Date().toISOString() : null,
+    };
+    // Otimista
+    setRecurrenceExceptions(prev => {
+      const rest = prev.filter(e => !(e.recurrenceId === recurrenceId && e.date === date));
+      return [...rest, {
+        id: `tmp-${recurrenceId}-${date}`,
+        recurrenceId, date,
+        status: patch.status,
+        overrideTime: patch.overrideTime,
+        overrideTitle: patch.overrideTitle,
+        doneAt: row.done_at || undefined,
+      }];
+    });
+    const { data } = await (supabase as any).from('recurrence_exceptions')
+      .upsert(row, { onConflict: 'recurrence_id,date' }).select('*').single();
+    if (data) {
+      const saved = dbRowToException(data);
+      setRecurrenceExceptions(prev => prev.map(e =>
+        e.recurrenceId === recurrenceId && e.date === date ? saved : e));
+    }
+  }, [getUserId]);
+
+  const setOccurrenceDone = useCallback(async (recurrenceId: string, date: string, done: boolean) => {
+    await upsertException(recurrenceId, date, done ? { status: 'done' } : null);
+  }, [upsertException]);
+
+  const cancelOccurrence = useCallback(async (recurrenceId: string, date: string) => {
+    await upsertException(recurrenceId, date, { status: 'cancelled' });
+  }, [upsertException]);
+
+  const endRecurrenceFrom = useCallback(async (recurrenceId: string, date: string) => {
+    const endYMD = addDaysYMD(date, -1);
+    await (supabase as any).from('recurrences').update({ end_date: endYMD }).eq('id', recurrenceId);
+    setRecurrences(prev => prev.map(r => r.id === recurrenceId ? { ...r, endDate: endYMD } : r));
+  }, []);
 
   /**
-   * Google-Calendar-style delete for a recurring item:
-   * - 'one'    : deletes only this occurrence
-   * - 'future' : deletes this + all future non-completed occurrences and ends the series
-   * - 'all'    : deletes the whole series (recurrence + all future non-completed occurrences)
+   * Exclusão estilo Google Agenda para itens avulsos (não recorrentes).
+   * Ocorrências de recorrência são tratadas por cancelOccurrence / endRecurrenceFrom.
    */
-  const deleteRecurringItem = useCallback(async (itemId: string, scope: 'one' | 'future' | 'all') => {
+  const deleteRecurringItem = useCallback(async (itemId: string, _scope: 'one' | 'future' | 'all') => {
     const target = items.find(i => i.id === itemId);
     if (!target) return;
-    const recurrenceId = target.recurrenceId;
+    setItems(prev => prev.filter(i => i.id !== itemId));
+    pushToGoogle(itemId, 'delete');
+    await supabase.from('items').delete().eq('id', itemId);
+  }, [items, pushToGoogle]);
 
-    if (!recurrenceId || scope === 'one') {
-      setItems(prev => prev.filter(i => i.id !== itemId));
-      pushToGoogle(itemId, 'delete');
-      await supabase.from('items').delete().eq('id', itemId);
-      return;
-    }
-
-    if (scope === 'future') {
-      const fromDate = target.deadline || todayYMD();
-      // Optimistic local removal
-      setItems(prev => prev.filter(i =>
-        !(i.recurrenceId === recurrenceId && (i.deadline || '') >= fromDate && i.fase !== 'Concluído')
-      ));
-      await (supabase as any).from('items')
-        .delete()
-        .eq('recurrence_id', recurrenceId)
-        .gte('deadline', fromDate)
-        .neq('fase', 'Concluído');
-      // End the recurrence the day before, so it won't re-materialize
-      const [y, m, d] = fromDate.split('-').map(Number);
-      const prev = new Date(y, m - 1, d - 1);
-      const endYMD = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-${String(prev.getDate()).padStart(2, '0')}`;
-      await (supabase as any).from('recurrences')
-        .update({ end_date: endYMD, last_materialized_until: endYMD })
-        .eq('id', recurrenceId);
-      setRecurrences(prevRs => prevRs.map(r => r.id === recurrenceId ? { ...r, endDate: endYMD, lastMaterializedUntil: endYMD } : r));
-      return;
-    }
-
-    // scope === 'all'
-    await deleteRecurrence(recurrenceId, true);
-  }, [items, pushToGoogle, deleteRecurrence]);
-
-
-
-  // Top-up materialization: extends horizon for active recurrences once a day on app open.
-  useEffect(() => {
-    if (recurrences.length === 0) return;
-    const todayStr = todayYMD();
-    let changed = false;
-    (async () => {
-      const userId = await getUserId();
-      if (!userId) return;
-      for (const rec of recurrences) {
-        if (!rec.active) continue;
-        if (rec.lastMaterializedUntil && rec.lastMaterializedUntil >= todayStr) {
-          // Only re-materialize if horizon is less than 7 days ahead of today
-          const horizonDate = new Date(rec.lastMaterializedUntil + 'T00:00:00');
-          const today = new Date(todayStr + 'T00:00:00');
-          const diffDays = (horizonDate.getTime() - today.getTime()) / 86400000;
-          if (diffDays > 7) continue;
-        }
-        const newHorizon = await materializeRecurrence(rec, userId);
-        await (supabase as any).from('recurrences')
-          .update({ last_materialized_until: newHorizon })
-          .eq('id', rec.id);
-        changed = true;
-      }
-      if (changed) {
-        refreshRecurrences();
-        refreshItems();
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recurrences.length]);
 
   // ---- DAILY PRIORITIES CRUD ----
   const setPriority = useCallback(async (slot: 1 | 2 | 3, itemId: string, replaceItemId?: string) => {
