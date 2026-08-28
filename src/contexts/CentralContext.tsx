@@ -350,25 +350,28 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
   }, []);
 
   // ---- RECURRENCES ----
+  // A partir da v2 as recorrências NÃO são materializadas como itens: a Agenda
+  // expande a regra em memória. Itens antigos com recurrence_id são limpos aqui.
   const refreshRecurrences = useCallback(async () => {
-    const { data, error } = await (supabase as any)
-      .from('recurrences')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const [{ data, error }, { data: exData }] = await Promise.all([
+      (supabase as any).from('recurrences').select('*').order('created_at', { ascending: false }),
+      (supabase as any).from('recurrence_exceptions').select('*'),
+    ]);
     if (!error && data) {
       setRecurrences(data.map(dbRowToRecurrence));
-      // Limpa ocorrências órfãs: itens que apontam para uma recorrência já excluída
-      // (ex.: rotina removida no HD mas ocorrências passadas ainda na Agenda).
-      const validIds = new Set<string>(data.map((r: any) => r.id));
+      // Remove ocorrências materializadas legadas (modelo antigo) para não duplicar
+      // com as ocorrências virtuais.
       setItems(prev => {
-        const orphans = prev.filter(i => i.recurrenceId && !validIds.has(i.recurrenceId));
-        if (orphans.length === 0) return prev;
-        const orphanIds = orphans.map(o => o.id);
-        supabase.from('items').delete().in('id', orphanIds).then(() => {});
-        return prev.filter(i => !orphanIds.includes(i.id));
+        const legacy = prev.filter(i => i.recurrenceId);
+        if (legacy.length === 0) return prev;
+        const legacyIds = legacy.map(o => o.id);
+        supabase.from('items').delete().in('id', legacyIds).then(() => {});
+        return prev.filter(i => !i.recurrenceId);
       });
     }
+    if (exData) setRecurrenceExceptions(exData.map(dbRowToException));
   }, []);
+
 
 
   // ---- DAILY PRIORITIES ----
