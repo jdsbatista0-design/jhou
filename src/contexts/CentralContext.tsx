@@ -517,7 +517,7 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
   const agendaEntries = useMemo<AgendaEntry[]>(() => {
     const fromItems: AgendaEntry[] = items
-      .filter(i => i.deadline && i.fase !== 'Concluído')
+      .filter(i => i.deadline && i.fase !== 'Concluído' && !i.recurrenceId)
       .map(i => ({
         id: `item-${i.id}`,
         title: i.title,
@@ -539,27 +539,48 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       sourceId: e.id,
     }));
 
-    const unique = new Map<string, AgendaEntry>();
-    for (const entry of [...fromItems, ...fromEvents]) {
-      const key = entry.item?.recurrenceId
-        ? `rec:${entry.item.recurrenceId}:${entry.item.deadline || ''}:${entry.item.deadlineTime || ''}`
-        : `${entry.source}:${normalizeForMatch(entry.title)}:${entry.datetime}:${normalizeForMatch(entry.type)}`;
-      const current = unique.get(key);
-      // Mantém a ocorrência mais antiga (a "original") para evitar oscilação
-      // quando o realtime materializa novas cópias antes do dedupe do refreshItems.
-      if (!current) { unique.set(key, entry); continue; }
-      const curTs = current.item?.createdAt || '';
-      const newTs = entry.item?.createdAt || '';
-      if (newTs && curTs && newTs < curTs) unique.set(key, entry);
+    // Ocorrências virtuais: expandidas em memória a partir das regras.
+    // Exceções (cancelada/concluída/remarcada) são aplicadas por data.
+    const exByKey = new Map<string, RecurrenceException>();
+    for (const ex of recurrenceExceptions) exByKey.set(`${ex.recurrenceId}|${ex.date}`, ex);
+
+    const { from, to } = occurrenceWindow();
+    const fromRecurrences: AgendaEntry[] = [];
+    for (const rec of recurrences) {
+      if (!rec.active) continue;
+      for (const date of expandRecurrence(rec, from, to)) {
+        const ex = exByKey.get(`${rec.id}|${date}`);
+        if (ex?.status === 'cancelled') continue;
+        const time = ex?.overrideTime || rec.time;
+        fromRecurrences.push({
+          id: `rec-${rec.id}-${date}`,
+          title: ex?.overrideTitle || rec.title,
+          datetime: time ? `${date}T${time}` : date,
+          type: rec.type || (rec.kind === 'rotina' ? 'Rotina' : 'Compromisso'),
+          source: 'recurrence',
+          sourceId: rec.id,
+          recurrence: rec,
+          occurrenceDate: date,
+          done: ex?.status === 'done',
+        });
+      }
     }
 
+    const unique = new Map<string, AgendaEntry>();
+    for (const entry of [...fromRecurrences, ...fromItems, ...fromEvents]) {
+      const key = entry.source === 'recurrence'
+        ? `rec:${entry.sourceId}:${entry.occurrenceDate}`
+        : `${normalizeForMatch(entry.title)}:${entry.datetime}`;
+      if (!unique.has(key)) unique.set(key, entry);
+    }
 
     return Array.from(unique.values()).sort((a, b) => {
       const aDate = parseLocalDateTime(a.datetime) || new Date(a.datetime);
       const bDate = parseLocalDateTime(b.datetime) || new Date(b.datetime);
       return aDate.getTime() - bDate.getTime();
     });
-  }, [items, events]);
+  }, [items, events, recurrences, recurrenceExceptions]);
+
 
   // ---- INBOX ACTIONS ----
   const addInboxEntry = useCallback(async (content: string, type: InboxEntry['type'], photoUrl?: string, audioUrl?: string) => {
