@@ -328,8 +328,19 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
       .order('created_at', { ascending: false });
     if (!error && data) {
       setRecurrences(data.map(dbRowToRecurrence));
+      // Limpa ocorrências órfãs: itens que apontam para uma recorrência já excluída
+      // (ex.: rotina removida no HD mas ocorrências passadas ainda na Agenda).
+      const validIds = new Set<string>(data.map((r: any) => r.id));
+      setItems(prev => {
+        const orphans = prev.filter(i => i.recurrenceId && !validIds.has(i.recurrenceId));
+        if (orphans.length === 0) return prev;
+        const orphanIds = orphans.map(o => o.id);
+        supabase.from('items').delete().in('id', orphanIds).then(() => {});
+        return prev.filter(i => !orphanIds.includes(i.id));
+      });
     }
   }, []);
+
 
   // ---- DAILY PRIORITIES ----
   const refreshDailyPriorities = useCallback(async () => {
@@ -1175,18 +1186,19 @@ export function CentralProvider({ children, userId }: { children: React.ReactNod
 
   const deleteRecurrence = useCallback(async (id: string, alsoDeleteFutureItems: boolean) => {
     if (alsoDeleteFutureItems) {
-      const today = todayYMD();
+      // Remove TODAS as ocorrências da série (passadas e futuras), para a rotina
+      // não continuar aparecendo na Agenda depois de excluída.
       await (supabase as any).from('items')
         .delete()
-        .eq('recurrence_id', id)
-        .gte('deadline', today)
-        .neq('fase', 'Concluído');
+        .eq('recurrence_id', id);
+      setItems(prev => prev.filter(i => i.recurrenceId !== id));
     }
     const { error } = await (supabase as any).from('recurrences').delete().eq('id', id);
     if (error) return;
     setRecurrences(prev => prev.filter(r => r.id !== id));
     if (alsoDeleteFutureItems) refreshItems();
   }, [refreshItems]);
+
 
   /**
    * Google-Calendar-style delete for a recurring item:
