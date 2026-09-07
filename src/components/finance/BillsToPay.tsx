@@ -78,8 +78,11 @@ export function BillsToPay({ scope, companyId }: Props) {
   const scoped = useMemo(() => transactions
     .filter(t => t.scope === scope)
     .filter(t => scope !== 'pj' || companyId === 'all' || t.companyId === companyId)
-    .filter(t => BILL_KINDS.has(t.kind)),
+    .filter(t => BILL_KINDS.has(t.kind))
+    // Gastos feitos no cartão não são contas individuais: entram na fatura do cartão
+    .filter(t => !(t.cardId && t.kind !== 'card_payment' && t.kind !== 'invoice_payment')),
   [transactions, scope, companyId]);
+
 
   // Escopo do período selecionado — pendentes no mês + vencidas de meses anteriores (só no mês corrente)
   const inSelectedPeriod = (t: FinTransaction, tabKey: Tab) => {
