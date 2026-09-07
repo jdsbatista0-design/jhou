@@ -18,7 +18,6 @@ const MemoryPage = lazy(() => import("@/pages/MemoryPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
 const FinancePage = lazy(() => import("@/pages/FinancePage"));
-const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -121,7 +120,8 @@ const App = () => {
                   <Route path="/reports" element={<ReportsPage />} />
                   <Route path="/configuracoes" element={<SettingsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="*" element={<NotFound />} />
+                  {/* Qualquer rota desconhecida volta para a Agenda em vez de mostrar tela 404 */}
+                  <Route path="*" element={<Navigate to="/agenda" replace />} />
                 </Routes>
               </Suspense>
             </AppShell>
