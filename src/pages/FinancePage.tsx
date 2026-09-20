@@ -15,6 +15,8 @@ const CardsDashboard = lazy(() => import('@/components/finance/CardsDashboard').
 const CategoryBudgets = lazy(() => import('@/components/finance/CategoryBudgets').then(m => ({ default: m.CategoryBudgets })));
 const TransactionDialog = lazy(() => import('@/components/finance/TransactionDialog').then(m => ({ default: m.TransactionDialog })));
 const SavingsInsights = lazy(() => import('@/components/finance/SavingsInsights').then(m => ({ default: m.SavingsInsights })));
+const ImportInvoiceDialog = lazy(() => import('@/components/finance/ImportInvoiceDialog').then(m => ({ default: m.ImportInvoiceDialog })));
+
 
 
 type Section = 'transactions' | 'bills' | 'budgets' | 'overview' | 'accounts' | 'cards' | 'insights';
