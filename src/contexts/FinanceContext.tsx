@@ -1096,6 +1096,163 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     return rows.sort((a, b) => b.total - a.total);
   }, [transactions, categories]);
 
+  // ---------- Savings insights ----------
+  const monthsAgoISO = (n: number) => {
+    const d = new Date();
+    return ymd(new Date(d.getFullYear(), d.getMonth() - n + 1, 1));
+  };
+
+  const getCategoryTrends = useCallback((monthsBack: number) => {
+    const curStart = monthsAgoISO(monthsBack);
+    const prevStart = monthsAgoISO(monthsBack * 2);
+    const todayISO = ymd(new Date());
+    const cur = new Map<string, number>(); const prev = new Map<string, number>();
+    const txByCat = new Map<string, FinTransaction[]>();
+    let curTotal = 0;
+    for (const t of transactions) {
+      if (!EXPENSE_KINDS.has(t.kind) || t.kind !== 'expense') continue;
+      if (t.occurredOn > todayISO) continue;
+      const key = t.categoryId || 'none';
+      if (t.occurredOn >= curStart) {
+        curTotal += t.amount;
+        cur.set(key, (cur.get(key) || 0) + t.amount);
+        const arr = txByCat.get(key) || []; arr.push(t); txByCat.set(key, arr);
+      } else if (t.occurredOn >= prevStart) {
+        prev.set(key, (prev.get(key) || 0) + t.amount);
+      }
+    }
+    const denom = curTotal || 1;
+    const catMap = new Map(categories.map(c => [c.id, c]));
+    const rows = Array.from(cur.entries()).map(([key, total]) => {
+      const cat = key === 'none' ? undefined : catMap.get(key);
+      const p = prev.get(key) || 0;
+      const avgMonth = total / monthsBack;
+      const budget = cat?.monthlyBudget ?? null;
+      return {
+        categoryId: key === 'none' ? null : key,
+        name: cat?.name || 'Sem categoria',
+        color: cat?.color || '#94a3b8',
+        total, avgMonth,
+        pct: (total / denom) * 100,
+        deltaPct: p > 0 ? ((total - p) / p) * 100 : null,
+        budget,
+        overBudget: budget != null && budget > 0 && avgMonth > budget,
+        topTransactions: (txByCat.get(key) || []).sort((a, b) => b.amount - a.amount).slice(0, 8),
+      };
+    });
+    return rows.sort((a, b) => b.total - a.total);
+  }, [transactions, categories, EXPENSE_KINDS]);
+
+  const getRecurringMerchants = useCallback((monthsBack: number) => {
+    const start = monthsAgoISO(monthsBack);
+    const todayISO = ymd(new Date());
+    const catMap = new Map(categories.map(c => [c.id, c]));
+    const groups = new Map<string, {
+      label: string; months: Set<string>; count: number; total: number;
+      categoryId: string | null; lastOn: string;
+    }>();
+    for (const t of transactions) {
+      if (t.kind !== 'expense') continue;
+      if (t.occurredOn < start || t.occurredOn > todayISO) continue;
+      const label = t.description
+        .replace(/\s*\(\d+\/\d+\)\s*$/, '')
+        .replace(/\s*-\s*\d.*$/, '')
+        .trim();
+      const key = label.toLowerCase();
+      if (!key) continue;
+      const g = groups.get(key) || {
+        label, months: new Set<string>(), count: 0, total: 0,
+        categoryId: t.categoryId || null, lastOn: t.occurredOn,
+      };
+      g.months.add(t.occurredOn.slice(0, 7));
+      g.count += 1;
+      g.total += t.amount;
+      if (t.occurredOn > g.lastOn) g.lastOn = t.occurredOn;
+      groups.set(key, g);
+    }
+    const out = Array.from(groups.entries())
+      .filter(([, g]) => g.months.size >= 3)
+      .map(([key, g]) => {
+        const cat = g.categoryId ? catMap.get(g.categoryId) : undefined;
+        const perMonth = g.total / g.months.size;
+        const fixo = g.count <= g.months.size * 1.4;
+        return {
+          key, label: g.label, months: g.months.size, count: g.count,
+          total: g.total, perMonth, perYear: perMonth * 12,
+          categoryName: cat?.name || null,
+          color: cat?.color || '#94a3b8',
+          type: (fixo ? 'fixo' : 'frequente') as 'fixo' | 'frequente',
+          lastOn: g.lastOn,
+        };
+      });
+    return out.sort((a, b) => b.perMonth - a.perMonth);
+  }, [transactions, categories]);
+
+  const getInstallmentOutlook = useCallback((months: number) => {
+    const today = new Date();
+    const todayISO = ymd(today);
+    const monthKeys: string[] = [];
+    for (let i = 0; i < months; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      monthKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+    const totals = new Map<string, number>(monthKeys.map(k => [k, 0]));
+    const groups = new Map<string, FinTransaction[]>();
+    let totalRemaining = 0;
+
+    for (const t of transactions) {
+      if (!t.purchaseGroupId || !t.installmentTotal || t.installmentTotal < 2) continue;
+      const arr = groups.get(t.purchaseGroupId) || []; arr.push(t);
+      groups.set(t.purchaseGroupId, arr);
+      if (t.occurredOn >= todayISO) {
+        totalRemaining += t.amount;
+        const mk = t.occurredOn.slice(0, 7);
+        if (totals.has(mk)) totals.set(mk, (totals.get(mk) || 0) + t.amount);
+      }
+    }
+
+    const cardMap = new Map(cards.map(c => [c.id, c]));
+    const endingSoon: Array<{
+      purchaseGroupId: string; description: string; cardName: string;
+      installmentAmount: number; remaining: number; total: number; lastOn: string;
+    }> = [];
+    for (const [gid, arr] of groups) {
+      arr.sort((a, b) => a.occurredOn.localeCompare(b.occurredOn));
+      const future = arr.filter(t => t.occurredOn >= todayISO);
+      if (future.length === 0 || future.length > 3) continue;
+      const first = arr[0];
+      endingSoon.push({
+        purchaseGroupId: gid,
+        description: first.description.replace(/\s*\(\d+\/\d+\)\s*$/, ''),
+        cardName: (first.cardId && cardMap.get(first.cardId)?.name) || 'Sem cartão',
+        installmentAmount: future[0].amount,
+        remaining: future.length,
+        total: first.installmentTotal!,
+        lastOn: arr[arr.length - 1].occurredOn,
+      });
+    }
+    endingSoon.sort((a, b) => a.remaining - b.remaining || b.installmentAmount - a.installmentAmount);
+
+    const perMonth = monthKeys.map(k => {
+      const [y, m] = k.split('-').map(Number);
+      return {
+        monthISO: k,
+        label: new Date(y, m - 1, 1)
+          .toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', ''),
+        total: totals.get(k) || 0,
+      };
+    });
+    return { perMonth, endingSoon, totalRemaining };
+  }, [transactions, cards]);
+
+  const getUncategorized = useCallback(() => {
+    const list = transactions
+      .filter(t => t.kind === 'expense' && !t.categoryId)
+      .sort((a, b) => b.amount - a.amount);
+    return { count: list.length, total: list.reduce((s, t) => s + t.amount, 0), transactions: list };
+  }, [transactions]);
+
+
 
   // ---------- Card actions ----------
   const addInstallmentPurchase: FinanceContextType['addInstallmentPurchase'] = async (data) => {
