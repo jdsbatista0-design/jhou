@@ -1108,6 +1108,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     const todayISO = ymd(new Date());
     const cur = new Map<string, number>(); const prev = new Map<string, number>();
     const txByCat = new Map<string, FinTransaction[]>();
+    const prevMonths = new Set<string>();
     let curTotal = 0;
     for (const t of transactions) {
       if (!EXPENSE_KINDS.has(t.kind) || t.kind !== 'expense') continue;
@@ -1119,8 +1120,11 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
         const arr = txByCat.get(key) || []; arr.push(t); txByCat.set(key, arr);
       } else if (t.occurredOn >= prevStart) {
         prev.set(key, (prev.get(key) || 0) + t.amount);
+        prevMonths.add(t.occurredOn.slice(0, 7));
       }
     }
+    // Histórico anterior incompleto (ex.: faturas importadas recentemente) distorce a comparação.
+    const comparable = prevMonths.size >= Math.max(2, Math.ceil(monthsBack * 0.75));
     const denom = curTotal || 1;
     const catMap = new Map(categories.map(c => [c.id, c]));
     const rows = Array.from(cur.entries()).map(([key, total]) => {
@@ -1134,7 +1138,8 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
         color: cat?.color || '#94a3b8',
         total, avgMonth,
         pct: (total / denom) * 100,
-        deltaPct: p > 0 ? ((total - p) / p) * 100 : null,
+        deltaPct: comparable && p > 0 ? ((total - p) / p) * 100 : null,
+
         budget,
         overBudget: budget != null && budget > 0 && avgMonth > budget,
         topTransactions: (txByCat.get(key) || []).sort((a, b) => b.amount - a.amount).slice(0, 8),
