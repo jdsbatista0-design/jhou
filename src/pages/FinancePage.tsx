@@ -126,7 +126,14 @@ function FinanceInner() {
         </Suspense>
       </div>
 
+      {importOpen && (
+        <Suspense fallback={null}>
+          <ImportInvoiceDialog open={importOpen} onClose={() => setImportOpen(false)} />
+        </Suspense>
+      )}
+
       {txOpen && (
+
         <Suspense fallback={null}>
           <TransactionDialog
             open={txOpen}
