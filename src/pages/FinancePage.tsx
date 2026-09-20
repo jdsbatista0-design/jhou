@@ -31,6 +31,8 @@ function FinanceInner() {
   const { scope, setScope, loading } = useFinance();
   const [section, setSection] = useState<Section>('transactions');
   const [txOpen, setTxOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
 
   useEffect(() => {
     if (scope !== 'pf') setScope('pf');
