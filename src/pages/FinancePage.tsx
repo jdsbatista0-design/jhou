@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Plus, Wallet, CreditCard, ListChecks, TrendingUp, CheckSquare, PieChart, Scissors } from 'lucide-react';
+import { Plus, Wallet, CreditCard, ListChecks, TrendingUp, CheckSquare, PieChart, Scissors, FileUp } from 'lucide-react';
+
 import { useFinance } from '@/contexts/FinanceContext';
 import { FinancePeriodProvider } from '@/contexts/FinancePeriodContext';
 import { MonthNavigator } from '@/components/finance/MonthNavigator';
@@ -14,6 +15,8 @@ const CardsDashboard = lazy(() => import('@/components/finance/CardsDashboard').
 const CategoryBudgets = lazy(() => import('@/components/finance/CategoryBudgets').then(m => ({ default: m.CategoryBudgets })));
 const TransactionDialog = lazy(() => import('@/components/finance/TransactionDialog').then(m => ({ default: m.TransactionDialog })));
 const SavingsInsights = lazy(() => import('@/components/finance/SavingsInsights').then(m => ({ default: m.SavingsInsights })));
+const ImportInvoiceDialog = lazy(() => import('@/components/finance/ImportInvoiceDialog').then(m => ({ default: m.ImportInvoiceDialog })));
+
 
 
 type Section = 'transactions' | 'bills' | 'budgets' | 'overview' | 'accounts' | 'cards' | 'insights';
@@ -28,6 +31,8 @@ function FinanceInner() {
   const { scope, setScope, loading } = useFinance();
   const [section, setSection] = useState<Section>('transactions');
   const [txOpen, setTxOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
 
   useEffect(() => {
     if (scope !== 'pf') setScope('pf');
@@ -88,14 +93,26 @@ function FinanceInner() {
         {cadastroTabs.map(renderTab)}
       </div>
 
-      {isOperational && (
-        <Button
-          onClick={() => setTxOpen(true)}
-          className="w-full rounded-2xl h-11 font-semibold"
-        >
-          <Plus className="h-4 w-4 mr-1" /> Novo lançamento
-        </Button>
+      {(isOperational || section === 'cards') && (
+        <div className="flex gap-2">
+          {isOperational && (
+            <Button
+              onClick={() => setTxOpen(true)}
+              className="flex-1 rounded-2xl h-11 font-semibold"
+            >
+              <Plus className="h-4 w-4 mr-1" /> Novo lançamento
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            className={cn('rounded-2xl h-11 font-semibold', isOperational ? 'shrink-0 px-4' : 'w-full')}
+          >
+            <FileUp className="h-4 w-4 mr-1" /> Importar fatura
+          </Button>
+        </div>
       )}
+
 
       <div className="pt-1">
         <Suspense fallback={<SectionFallback />}>
@@ -109,7 +126,14 @@ function FinanceInner() {
         </Suspense>
       </div>
 
+      {importOpen && (
+        <Suspense fallback={null}>
+          <ImportInvoiceDialog open={importOpen} onClose={() => setImportOpen(false)} />
+        </Suspense>
+      )}
+
       {txOpen && (
+
         <Suspense fallback={null}>
           <TransactionDialog
             open={txOpen}
