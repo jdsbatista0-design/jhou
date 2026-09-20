@@ -93,14 +93,26 @@ function FinanceInner() {
         {cadastroTabs.map(renderTab)}
       </div>
 
-      {isOperational && (
-        <Button
-          onClick={() => setTxOpen(true)}
-          className="w-full rounded-2xl h-11 font-semibold"
-        >
-          <Plus className="h-4 w-4 mr-1" /> Novo lançamento
-        </Button>
+      {(isOperational || section === 'cards') && (
+        <div className="flex gap-2">
+          {isOperational && (
+            <Button
+              onClick={() => setTxOpen(true)}
+              className="flex-1 rounded-2xl h-11 font-semibold"
+            >
+              <Plus className="h-4 w-4 mr-1" /> Novo lançamento
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            className={cn('rounded-2xl h-11 font-semibold', isOperational ? 'shrink-0 px-4' : 'w-full')}
+          >
+            <FileUp className="h-4 w-4 mr-1" /> Importar fatura
+          </Button>
+        </div>
       )}
+
 
       <div className="pt-1">
         <Suspense fallback={<SectionFallback />}>
