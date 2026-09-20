@@ -83,6 +83,8 @@ function FinanceInner() {
       <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
         {operationalTabs.map(renderTab)}
         <div className="shrink-0 h-6 w-px bg-border mx-1" aria-hidden />
+        {analysisTabs.map(renderTab)}
+        <div className="shrink-0 h-6 w-px bg-border mx-1" aria-hidden />
         {cadastroTabs.map(renderTab)}
       </div>
 
@@ -103,6 +105,7 @@ function FinanceInner() {
           {section === 'overview' && <FinanceOverview scope="pf" companyId={null} />}
           {section === 'accounts' && <AccountsManager scope="pf" companyId={null} />}
           {section === 'cards' && <CardsDashboard scope="pf" companyId={null} />}
+          {section === 'insights' && <SavingsInsights />}
         </Suspense>
       </div>
 
