@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Plus, Wallet, CreditCard, ListChecks, TrendingUp, CheckSquare, PieChart } from 'lucide-react';
+import { Plus, Wallet, CreditCard, ListChecks, TrendingUp, CheckSquare, PieChart, Scissors } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { FinancePeriodProvider } from '@/contexts/FinancePeriodContext';
 import { MonthNavigator } from '@/components/finance/MonthNavigator';
@@ -13,9 +13,10 @@ const AccountsManager = lazy(() => import('@/components/finance/AccountsManager'
 const CardsDashboard = lazy(() => import('@/components/finance/CardsDashboard').then(m => ({ default: m.CardsDashboard })));
 const CategoryBudgets = lazy(() => import('@/components/finance/CategoryBudgets').then(m => ({ default: m.CategoryBudgets })));
 const TransactionDialog = lazy(() => import('@/components/finance/TransactionDialog').then(m => ({ default: m.TransactionDialog })));
+const SavingsInsights = lazy(() => import('@/components/finance/SavingsInsights').then(m => ({ default: m.SavingsInsights })));
 
 
-type Section = 'transactions' | 'bills' | 'budgets' | 'overview' | 'accounts' | 'cards';
+type Section = 'transactions' | 'bills' | 'budgets' | 'overview' | 'accounts' | 'cards' | 'insights';
 
 const SectionFallback = () => (
   <div className="text-[11px] text-muted-foreground animate-pulse pt-3">Carregando…</div>
@@ -38,6 +39,11 @@ function FinanceInner() {
     { id: 'budgets', label: 'Categorias', icon: PieChart },
     { id: 'overview', label: 'Resumo', icon: TrendingUp },
   ];
+
+  const analysisTabs: { id: Section; label: string; icon: any }[] = [
+    { id: 'insights', label: 'Economizar', icon: Scissors },
+  ];
+
 
   const cadastroTabs: { id: Section; label: string; icon: any }[] = [
     { id: 'accounts', label: 'Contas', icon: Wallet },
@@ -77,6 +83,8 @@ function FinanceInner() {
       <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
         {operationalTabs.map(renderTab)}
         <div className="shrink-0 h-6 w-px bg-border mx-1" aria-hidden />
+        {analysisTabs.map(renderTab)}
+        <div className="shrink-0 h-6 w-px bg-border mx-1" aria-hidden />
         {cadastroTabs.map(renderTab)}
       </div>
 
@@ -97,6 +105,7 @@ function FinanceInner() {
           {section === 'overview' && <FinanceOverview scope="pf" companyId={null} />}
           {section === 'accounts' && <AccountsManager scope="pf" companyId={null} />}
           {section === 'cards' && <CardsDashboard scope="pf" companyId={null} />}
+          {section === 'insights' && <SavingsInsights />}
         </Suspense>
       </div>
 
