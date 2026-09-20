@@ -177,7 +177,31 @@ interface FinanceContextType {
     categoryId: string | null; name: string; color: string; total: number;
     pct: number; deltaPct: number | null;
   }>;
+  // Savings insights
+  getCategoryTrends: (monthsBack: number) => Array<{
+    categoryId: string | null; name: string; color: string;
+    total: number; avgMonth: number; pct: number; deltaPct: number | null;
+    budget: number | null; overBudget: boolean;
+    topTransactions: FinTransaction[];
+  }>;
+  getRecurringMerchants: (monthsBack: number) => Array<{
+    key: string; label: string; months: number; count: number;
+    total: number; perMonth: number; perYear: number;
+    categoryName: string | null; color: string;
+    type: 'fixo' | 'frequente';
+    lastOn: string;
+  }>;
+  getInstallmentOutlook: (months: number) => {
+    perMonth: Array<{ monthISO: string; label: string; total: number }>;
+    endingSoon: Array<{
+      purchaseGroupId: string; description: string; cardName: string;
+      installmentAmount: number; remaining: number; total: number; lastOn: string;
+    }>;
+    totalRemaining: number;
+  };
+  getUncategorized: () => { count: number; total: number; transactions: FinTransaction[] };
 }
+
 
 
 const FinanceContext = createContext<FinanceContextType | null>(null);
