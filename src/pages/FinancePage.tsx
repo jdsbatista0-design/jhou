@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Plus, Wallet, CreditCard, ListChecks, TrendingUp, CheckSquare, PieChart, Scissors } from 'lucide-react';
+import { Plus, Wallet, CreditCard, ListChecks, TrendingUp, CheckSquare, PieChart, Scissors, FileUp } from 'lucide-react';
+
 import { useFinance } from '@/contexts/FinanceContext';
 import { FinancePeriodProvider } from '@/contexts/FinancePeriodContext';
 import { MonthNavigator } from '@/components/finance/MonthNavigator';
