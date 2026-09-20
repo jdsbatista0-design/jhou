@@ -1313,12 +1313,14 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     getMonthTotals, getUpcomingBills, getCategoryTotals, getYearMatrix,
     getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, getCardPaymentsForMonth,
     getCardsSummary, getCardsForecast, getCardsGlobalBreakdown,
+    getCategoryTrends, getRecurringMerchants, getInstallmentOutlook, getUncategorized,
   }), [loading, companies, accounts, cards, categories, people, recurrences, transactions,
        scope, setScope, selectedCompanyId, setSelectedCompanyId,
        accountBalance, cardOpenInvoice,
        getMonthTotals, getUpcomingBills, getCategoryTotals, getYearMatrix,
        getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, getCardPaymentsForMonth,
-       getCardsSummary, getCardsForecast, getCardsGlobalBreakdown]);
+       getCardsSummary, getCardsForecast, getCardsGlobalBreakdown,
+       getCategoryTrends, getRecurringMerchants, getInstallmentOutlook, getUncategorized]);
 
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>;
