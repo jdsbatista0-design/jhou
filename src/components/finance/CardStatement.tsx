@@ -46,22 +46,6 @@ export function CardStatement({ cardId }: Props) {
     paid: <Badge className="text-[10px] bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30">Paga</Badge>,
   }[statement.status];
 
-  const conciliar = async () => {
-    if (!hasDiff) return;
-    await addTransaction({
-      scope: card.scope,
-      companyId: card.companyId,
-      cardId: card.id,
-      kind: 'expense',
-      amount: Math.abs(diff),
-      description: diff > 0 ? 'Ajuste de fatura (faltava lançar)' : 'Ajuste de fatura (lancei demais)',
-      occurredOn: statement.end,
-      status: 'confirmed',
-      notes: `Diferença entre o valor real da fatura (${formatBRL(statement.override!)}) e a soma dos lançamentos (${formatBRL(statement.computed)}).`,
-    } as any);
-    await setCardStatementOverride(cardId, monthISO, null);
-    toast.success('Fatura conciliada');
-  };
 
   return (
     <div className="space-y-3">
