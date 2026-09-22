@@ -145,7 +145,23 @@ export default function CardsPage() {
         )}
         {view === 'forecast' && <CardsForecast />}
         {view === 'categories' && <CardsTopCategories />}
-        {view === 'manage' && <CardsManager scope="pf" companyId={null} />}
+        {view === 'manage' && (
+          <div className="space-y-2">
+            {editing && (
+              <CardForm
+                mode={{ kind: 'edit', card: editing }}
+                scope="pf"
+                companyId={null}
+                availableAccounts={accounts.filter(a => !a.archived && a.scope === 'pf')}
+                onDone={() => setEditingId(null)}
+              />
+            )}
+            <CardsManager scope="pf" companyId={null} onOpenCard={setEditingId} />
+            <p className="text-[11px] text-muted-foreground px-1">
+              Toque em um cartão para ajustar nome, limite, fechamento e dia de vencimento.
+            </p>
+          </div>
+        )}
       </Suspense>
 
       {importOpen && (
