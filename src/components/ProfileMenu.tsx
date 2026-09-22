@@ -43,7 +43,7 @@ export default function ProfileMenu({ email, avatarUrl, fullName }: ProfileMenuP
           {fullName || email || 'Conta'}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate('/configuracoes')} className="cursor-pointer">️
+        <DropdownMenuItem onClick={() => navigate('/configuracoes')} className="cursor-pointer">
           <SettingsIcon className="h-4 w-4 mr-2" /> Configurações
         </DropdownMenuItem>
         <DropdownMenuSeparator />
