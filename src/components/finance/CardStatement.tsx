@@ -1,13 +1,10 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Plus, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Plus } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { formatBRL } from '@/types/finance';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
 import { TransactionDialog } from './TransactionDialog';
-import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
 
 interface Props { cardId: string }
 
@@ -22,15 +19,12 @@ function fmtDay(iso: string) {
 export function CardStatement({ cardId }: Props) {
   const {
     cards, getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, categories,
-    setCardStatementOverride, addTransaction,
   } = useFinance();
   const card = cards.find(c => c.id === cardId);
   const now = new Date();
   const [monthISO, setMonthISO] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const [payOpen, setPayOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
-  const [editingTotal, setEditingTotal] = useState(false);
-  const [totalInput, setTotalInput] = useState('');
 
   const statement = useMemo(() => getCardStatement(cardId, monthISO), [getCardStatement, cardId, monthISO]);
   const breakdown = useMemo(() => getCardCategoryBreakdown(cardId, monthISO), [getCardCategoryBreakdown, cardId, monthISO]);
@@ -45,10 +39,6 @@ export function CardStatement({ cardId }: Props) {
     setMonthISO(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
-  const hasOverride = statement.override !== null;
-  const diff = hasOverride ? statement.override! - statement.computed : 0;
-  const hasDiff = hasOverride && Math.abs(diff) >= 0.01;
-
   const statusBadge = {
     open: <Badge variant="secondary" className="text-[10px]">Em aberto</Badge>,
     closed: <Badge variant="destructive" className="text-[10px]">Fechada · a pagar</Badge>,
@@ -56,22 +46,6 @@ export function CardStatement({ cardId }: Props) {
     paid: <Badge className="text-[10px] bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30">Paga</Badge>,
   }[statement.status];
 
-  const conciliar = async () => {
-    if (!hasDiff) return;
-    await addTransaction({
-      scope: card.scope,
-      companyId: card.companyId,
-      cardId: card.id,
-      kind: 'expense',
-      amount: Math.abs(diff),
-      description: diff > 0 ? 'Ajuste de fatura (faltava lançar)' : 'Ajuste de fatura (lancei demais)',
-      occurredOn: statement.end,
-      status: 'confirmed',
-      notes: `Diferença entre o valor real da fatura (${formatBRL(statement.override!)}) e a soma dos lançamentos (${formatBRL(statement.computed)}).`,
-    } as any);
-    await setCardStatementOverride(cardId, monthISO, null);
-    toast.success('Fatura conciliada');
-  };
 
   return (
     <div className="space-y-3">
@@ -121,78 +95,9 @@ export function CardStatement({ cardId }: Props) {
           )}
         </div>
 
-        {/* Conferência com o banco (secundário) */}
-        <div className="pt-1 border-t border-border/60 space-y-1.5">
-          {editingTotal ? (
-            <div className="flex items-center gap-1.5">
-              <div className="relative flex-1">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">R$</span>
-                <Input
-                  value={totalInput}
-                  onChange={e => setTotalInput(maskBRLInput(e.target.value))}
-                  placeholder="0,00"
-                  inputMode="numeric"
-                  autoFocus
-                  className="rounded-xl h-9 text-sm text-right font-mono pl-7"
-                />
-              </div>
-              <Button
-                size="sm"
-                className="h-9 rounded-xl"
-                onClick={async () => {
-                  const v = parseBRLInput(totalInput);
-                  if (v <= 0) { toast.error('Valor inválido'); return; }
-                  await setCardStatementOverride(cardId, monthISO, v);
-                  setEditingTotal(false);
-                  toast.success('Valor do banco salvo');
-                }}
-              >Salvar</Button>
-              <Button size="sm" variant="ghost" className="h-9 rounded-xl text-[11px]" onClick={() => setEditingTotal(false)}>
-                Cancelar
-              </Button>
-            </div>
-          ) : (
-            <button
-              onClick={() => { setTotalInput(hasOverride ? numberToBRLInput(statement.override!) : ''); setEditingTotal(true); }}
-              className="w-full flex items-center justify-between text-[11px]"
-            >
-              <span className="text-muted-foreground">
-                {hasOverride ? 'Valor informado pelo banco' : 'A fatura fechou com outro valor?'}
-              </span>
-              <span className="text-primary font-medium">
-                {hasOverride ? 'ajustar' : 'informar valor'}
-              </span>
-            </button>
-          )}
-
-          {hasOverride && (
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-muted-foreground">Soma dos seus lançamentos</span>
-              <span className="font-mono text-foreground">{formatBRL(statement.computed)}</span>
-            </div>
-          )}
-
-          {hasDiff && (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5 text-[10.5px] text-amber-600">
-                <Info className="h-3 w-3 shrink-0" />
-                <span>
-                  {diff > 0
-                    ? `Faltam ${formatBRL(diff)} de compras não lançadas.`
-                    : `Você lançou ${formatBRL(Math.abs(diff))} a mais do que o banco cobrou.`}
-                </span>
-              </div>
-              <Button onClick={conciliar} variant="outline" size="sm" className="w-full rounded-xl h-9 text-[11px] border-primary/40 text-primary">
-                Conciliar com um ajuste de {formatBRL(Math.abs(diff))}
-              </Button>
-            </div>
-          )}
-          {hasOverride && !hasDiff && (
-            <div className="flex items-center gap-1.5 text-[10.5px] text-emerald-500">
-              <Info className="h-3 w-3 shrink-0" /> Seus lançamentos batem com o banco.
-            </div>
-          )}
-        </div>
+        <p className="pt-1 border-t border-border/60 text-[10.5px] text-muted-foreground">
+          Fechou com outro valor? Importe o PDF da fatura e as compras entram exatamente como o banco cobrou.
+        </p>
       </div>
 
       {breakdown.length > 0 && (

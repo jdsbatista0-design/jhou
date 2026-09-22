@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { LogOut, BarChart3, BookHeart, Settings as SettingsIcon, LayoutDashboard, User as UserIcon } from 'lucide-react';
+import { LogOut, Settings as SettingsIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,15 +43,6 @@ export default function ProfileMenu({ email, avatarUrl, fullName }: ProfileMenuP
           {fullName || email || 'Conta'}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate('/painel')} className="cursor-pointer">
-          <LayoutDashboard className="h-4 w-4 mr-2" /> Painel
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate('/memoria')} className="cursor-pointer">
-          <BookHeart className="h-4 w-4 mr-2" /> Memória
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate('/relatorios')} className="cursor-pointer">
-          <BarChart3 className="h-4 w-4 mr-2" /> Relatórios
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate('/configuracoes')} className="cursor-pointer">
           <SettingsIcon className="h-4 w-4 mr-2" /> Configurações
         </DropdownMenuItem>

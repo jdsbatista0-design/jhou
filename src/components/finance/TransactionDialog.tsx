@@ -63,6 +63,7 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
   const [categoryId, setCategoryId] = useState<string>('none');
   const [personId, setPersonId] = useState<string>('none');
   const [notes, setNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
   const [status, setStatus] = useState<'confirmed' | 'pending'>('confirmed');
   // Recurrence (create mode only — editing rules happens via a sub-dialog)
   const [repeats, setRepeats] = useState(false);
@@ -557,21 +558,29 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
                 </div>
               )}
 
-              <div>
-                <Label className="text-xs">Status</Label>
-                <Select value={status} onValueChange={v => setStatus(v as 'confirmed' | 'pending')}>
-                  <SelectTrigger className="rounded-xl h-9 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="confirmed">Confirmado (já pagou/recebeu)</SelectItem>
-                    <SelectItem value="pending">Previsto (a pagar/receber)</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-2">
+                {([['confirmed', 'Já pago'], ['pending', 'Ainda vou pagar']] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setStatus(v)}
+                    className={cn(
+                      'h-10 rounded-xl border text-sm font-medium transition-colors',
+                      status === v
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-surface text-muted-foreground',
+                    )}
+                  >{label}</button>
+                ))}
               </div>
 
-              <div>
-                <Label className="text-xs">Observação</Label>
-                <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Opcional" className="rounded-xl text-sm min-h-[60px]" />
-              </div>
+              {showNotes ? (
+                <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Observação" autoFocus className="rounded-xl text-sm min-h-[60px]" />
+              ) : (
+                <button type="button" onClick={() => setShowNotes(true)} className="text-xs text-muted-foreground underline underline-offset-2">
+                  Adicionar observação
+                </button>
+              )}
 
               {/* Recurrence block — only when creating a plain income/expense */}
               {!isEdit && (kind === 'income' || kind === 'expense') && !(isCardExpense && installments > 1) && (

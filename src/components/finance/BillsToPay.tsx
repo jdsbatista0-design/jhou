@@ -329,35 +329,16 @@ export function BillsToPay({ scope, companyId }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-2">
-        <div className={cn(
-          'rounded-2xl border p-3',
-          totals.overdueCount > 0 ? 'bg-destructive/10 border-destructive/30' : 'bg-card border-border',
-        )}>
-          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-            <AlertCircle className="h-3 w-3" /> Atrasadas
-          </div>
-          <div className={cn(
-            'text-lg font-bold font-mono mt-1',
-            totals.overdueCount > 0 ? 'text-destructive' : 'text-foreground',
-          )}>
-            {formatBRL(totals.overdue).replace('R$', '').trim()}
-          </div>
-          <div className="text-[10px] text-muted-foreground">
-            {totals.overdueCount} conta{totals.overdueCount !== 1 ? 's' : ''}
-          </div>
+      {totals.overdueCount > 0 && (
+        <div className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-3 py-2">
+          <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+          <span className="text-xs text-foreground">
+            <b>{totals.overdueCount}</b> conta{totals.overdueCount !== 1 ? 's' : ''} atrasada{totals.overdueCount !== 1 ? 's' : ''} ·{' '}
+            <b className="font-mono">{formatBRL(totals.overdue)}</b>
+          </span>
         </div>
-        <div className="rounded-2xl border border-border bg-card p-3">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-            <CalendarDays className="h-3 w-3" /> Mês
-          </div>
-          <div className="text-lg font-bold font-mono text-foreground mt-1">
-            {formatBRL(totals.month).replace('R$', '').trim()}
-          </div>
-          <div className="text-[10px] text-muted-foreground">Total a pagar</div>
-        </div>
-      </div>
+      )}
+
 
       {/* Quick-add removido — use o botão "Novo lançamento" no topo da página */}
 

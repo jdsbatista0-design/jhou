@@ -11,7 +11,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import AppointmentSheet from '@/components/AppointmentSheet';
 
 // Rotas onde o FAB de captura NÃO deve aparecer (elas possuem seus próprios CTAs)
-const HIDDEN_ROUTES = ['/financas', '/memory', '/memoria'];
+const HIDDEN_ROUTES = ['/contas', '/cartoes', '/financas', '/rotinas', '/memory', '/memoria'];
 
 type Mode = 'item' | 'note' | 'audio';
 
