@@ -39,10 +39,6 @@ export function CardStatement({ cardId }: Props) {
     setMonthISO(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   };
 
-  const hasOverride = statement.override !== null;
-  const diff = hasOverride ? statement.override! - statement.computed : 0;
-  const hasDiff = hasOverride && Math.abs(diff) >= 0.01;
-
   const statusBadge = {
     open: <Badge variant="secondary" className="text-[10px]">Em aberto</Badge>,
     closed: <Badge variant="destructive" className="text-[10px]">Fechada · a pagar</Badge>,
