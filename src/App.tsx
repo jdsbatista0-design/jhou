@@ -16,8 +16,8 @@ const ItemDetail = lazy(() => import("@/pages/ItemDetail"));
 const AgendaPage = lazy(() => import("@/pages/AgendaPage"));
 const MemoryPage = lazy(() => import("@/pages/MemoryPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
-const FinancePage = lazy(() => import("@/pages/FinancePage"));
+const BillsPage = lazy(() => import("@/pages/BillsPage"));
+const CardsPage = lazy(() => import("@/pages/CardsPage"));
 
 const queryClient = new QueryClient();
 
@@ -31,9 +31,9 @@ const RouteFallback = () => (
 const prefetchRoutes = () => {
   const kick = () => {
     import("@/pages/AgendaPage");
-    import("@/pages/FinancePage");
+    import("@/pages/BillsPage");
+    import("@/pages/CardsPage");
     import("@/pages/MemoryPage");
-    import("@/pages/ItemDetail");
   };
   const idle = (window as any).requestIdleCallback;
   if (idle) idle(kick, { timeout: 500 }); else setTimeout(kick, 0);
@@ -85,6 +85,12 @@ const App = () => {
     );
   }
 
+  const withFinance = (node: React.ReactNode) => (
+    <FinanceProvider key={`finance-${session.user.id}`} userId={session.user.id}>
+      {node}
+    </FinanceProvider>
+  );
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -96,28 +102,16 @@ const App = () => {
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/agenda" replace />} />
+                  <Route path="/agenda" element={withFinance(<AgendaPage />)} />
+                  <Route path="/contas" element={withFinance(<BillsPage />)} />
+                  <Route path="/cartoes" element={withFinance(<CardsPage />)} />
+                  {/* Rotas antigas continuam funcionando */}
+                  <Route path="/financas" element={<Navigate to="/contas" replace />} />
                   <Route path="/inbox" element={<Navigate to="/agenda" replace />} />
-                  <Route
-                    path="/agenda"
-                    element={
-                      <FinanceProvider key={`finance-${session.user.id}`} userId={session.user.id}>
-                        <AgendaPage />
-                      </FinanceProvider>
-                    }
-                  />
-                  <Route
-                    path="/financas"
-                    element={
-                      <FinanceProvider key={`finance-${session.user.id}`} userId={session.user.id}>
-                        <FinancePage />
-                      </FinanceProvider>
-                    }
-                  />
                   <Route path="/items/:id" element={<ItemDetail />} />
-                  <Route path="/memoria" element={<MemoryPage />} />
-                  <Route path="/memory" element={<MemoryPage />} />
-                  <Route path="/relatorios" element={<ReportsPage />} />
-                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/rotinas" element={<MemoryPage />} />
+                  <Route path="/memoria" element={<Navigate to="/rotinas" replace />} />
+                  <Route path="/memory" element={<Navigate to="/rotinas" replace />} />
                   <Route path="/configuracoes" element={<SettingsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   {/* Qualquer rota desconhecida volta para a Agenda em vez de mostrar tela 404 */}
