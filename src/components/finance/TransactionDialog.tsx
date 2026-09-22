@@ -63,6 +63,7 @@ export function TransactionDialog({ open, onClose, scope, companyId, editTransac
   const [categoryId, setCategoryId] = useState<string>('none');
   const [personId, setPersonId] = useState<string>('none');
   const [notes, setNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
   const [status, setStatus] = useState<'confirmed' | 'pending'>('confirmed');
   // Recurrence (create mode only — editing rules happens via a sub-dialog)
   const [repeats, setRepeats] = useState(false);
