@@ -2,100 +2,98 @@
 @tailwind components;
 @tailwind utilities;
 
-/* OLED Dark Mode — tokens semânticos HSL
-   Inspirado em superfícies escuras tipo Linear/Things 3. */
+/* ============================================================
+   Central — "Papel quente"
+   Paleta clara em papel kraft, verde profundo e laranja queimado.
+   Todos os valores em HSL e expostos como tokens semânticos.
+   ============================================================ */
 @layer base {
   :root {
-    /* OLED background palette */
-    --background: 213 33% 6%;       /* #0B0F14 */
-    --surface: 213 24% 11%;          /* #141A22 */
-    --surface-2: 213 25% 15%;        /* #1C2530 */
-    --foreground: 213 27% 93%;       /* #E8EEF5 */
+    --background: 38 41% 95%;        /* #F7F3EC papel */
+    --surface: 0 0% 100%;            /* fichas brancas */
+    --surface-2: 38 28% 91%;         /* papel mais escuro */
+    --foreground: 20 10% 10%;        /* #1C1917 tinta */
 
-    --card: 213 24% 11%;             /* surface */
-    --card-foreground: 213 27% 93%;
-    --popover: 213 24% 11%;
-    --popover-foreground: 213 27% 93%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 10% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 10% 10%;
 
-    --primary: 217 91% 60%;          /* #3B82F6 */
-    --primary-foreground: 0 0% 100%;
+    --primary: 162 67% 18%;          /* #0F4C3A verde profundo */
+    --primary-foreground: 38 41% 96%;
 
-    --secondary: 213 25% 15%;        /* surface-2 */
-    --secondary-foreground: 213 27% 93%;
+    --secondary: 38 28% 91%;
+    --secondary-foreground: 20 10% 10%;
 
-    --muted: 213 25% 15%;
-    --muted-foreground: 213 16% 60%; /* #8A97A8 */
+    --muted: 38 28% 91%;
+    --muted-foreground: 25 8% 42%;
 
-    --accent: 213 25% 15%;
-    --accent-foreground: 213 27% 93%;
+    --accent: 18 88% 40%;            /* #C2410C laranja queimado */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;        /* #EF4444 */
+    --destructive: 18 88% 40%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 158 84% 39%;          /* #10B981 */
-    --warning: 38 92% 50%;           /* #F59E0B */
+    --success: 162 55% 30%;
+    --warning: 33 90% 44%;
 
-    --border: 213 25% 15%;           /* equal to surface-2 → "border-as-shadow" */
-    --input: 213 25% 15%;
-    --ring: 217 91% 60%;
+    --border: 38 22% 87%;
+    --input: 38 22% 87%;
+    --ring: 162 67% 18%;
 
-    /* Business unit chip colors */
-    --bu-badin: 46 65% 52%;            /* #D4AF37 gold */
-    --bu-bj7-midia: 217 91% 60%;       /* #3B82F6 blue */
-    --bu-izi: 158 84% 39%;             /* #10B981 green */
-    --bu-bj7-consultoria: 271 76% 65%; /* #A855F7 purple */
+    --radius: 0.875rem;
+    --radius-chip: 0.625rem;
 
-    --radius: 0.75rem;               /* 12px cards */
-    --radius-chip: 0.5rem;           /* 8px chips */
+    --shadow-slip: 0 1px 2px hsl(20 10% 10% / 0.04), 0 8px 24px -16px hsl(20 10% 10% / 0.18);
+    --shadow-panel: 0 12px 32px -18px hsl(162 67% 18% / 0.45);
 
-    --sidebar-background: 213 33% 6%;
-    --sidebar-foreground: 213 27% 93%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 213 25% 15%;
-    --sidebar-accent-foreground: 213 27% 93%;
-    --sidebar-border: 213 25% 15%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 20 10% 10%;
+    --sidebar-primary: 162 67% 18%;
+    --sidebar-primary-foreground: 38 41% 96%;
+    --sidebar-accent: 38 28% 91%;
+    --sidebar-accent-foreground: 20 10% 10%;
+    --sidebar-border: 38 22% 87%;
+    --sidebar-ring: 162 67% 18%;
   }
 
-  /* Mantemos .dark com os mesmos valores — single-source OLED.
-     Toggle de tema fica para fase futura. */
+  /* Tema único (claro). .dark repete os valores para evitar surpresas. */
   .dark {
-    --background: 213 33% 6%;
-    --surface: 213 24% 11%;
-    --surface-2: 213 25% 15%;
-    --foreground: 213 27% 93%;
-    --card: 213 24% 11%;
-    --card-foreground: 213 27% 93%;
-    --popover: 213 24% 11%;
-    --popover-foreground: 213 27% 93%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 213 25% 15%;
-    --secondary-foreground: 213 27% 93%;
-    --muted: 213 25% 15%;
-    --muted-foreground: 213 16% 60%;
-    --accent: 213 25% 15%;
-    --accent-foreground: 213 27% 93%;
-    --destructive: 0 84% 60%;
+    --background: 38 41% 95%;
+    --surface: 0 0% 100%;
+    --surface-2: 38 28% 91%;
+    --foreground: 20 10% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 10% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 10% 10%;
+    --primary: 162 67% 18%;
+    --primary-foreground: 38 41% 96%;
+    --secondary: 38 28% 91%;
+    --secondary-foreground: 20 10% 10%;
+    --muted: 38 28% 91%;
+    --muted-foreground: 25 8% 42%;
+    --accent: 18 88% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 18 88% 40%;
     --destructive-foreground: 0 0% 100%;
-    --border: 213 25% 15%;
-    --input: 213 25% 15%;
-    --ring: 217 91% 60%;
-    --sidebar-background: 213 33% 6%;
-    --sidebar-foreground: 213 27% 93%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 213 25% 15%;
-    --sidebar-accent-foreground: 213 27% 93%;
-    --sidebar-border: 213 25% 15%;
-    --sidebar-ring: 217 91% 60%;
+    --border: 38 22% 87%;
+    --input: 38 22% 87%;
+    --ring: 162 67% 18%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 20 10% 10%;
+    --sidebar-primary: 162 67% 18%;
+    --sidebar-primary-foreground: 38 41% 96%;
+    --sidebar-accent: 38 28% 91%;
+    --sidebar-accent-foreground: 20 10% 10%;
+    --sidebar-border: 38 22% 87%;
+    --sidebar-ring: 162 67% 18%;
   }
 }
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
   * {
@@ -104,16 +102,21 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-family: 'Figtree', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Mono for currency, IDs, dates */
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Outfit', 'Figtree', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  /* Números tabulares para valores e datas */
   .font-mono,
   [data-mono] {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-family: 'Figtree', system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum';
   }
 }
@@ -127,19 +130,24 @@
     display: none;
   }
 
-  /* Tap targets */
   .tap-target {
     min-height: 44px;
     min-width: 44px;
   }
 
-  /* Surface helpers */
   .bg-surface { background-color: hsl(var(--surface)); }
   .bg-surface-2 { background-color: hsl(var(--surface-2)); }
   .border-surface-2 { border-color: hsl(var(--surface-2)); }
+
+  /* Ficha de papel */
+  .slip {
+    background-color: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-slip);
+  }
+  .panel-shadow { box-shadow: var(--shadow-panel); }
 }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -160,4 +168,12 @@
 }
 .animate-shake {
   animation: shake 0.4s ease-in-out;
+}
+
+@keyframes slip-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slip-in {
+  animation: slip-in 0.22s ease-out both;
 }
