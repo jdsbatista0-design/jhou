@@ -1,11 +1,12 @@
-import { CalendarDays, Wallet, Repeat } from 'lucide-react';
+import { CalendarDays, Receipt, CreditCard, Repeat } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const tabs = [
   { path: '/agenda', icon: CalendarDays, label: 'Agenda', prefetch: () => import('@/pages/AgendaPage') },
-  { path: '/financas', icon: Wallet, label: 'Finanças', prefetch: () => import('@/pages/FinancePage') },
-  { path: '/memory', icon: Repeat, label: 'Rotinas', prefetch: () => import('@/pages/MemoryPage') },
+  { path: '/contas', icon: Receipt, label: 'Contas', prefetch: () => import('@/pages/BillsPage') },
+  { path: '/cartoes', icon: CreditCard, label: 'Cartões', prefetch: () => import('@/pages/CardsPage') },
+  { path: '/rotinas', icon: Repeat, label: 'Rotinas', prefetch: () => import('@/pages/MemoryPage') },
 ];
 
 export default function BottomNav() {
@@ -15,7 +16,7 @@ export default function BottomNav() {
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-surface-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75"
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex items-stretch justify-around h-16 max-w-lg mx-auto">
@@ -37,7 +38,7 @@ export default function BottomNav() {
               )}
             >
               <Icon className="h-5 w-5" strokeWidth={active ? 2.5 : 2} aria-hidden />
-              <span className="text-[10px] font-medium leading-none">{label}</span>
+              <span className="text-[10px] font-semibold leading-none">{label}</span>
             </button>
           );
         })}
