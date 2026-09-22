@@ -27,10 +27,12 @@ const Fallback = () => (
 );
 
 export default function CardsPage() {
-  const { cards, scope, setScope, getCardStatement } = useFinance();
+  const { cards, accounts, scope, setScope, getCardStatement } = useFinance();
   const [view, setView] = useState<View>('statement');
   const [importOpen, setImportOpen] = useState(false);
   const [cardId, setCardId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = useMemo(() => cards.find(c => c.id === editingId) ?? null, [cards, editingId]);
 
   useEffect(() => {
     if (scope !== 'pf') setScope('pf');
