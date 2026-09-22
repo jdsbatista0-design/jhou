@@ -25,8 +25,6 @@ export function CardStatement({ cardId }: Props) {
   const [monthISO, setMonthISO] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const [payOpen, setPayOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
-  const [editingTotal, setEditingTotal] = useState(false);
-  const [totalInput, setTotalInput] = useState('');
 
   const statement = useMemo(() => getCardStatement(cardId, monthISO), [getCardStatement, cardId, monthISO]);
   const breakdown = useMemo(() => getCardCategoryBreakdown(cardId, monthISO), [getCardCategoryBreakdown, cardId, monthISO]);
