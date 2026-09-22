@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { LogOut, BarChart3, BookHeart, Settings as SettingsIcon, LayoutDashboard, User as UserIcon } from 'lucide-react';
+import { LogOut, Settings as SettingsIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
