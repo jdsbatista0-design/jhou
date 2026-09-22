@@ -19,7 +19,6 @@ function fmtDay(iso: string) {
 export function CardStatement({ cardId }: Props) {
   const {
     cards, getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, categories,
-    setCardStatementOverride, addTransaction,
   } = useFinance();
   const card = cards.find(c => c.id === cardId);
   const now = new Date();
