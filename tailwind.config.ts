@@ -14,8 +14,13 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+        sans: ["Figtree", "system-ui", "-apple-system", "sans-serif"],
+        display: ["Outfit", "Figtree", "system-ui", "sans-serif"],
+        mono: ["Figtree", "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        slip: "var(--shadow-slip)",
+        panel: "var(--shadow-panel)",
       },
       colors: {
         border: "hsl(var(--border))",
