@@ -1,13 +1,10 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Plus, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Plus } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { formatBRL } from '@/types/finance';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
 import { TransactionDialog } from './TransactionDialog';
-import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
 
 interface Props { cardId: string }
 
