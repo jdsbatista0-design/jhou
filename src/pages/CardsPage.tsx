@@ -10,6 +10,7 @@ const CardStatement = lazy(() => import('@/components/finance/CardStatement').th
 const CardsForecast = lazy(() => import('@/components/finance/CardsForecast').then(m => ({ default: m.CardsForecast })));
 const CardsTopCategories = lazy(() => import('@/components/finance/CardsTopCategories').then(m => ({ default: m.CardsTopCategories })));
 const CardsManager = lazy(() => import('@/components/finance/CardsManager').then(m => ({ default: m.CardsManager })));
+const CardForm = lazy(() => import('@/components/finance/CardsManager').then(m => ({ default: m.CardForm })));
 const ImportInvoiceDialog = lazy(() => import('@/components/finance/ImportInvoiceDialog').then(m => ({ default: m.ImportInvoiceDialog })));
 
 type View = 'statement' | 'forecast' | 'categories' | 'manage';
