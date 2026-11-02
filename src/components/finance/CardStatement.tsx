@@ -1,10 +1,15 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
-import { formatBRL } from '@/types/finance';
+import { formatBRL, type FinTransaction } from '@/types/finance';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { TransactionDialog } from './TransactionDialog';
+import { toast } from 'sonner';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Props { cardId: string }
 
@@ -18,13 +23,17 @@ function fmtDay(iso: string) {
 
 export function CardStatement({ cardId }: Props) {
   const {
-    cards, getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, categories,
+    cards, getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, categories, deleteTransaction,
   } = useFinance();
   const card = cards.find(c => c.id === cardId);
   const now = new Date();
   const [monthISO, setMonthISO] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const [payOpen, setPayOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [editing, setEditing] = useState<FinTransaction | null>(null);
+  const [deleting, setDeleting] = useState<FinTransaction | null>(null);
+  const [deletingBusy, setDeletingBusy] = useState(false);
+  const [showAllPurchases, setShowAllPurchases] = useState(false);
 
   const statement = useMemo(() => getCardStatement(cardId, monthISO), [getCardStatement, cardId, monthISO]);
   const breakdown = useMemo(() => getCardCategoryBreakdown(cardId, monthISO), [getCardCategoryBreakdown, cardId, monthISO]);
@@ -37,6 +46,7 @@ export function CardStatement({ cardId }: Props) {
     const [y, m] = monthISO.split('-').map(Number);
     const d = new Date(y, m - 1 + delta, 1);
     setMonthISO(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    setShowAllPurchases(false);
   };
 
   const statusBadge = {
@@ -160,12 +170,13 @@ export function CardStatement({ cardId }: Props) {
             Nenhum gasto lançado nesta fatura ainda.
           </p>
         )}
-        {statement.transactions.slice(0, 60).map(t => {
+        {(showAllPurchases ? statement.transactions : statement.transactions.slice(0, 60)).map(t => {
           const cat = t.categoryId ? catMap.get(t.categoryId) : null;
           return (
-            <div key={t.id} className="flex items-center justify-between py-1.5 text-[11px] border-b border-border/40 last:border-0">
+            <div key={t.id} className="py-3 text-xs border-b border-border/40 last:border-0">
+              <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-foreground truncate">{t.description}</div>
+                <div className="text-foreground break-words">{t.description}</div>
                 <div className="text-muted-foreground">
                   {fmtDay(t.occurredOn)}
                   {cat && <> · <span style={{ color: cat.color }}>{cat.name}</span></>}
@@ -173,10 +184,56 @@ export function CardStatement({ cardId }: Props) {
                 </div>
               </div>
               <div className="text-foreground font-medium font-mono shrink-0">{formatBRL(t.amount)}</div>
+              </div>
+              <div className="flex justify-end gap-2 mt-2">
+                <Button variant="outline" size="icon" className="h-11 w-11" title="Editar lançamento" aria-label={`Editar ${t.description}`} onClick={() => setEditing(t)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-11 w-11 text-destructive" title="Excluir lançamento" aria-label={`Excluir ${t.description}`} onClick={() => setDeleting(t)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           );
         })}
+        {!showAllPurchases && statement.transactions.length > 60 && (
+          <Button variant="outline" className="w-full h-11" onClick={() => setShowAllPurchases(true)}>
+            Ver mais {statement.transactions.length - 60} compras
+          </Button>
+        )}
       </div>
+
+      {editing && (
+        <TransactionDialog open onClose={() => setEditing(null)} scope={card.scope} companyId={card.companyId || null} editTransaction={editing} />
+      )}
+
+      <AlertDialog open={Boolean(deleting)} onOpenChange={open => { if (!open && !deletingBusy) setDeleting(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleting?.description} · {formatBRL(deleting?.amount ?? 0)}. Somente este lançamento será excluído; as outras parcelas serão preservadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={deletingBusy} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={async event => {
+              event.preventDefault();
+              if (!deleting) return;
+              setDeletingBusy(true);
+              try {
+                await deleteTransaction(deleting.id);
+                setDeleting(null);
+                toast.success('Lançamento excluído');
+              } catch {
+                toast.error('Não foi possível excluir o lançamento');
+              } finally {
+                setDeletingBusy(false);
+              }
+            }}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {payOpen && (
         <TransactionDialog
