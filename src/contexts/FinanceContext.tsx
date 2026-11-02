@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { statementTotal } from '@/lib/importedStatement';
 import {
   FinAccount,
   FinCard,
@@ -511,7 +512,8 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     const next: Record<string, number> = { ...(card?.statementOverrides || {}) };
     if (amount == null || !isFinite(amount)) delete next[monthISO];
     else next[monthISO] = amount;
-    await supabase.from('fin_cards').update({ statement_overrides: next as any }).eq('id', cardId);
+    const { error } = await supabase.from('fin_cards').update({ statement_overrides: next as any }).eq('id', cardId);
+    if (error) throw error;
   };
 
 
@@ -884,7 +886,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     const card = cards.find(c => c.id === cardId);
     const override = card?.statementOverrides?.[monthISO];
     const hasOverride = typeof override === 'number' && isFinite(override);
-    const total = hasOverride ? override! : computed;
+    const total = statementTotal(computed, override);
     const paidTxs = transactions.filter(t =>
       t.cardId === cardId && t.kind === 'card_payment' &&
       t.status === 'confirmed' && t.paidCardMonth === `${monthISO}-01`,
@@ -897,7 +899,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     if (paid >= total && total > 0) status = 'paid';
     else if (paid > 0) status = 'partial';
     else if (closed) status = 'closed';
-    return { start, end, due, total, computed, override: hasOverride ? override! : null, paid, remaining, status, transactions: txs };
+    return { start, end, due, total, computed, override: hasOverride && typeof override === 'number' ? override : null, paid, remaining, status, transactions: txs };
   }, [transactions, statementPeriod, cards]);
 
 

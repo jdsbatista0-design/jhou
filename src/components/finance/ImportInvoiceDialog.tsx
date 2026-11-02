@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatBRL } from '@/types/finance';
 import { toast } from 'sonner';
 import { FileUp, Loader2, Check, X, CalendarClock } from 'lucide-react';
+import { importedStatementMonth } from '@/lib/importedStatement';
 
 interface Props { open: boolean; onClose: () => void; }
 
@@ -57,7 +58,7 @@ async function extractPdfText(file: File, password?: string): Promise<string> {
 }
 
 export function ImportInvoiceDialog({ open, onClose }: Props) {
-  const { cards, categories, transactions, updateCard } = useFinance();
+  const { cards, categories, transactions, updateCard, setCardStatementOverride } = useFinance();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -181,7 +182,7 @@ export function ImportInvoiceDialog({ open, onClose }: Props) {
         }
       }
 
-      if (!rows.length) throw new Error('Nada selecionado para importar.');
+      if (!rows.length && !dueDate) throw new Error('Informe o vencimento da fatura.');
 
       for (let i = 0; i < rows.length; i += 100) {
         const { error } = await supabase.from('fin_transactions').insert(rows.slice(i, i + 100));
@@ -193,6 +194,10 @@ export function ImportInvoiceDialog({ open, onClose }: Props) {
         const day = Number(dueDate.split('-')[2]);
         const card = activeCards.find(c => c.id === cardId);
         if (card && day >= 1 && day <= 31 && card.dueDay !== day) await updateCard(cardId, { dueDay: day });
+        const competence = importedStatementMonth(dueDate);
+        if (competence && Number.isFinite(parsed.totalAmount) && parsed.totalAmount >= 0) {
+          await setCardStatementOverride(cardId, competence, parsed.totalAmount);
+        }
       }
 
       toast.success(`${rows.length} lançamento(s) importados na fatura.`);
