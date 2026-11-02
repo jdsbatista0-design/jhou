@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { statementTotal } from '@/lib/importedStatement';
 import {
   FinAccount,
   FinCard,
@@ -885,7 +886,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     const card = cards.find(c => c.id === cardId);
     const override = card?.statementOverrides?.[monthISO];
     const hasOverride = typeof override === 'number' && isFinite(override);
-    const total = typeof override === 'number' && Number.isFinite(override) ? override : computed;
+    const total = statementTotal(computed, override);
     const paidTxs = transactions.filter(t =>
       t.cardId === cardId && t.kind === 'card_payment' &&
       t.status === 'confirmed' && t.paidCardMonth === `${monthISO}-01`,
