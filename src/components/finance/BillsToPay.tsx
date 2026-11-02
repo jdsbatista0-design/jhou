@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { useFinancePeriod } from '@/contexts/FinancePeriodContext';
 import { FinScope, FinTransaction, formatBRL } from '@/types/finance';
@@ -12,6 +12,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { TransactionDialog } from './TransactionDialog';
 import { isGeneralBillTransaction } from '@/lib/financeVisibility';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+const CardStatement = lazy(() => import('./CardStatement').then(module => ({ default: module.CardStatement })));
 
 interface Props { scope: FinScope; companyId: string | null; }
 
@@ -67,6 +71,7 @@ export function BillsToPay({ scope, companyId }: Props) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<FinTransaction | null>(null);
   const [payingInvoice, setPayingInvoice] = useState<InvoiceBill | null>(null);
+  const [openedInvoice, setOpenedInvoice] = useState<InvoiceBill | null>(null);
 
   const today = todayYMD();
   const weekEnd = endOfWeekYMD();
@@ -400,25 +405,22 @@ export function BillsToPay({ scope, companyId }: Props) {
                 b.isOverdue ? 'border-destructive/40 bg-destructive/5' : 'border-border',
               )}
             >
-              <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: b.color + '22' }}>
-                <CreditCard className="h-4 w-4" style={{ color: b.color }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground truncate">Fatura {b.cardName}</div>
-                <div className="text-[10px] text-muted-foreground font-mono truncate">
-                  Vence {fmtDate(b.dueOn)} · fatura {b.monthISO} · calculada dos gastos
-                </div>
-              </div>
-              <div className="text-sm font-bold font-mono text-foreground shrink-0">
-                {formatBRL(b.amount).replace('R$', '').trim()}
-              </div>
-              <button
+              <Button variant="ghost" aria-label={`Abrir fatura ${b.cardName} ${b.monthISO}`} onClick={() => setOpenedInvoice(b)} className="flex-1 min-w-0 h-auto min-h-11 p-0 justify-start gap-3 hover:bg-transparent">
+                <CreditCard className="h-5 w-5 shrink-0 text-primary" />
+                <span className="flex-1 min-w-0 text-left">
+                  <span className="block text-sm font-medium text-foreground truncate">Fatura {b.cardName}</span>
+                  <span className="block text-[10px] text-muted-foreground font-mono truncate">Vence {fmtDate(b.dueOn)} · fatura {b.monthISO}</span>
+                  <span className="block text-sm font-bold font-mono text-foreground">{formatBRL(b.amount)}</span>
+                </span>
+                <Pencil className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Button>
+              <Button variant="ghost"
                 onClick={() => setPayingInvoice(b)}
-                className="h-8 px-2 rounded-lg text-[10px] font-bold uppercase tracking-wide text-emerald-500 hover:bg-emerald-500/10 flex items-center gap-1 shrink-0"
+                className="h-11 px-2 text-xs font-bold text-primary gap-1 shrink-0"
                 title="Pagar fatura"
               >
                 <Wallet className="h-3.5 w-3.5" /> Pagar
-              </button>
+              </Button>
             </div>
           ))}
           <p className="text-[10px] text-muted-foreground px-1">
@@ -464,6 +466,19 @@ export function BillsToPay({ scope, companyId }: Props) {
         companyId={companyId}
         editTransaction={editing}
       />
+
+      <Dialog open={Boolean(openedInvoice)} onOpenChange={open => { if (!open) setOpenedInvoice(null); }}>
+        <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Fatura {openedInvoice?.cardName} · {openedInvoice?.monthISO}</DialogTitle>
+          </DialogHeader>
+          {openedInvoice && (
+            <Suspense fallback={<p className="text-sm text-muted-foreground">Carregando…</p>}>
+              <CardStatement key={`${openedInvoice.cardId}-${openedInvoice.monthISO}`} cardId={openedInvoice.cardId} initialMonthISO={openedInvoice.monthISO} />
+            </Suspense>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {payingInvoice && (
         <TransactionDialog

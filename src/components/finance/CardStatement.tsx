@@ -11,7 +11,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-interface Props { cardId: string }
+interface Props { cardId: string; initialMonthISO?: string }
 
 function fmtMonth(iso: string) {
   const [y, m] = iso.split('-').map(Number);
@@ -21,13 +21,13 @@ function fmtDay(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
-export function CardStatement({ cardId }: Props) {
+export function CardStatement({ cardId, initialMonthISO }: Props) {
   const {
     cards, getCardStatement, getCardCategoryBreakdown, getCardActiveInstallments, categories, deleteTransaction,
   } = useFinance();
   const card = cards.find(c => c.id === cardId);
   const now = new Date();
-  const [monthISO, setMonthISO] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+  const [monthISO, setMonthISO] = useState(initialMonthISO ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   const [payOpen, setPayOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [editing, setEditing] = useState<FinTransaction | null>(null);
