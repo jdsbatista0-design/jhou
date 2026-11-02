@@ -11,6 +11,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { TransactionDialog } from './TransactionDialog';
+import { isGeneralBillTransaction } from '@/lib/financeVisibility';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
@@ -79,8 +80,7 @@ export function BillsToPay({ scope, companyId }: Props) {
     .filter(t => t.scope === scope)
     .filter(t => scope !== 'pj' || companyId === 'all' || t.companyId === companyId)
     .filter(t => BILL_KINDS.has(t.kind))
-    // Gastos feitos no cartão não são contas individuais: entram na fatura do cartão
-    .filter(t => !(t.cardId && t.kind !== 'card_payment' && t.kind !== 'invoice_payment')),
+    .filter(isGeneralBillTransaction),
   [transactions, scope, companyId]);
 
 

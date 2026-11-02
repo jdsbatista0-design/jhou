@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { TransactionDialog } from './TransactionDialog';
+import { isGeneralRecurringTransaction } from '@/lib/financeVisibility';
 
 interface Props { scope: FinScope; companyId: string | null; }
 
@@ -51,6 +52,7 @@ export function TransactionsList({ scope, companyId }: Props) {
   // Scope-filtered base
   const baseScoped = useMemo(() => transactions
     .filter(t => t.scope === scope)
+    .filter(isGeneralRecurringTransaction)
     .filter(t => scope !== 'pj' || companyId === 'all' || t.companyId === companyId),
   [transactions, scope, companyId]);
 

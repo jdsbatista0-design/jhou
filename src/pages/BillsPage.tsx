@@ -7,6 +7,7 @@ import { MonthNavigator } from '@/components/finance/MonthNavigator';
 import { Button } from '@/components/ui/button';
 import { formatBRL } from '@/types/finance';
 import { cn } from '@/lib/utils';
+import { isGeneralBillTransaction } from '@/lib/financeVisibility';
 
 const BillsToPay = lazy(() => import('@/components/finance/BillsToPay').then(m => ({ default: m.BillsToPay })));
 const TransactionsList = lazy(() => import('@/components/finance/TransactionsList').then(m => ({ default: m.TransactionsList })));
@@ -48,8 +49,7 @@ function MonthPanel() {
   const data = useMemo(() => {
     const bills = transactions
       .filter(t => t.scope === 'pf' && BILL_KINDS.has(t.kind))
-      // Compras feitas no cartão não são contas do mês — elas entram na fatura
-      .filter(t => !(t.cardId && t.kind !== 'card_payment' && t.kind !== 'invoice_payment'));
+      .filter(isGeneralBillTransaction);
 
     const inMonth = bills.filter(t => t.occurredOn >= monthStart && t.occurredOn <= monthEnd);
     const carry = isCurrentMonth
