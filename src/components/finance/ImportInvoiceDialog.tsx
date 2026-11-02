@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatBRL } from '@/types/finance';
 import { toast } from 'sonner';
 import { FileUp, Loader2, Check, X, CalendarClock } from 'lucide-react';
+import { importedStatementMonth } from '@/lib/importedStatement';
 
 interface Props { open: boolean; onClose: () => void; }
 
