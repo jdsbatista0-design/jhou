@@ -15,7 +15,8 @@ import { CategoriesManager } from './CategoriesManager';
 interface Props { scope: FinScope }
 
 const SPENDING_KINDS = new Set([
-  'expense', 'card_payment', 'invoice_payment', 'employee_payment',
+  // Pagamento de fatura não é gasto novo: as compras do cartão já contam aqui.
+  'expense', 'employee_payment',
   'supplier_payment', 'employee_loan', 'tax',
 ]);
 
