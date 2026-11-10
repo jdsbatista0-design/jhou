@@ -7,18 +7,16 @@ import { formatBRL } from '@/types/finance';
 import { cn } from '@/lib/utils';
 
 const CardStatement = lazy(() => import('@/components/finance/CardStatement').then(m => ({ default: m.CardStatement })));
-const CardsForecast = lazy(() => import('@/components/finance/CardsForecast').then(m => ({ default: m.CardsForecast })));
-const CardsTopCategories = lazy(() => import('@/components/finance/CardsTopCategories').then(m => ({ default: m.CardsTopCategories })));
+const CardsInsights = lazy(() => import('@/components/finance/CardsInsights').then(m => ({ default: m.CardsInsights })));
 const CardsManager = lazy(() => import('@/components/finance/CardsManager').then(m => ({ default: m.CardsManager })));
 const CardForm = lazy(() => import('@/components/finance/CardsManager').then(m => ({ default: m.CardForm })));
 const ImportInvoiceDialog = lazy(() => import('@/components/finance/ImportInvoiceDialog').then(m => ({ default: m.ImportInvoiceDialog })));
 
-type View = 'statement' | 'forecast' | 'categories' | 'manage';
+type View = 'insights' | 'statement' | 'manage';
 
 const VIEWS: { id: View; label: string }[] = [
+  { id: 'insights', label: 'Gestão' },
   { id: 'statement', label: 'Fatura' },
-  { id: 'forecast', label: 'Próximos meses' },
-  { id: 'categories', label: 'Onde gasto' },
   { id: 'manage', label: 'Meus cartões' },
 ];
 
@@ -28,7 +26,7 @@ const Fallback = () => (
 
 export default function CardsPage() {
   const { cards, accounts, scope, setScope, getCardStatement } = useFinance();
-  const [view, setView] = useState<View>('statement');
+  const [view, setView] = useState<View>('insights');
   const [importOpen, setImportOpen] = useState(false);
   const [cardId, setCardId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -145,8 +143,7 @@ export default function CardsPage() {
             </div>
           )
         )}
-        {view === 'forecast' && <CardsForecast />}
-        {view === 'categories' && <CardsTopCategories />}
+        {view === 'insights' && <CardsInsights />}
         {view === 'manage' && (
           <div className="space-y-2">
             {editing && (
