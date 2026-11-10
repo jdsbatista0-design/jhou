@@ -1,3 +1,4 @@
+import { dueMonthOffset } from '@/lib/importedStatement';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronDown, Repeat, TrendingDown, TrendingUp } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
@@ -42,7 +43,8 @@ export function CardsInsights() {
   const catName = useMemo(() => new Map(categories.map(c => [c.id, { name: c.name, color: c.color }])), [categories]);
 
   const data = useMemo(() => {
-    const stmt = (iso: string) => active.map(c => ({ card: c, st: getCardStatement(c.id, iso) }));
+    // Agrupa pelo mês de VENCIMENTO: cada cartão contribui com a fatura que vence em `iso`.
+    const stmt = (iso: string) => active.map(c => ({ card: c, st: getCardStatement(c.id, shiftMonth(iso, -dueMonthOffset(c.closingDay, c.dueDay))) }));
 
     // Próximos 6 meses
     const upcoming = Array.from({ length: 6 }, (_, i) => {
@@ -80,7 +82,9 @@ export function CardsInsights() {
     const topMerch = rankBy(flat(last3).filter(t => !isInstallment(t)), flat(prev3).filter(t => !isInstallment(t)),
       t => normalizeMerchant(t.description), t => t.amount, 3);
     const recurring = recurringMerchants(window(-1).concat(window(-4)), 3).slice(0, 6);
-    const avgStatement = last3.reduce((s, m) => s + m.txs.reduce((a, t) => a + t.amount, 0), 0) / 3;
+    // Média só com meses que têm fatura registrada (sem histórico, sem alerta)
+    const withData = last3.map(m => m.txs.reduce((a, t) => a + t.amount, 0)).filter(v => v > 0);
+    const avgStatement = withData.length >= 2 ? withData.reduce((a, b) => a + b, 0) / withData.length : 0;
 
     // Alertas
     const alerts: string[] = [];

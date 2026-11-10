@@ -62,14 +62,14 @@ function MonthPanel() {
 
     // Faturas de cartão do período (valor que ainda falta pagar)
     const selectedISO = monthStart.slice(0, 7);
-    const deltas = isCurrentMonth ? [-4, -3, -2, -1] : [-1];
+    const deltas = [-5, -4, -3, -2, -1, 0, 1];
     let next: { label: string; dueOn: string; amount: number } | null = null;
     for (const c of cards.filter(c => !c.archived && c.scope === 'pf')) {
       for (const d of deltas) {
         const st = getCardStatement(c.id, shiftISO(selectedISO, d));
         if (!st.due || st.remaining <= 0.009) continue;
         if (st.due > monthEnd) continue;
-        if (d !== -1 && st.due >= monthStart) continue;
+        if (st.due < monthStart && !isCurrentMonth) continue;
         pending += st.remaining;
         if (!next || st.due < next.dueOn) next = { label: `Fatura ${c.name}`, dueOn: st.due, amount: st.remaining };
       }

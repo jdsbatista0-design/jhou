@@ -139,7 +139,7 @@ export function BillsToPay({ scope, companyId }: Props) {
       (scope !== 'pj' || companyId === 'all' || c.companyId === companyId));
     // A fatura fechada no mês M vence no mês M+1 → para o mês selecionado olhamos M-1.
     // No mês corrente também trazemos faturas anteriores ainda não pagas (atrasadas).
-    const deltas = isCurrentMonth ? [-4, -3, -2, -1] : [-1];
+    const deltas = [-5, -4, -3, -2, -1, 0, 1];
     const out: InvoiceBill[] = [];
     for (const c of visibleCards) {
       for (const d of deltas) {
@@ -147,7 +147,7 @@ export function BillsToPay({ scope, companyId }: Props) {
         const st = getCardStatement(c.id, mISO);
         if (!st.due || st.remaining <= 0.009) continue;
         if (st.due > monthEnd) continue;
-        if (d !== -1 && st.due >= monthStart) continue; // evita duplicar o mês corrente
+        if (st.due < monthStart && !isCurrentMonth) continue; // só atrasadas no mês atual
         out.push({
           cardId: c.id, cardName: c.name, color: c.color, monthISO: mISO,
           amount: st.remaining, dueOn: st.due, accountId: c.accountId,
