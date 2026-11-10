@@ -11,7 +11,7 @@ export function QuickCategorize({ open, onClose }: { open: boolean; onClose: () 
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const list = useMemo(() => getUncategorized().transactions.filter(t => !skipped.has(t.id)), [getUncategorized, skipped]);
-  const cats = useMemo(() => categories.filter(c => c.kind === 'expense' && !c.archived).sort((a, b) => a.name.localeCompare(b.name)), [categories]);
+  const cats = useMemo(() => categories.filter(c => c.kind === 'expense' && !c.archived && c.scope === 'pf').sort((a, b) => a.name.localeCompare(b.name)), [categories]);
   const cur = list[0];
   const cardName = cur?.cardId ? cards.find(c => c.id === cur.cardId)?.name : null;
 
