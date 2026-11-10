@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatBRL } from '@/types/finance';
 import { toast } from 'sonner';
 import { FileUp, Loader2, Check, X, CalendarClock } from 'lucide-react';
-import { importedStatementMonth } from '@/lib/importedStatement';
+import { importedStatementMonth, statementClosingDate } from '@/lib/importedStatement';
 
 interface Props { open: boolean; onClose: () => void; }
 
@@ -150,8 +150,13 @@ export function ImportInvoiceDialog({ open, onClose }: Props) {
       const catByName = new Map(expenseCats.map(c => [norm(c.name), c.id]));
       const rows: any[] = [];
 
+      const importCard = activeCards.find(c => c.id === cardId);
+      const competence0 = dueDate ? importedStatementMonth(dueDate, importCard?.closingDay) : null;
+      const closingISO = competence0 ? statementClosingDate(competence0, importCard?.closingDay) : null;
       for (const p of selected) {
-        const baseDate = p.date || fallbackDate;
+        const isInst = !!(p.installmentTotal && p.installmentTotal > 1);
+        // Parcela que está nesta fatura cai no fechamento desta fatura, não na data da compra original
+        const baseDate = (isInst && closingISO) ? closingISO : (p.date || fallbackDate);
         const categoryId = p.category ? catByName.get(norm(p.category)) || null : null;
         const total = p.installmentTotal && p.installmentTotal > 1 ? p.installmentTotal : null;
         const no = total ? Math.min(Math.max(p.installmentNo || 1, 1), total) : null;
@@ -194,7 +199,7 @@ export function ImportInvoiceDialog({ open, onClose }: Props) {
         const day = Number(dueDate.split('-')[2]);
         const card = activeCards.find(c => c.id === cardId);
         if (card && day >= 1 && day <= 31 && card.dueDay !== day) await updateCard(cardId, { dueDay: day });
-        const competence = importedStatementMonth(dueDate);
+        const competence = importedStatementMonth(dueDate, card?.closingDay);
         if (competence && Number.isFinite(parsed.totalAmount) && parsed.totalAmount >= 0) {
           await setCardStatementOverride(cardId, competence, parsed.totalAmount);
         }

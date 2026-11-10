@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { statementTotal } from '@/lib/importedStatement';
+import { dueMonthOffset, statementTotal } from '@/lib/importedStatement';
 import {
   FinAccount,
   FinCard,
@@ -872,7 +872,7 @@ export function FinanceProvider({ children, userId }: { children: React.ReactNod
     const closing = new Date(y, m - 1, card.closingDay);
     const prevClosing = new Date(y, m - 2, card.closingDay);
     const startD = new Date(prevClosing); startD.setDate(startD.getDate() + 1);
-    const due = card.dueDay ? ymd(new Date(y, m, card.dueDay)) : null;
+    const due = card.dueDay ? ymd(new Date(y, m - 1 + dueMonthOffset(card.closingDay, card.dueDay), card.dueDay)) : null;
     return { start: ymd(startD), end: ymd(closing), due };
   }, [cards]);
 
