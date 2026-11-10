@@ -13,6 +13,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   defaultRepeat?: boolean;
+  defaultDate?: string;
 }
 
 function todayYMD() {
@@ -20,7 +21,7 @@ function todayYMD() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function AppointmentSheet({ open, onOpenChange, defaultRepeat = false }: Props) {
+export default function AppointmentSheet({ open, onOpenChange, defaultRepeat = false, defaultDate }: Props) {
   const { settings, addItem, addRecurrence } = useCentral();
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayYMD());
@@ -36,7 +37,7 @@ export default function AppointmentSheet({ open, onOpenChange, defaultRepeat = f
   useEffect(() => {
     if (open) {
       setTitle('');
-      setDate(todayYMD());
+      setDate(defaultDate || todayYMD());
       setTime('09:00');
       setArea(settings.areas[0] || 'Pessoal');
       setType(settings.agendaTypes[0] || 'Compromisso');
@@ -45,7 +46,7 @@ export default function AppointmentSheet({ open, onOpenChange, defaultRepeat = f
       setWeekdays([]);
       setEndDate('');
     }
-  }, [open, defaultRepeat, settings.areas, settings.agendaTypes]);
+  }, [open, defaultRepeat, defaultDate, settings.areas, settings.agendaTypes]);
 
   const toggleDay = (d: Weekday) =>
     setWeekdays(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort() as Weekday[]);

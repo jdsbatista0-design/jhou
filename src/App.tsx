@@ -13,11 +13,10 @@ import Auth from "@/pages/Auth";
 
 // Lazy-loaded routes — initial bundle stays small
 const ItemDetail = lazy(() => import("@/pages/ItemDetail"));
-const AgendaPage = lazy(() => import("@/pages/AgendaPage"));
+const TodayPage = lazy(() => import("@/pages/TodayPage"));
+const MoneyPage = lazy(() => import("@/pages/MoneyPage"));
 const MemoryPage = lazy(() => import("@/pages/MemoryPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const BillsPage = lazy(() => import("@/pages/BillsPage"));
-const CardsPage = lazy(() => import("@/pages/CardsPage"));
 
 const queryClient = new QueryClient();
 
@@ -30,9 +29,8 @@ const RouteFallback = () => (
 // Prefetch principal routes right after session is ready so tab switches are instant.
 const prefetchRoutes = () => {
   const kick = () => {
-    import("@/pages/AgendaPage");
-    import("@/pages/BillsPage");
-    import("@/pages/CardsPage");
+    import("@/pages/TodayPage");
+    import("@/pages/MoneyPage");
     import("@/pages/MemoryPage");
   };
   const idle = (window as any).requestIdleCallback;
@@ -101,21 +99,18 @@ const App = () => {
             <AppShell session={session}>
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
-                  <Route path="/" element={<Navigate to="/agenda" replace />} />
-                  <Route path="/agenda" element={withFinance(<AgendaPage />)} />
-                  <Route path="/contas" element={withFinance(<BillsPage />)} />
-                  <Route path="/cartoes" element={withFinance(<CardsPage />)} />
-                  {/* Rotas antigas continuam funcionando */}
-                  <Route path="/financas" element={<Navigate to="/contas" replace />} />
-                  <Route path="/inbox" element={<Navigate to="/agenda" replace />} />
-                  <Route path="/items/:id" element={<ItemDetail />} />
+                  <Route path="/" element={<Navigate to="/hoje" replace />} />
+                  <Route path="/hoje" element={withFinance(<TodayPage />)} />
+                  <Route path="/dinheiro" element={withFinance(<MoneyPage />)} />
                   <Route path="/rotinas" element={<MemoryPage />} />
-                  <Route path="/memoria" element={<Navigate to="/rotinas" replace />} />
-                  <Route path="/memory" element={<Navigate to="/rotinas" replace />} />
-                  <Route path="/configuracoes" element={<SettingsPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  {/* Qualquer rota desconhecida volta para a Agenda em vez de mostrar tela 404 */}
-                  <Route path="*" element={<Navigate to="/agenda" replace />} />
+                  <Route path="/items/:id" element={<ItemDetail />} />
+                  <Route path="/ajustes" element={<SettingsPage />} />
+                  {/* Endereços antigos */}
+                  {["/agenda", "/inbox", "/index"].map(p => <Route key={p} path={p} element={<Navigate to="/hoje" replace />} />)}
+                  {["/contas", "/cartoes", "/financas"].map(p => <Route key={p} path={p} element={<Navigate to="/dinheiro" replace />} />)}
+                  {["/memoria", "/memory"].map(p => <Route key={p} path={p} element={<Navigate to="/rotinas" replace />} />)}
+                  {["/configuracoes", "/settings"].map(p => <Route key={p} path={p} element={<Navigate to="/ajustes" replace />} />)}
+                  <Route path="*" element={<Navigate to="/hoje" replace />} />
                 </Routes>
               </Suspense>
             </AppShell>

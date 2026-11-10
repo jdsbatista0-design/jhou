@@ -114,122 +114,96 @@ export default function MemoryPage() {
     setOpen(false);
   };
 
+  const groups = useMemo(() => {
+    const sorted = [...rotinas].sort((a, b) => (a.routineTime || '99').localeCompare(b.routineTime || '99'));
+    const g = [
+      { label: 'Manhã', items: sorted.filter(m => (m.routineTime || '') < '12:00' && m.routineTime) },
+      { label: 'Tarde', items: sorted.filter(m => (m.routineTime || '') >= '12:00' && (m.routineTime || '') < '18:00') },
+      { label: 'Noite', items: sorted.filter(m => (m.routineTime || '') >= '18:00') },
+      { label: 'Sem horário', items: sorted.filter(m => !m.routineTime) },
+    ];
+    return g.filter(x => x.items.length);
+  }, [rotinas]);
+  const DAY = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+
   return (
-    <div className="space-y-4 pb-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-foreground">Rotinas</h1>
-        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full gap-1" onClick={resetForm}>
-              <Plus className="h-4 w-4" /> Nova
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>{editingId ? 'Editar rotina' : 'Nova rotina'}</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <Input
-                placeholder="Nome da rotina (ex: Pilates)"
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                className="rounded-xl"
-              />
-              <div className="space-y-1">
-                <label className="text-[11px] text-muted-foreground">Dias da semana</label>
-                <div className="flex gap-1">
-                  {WEEKDAYS.map(d => (
-                    <button
-                      key={d.v}
-                      type="button"
-                      onClick={() => toggleWeekday(d.v)}
-                      className={`h-9 w-9 rounded-full text-xs font-semibold border ${form.weekdays.includes(d.v) ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'}`}
-                    >
-                      {d.l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="text-[11px] text-muted-foreground">Horário</label>
-                <Input
-                  type="time"
-                  value={form.routineTime}
-                  onChange={e => setForm(f => ({ ...f, routineTime: e.target.value }))}
-                  className="rounded-xl"
-                />
-              </div>
-              <Textarea
-                placeholder="Observações"
-                value={form.content}
-                onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-                className="rounded-xl"
-                rows={3}
-              />
-              <Input
-                placeholder="Tags (vírgula)"
-                value={form.tags}
-                onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
-                className="rounded-xl text-xs"
-              />
-              <p className="text-[10px] text-muted-foreground">⏰ A rotina aparece automaticamente no calendário da Agenda.</p>
-              <Button onClick={handleSave} className="w-full rounded-xl">{editingId ? 'Atualizar' : 'Salvar'}</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+    <div className="space-y-5 pb-6">
+      <div>
+        <h1 className="font-display text-2xl font-bold">Rotinas</h1>
+        <p className="text-sm text-muted-foreground">Toque numa rotina para editar. Elas aparecem sozinhas no Hoje.</p>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar rotinas..." className="pl-9 h-9 rounded-xl" />
-      </div>
-
-      <div className="space-y-2">
-        {rotinas.map(m => (
-          <div key={m.id} className="bg-card border border-border rounded-xl p-3 space-y-1.5">
-            <div className="flex justify-between items-start">
-              <h3 className="text-sm font-medium text-foreground truncate">{m.title}</h3>
-              <div className="flex items-center gap-0.5 flex-shrink-0">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(m)} aria-label="Editar">
-                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { deleteMemory(m.id); toast.success('Removido'); }} aria-label="Excluir">
-                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </div>
-            </div>
-
-            {(m.weekdays?.length || m.routineTime) && (
-              <div className="flex flex-wrap gap-1">
-                {m.routineTime && <Badge variant="outline" className="text-[10px]" data-mono>⏰ {m.routineTime}</Badge>}
-                {(m.weekdays || []).map(d => (
-                  <Badge key={d} variant="secondary" className="text-[10px]">{['S','T','Q','Q','S','S','D'][d - 1]}</Badge>
-                ))}
-                {m.linkedRecurrenceId && <Badge variant="outline" className="text-[10px]">na Agenda ✓</Badge>}
-              </div>
-            )}
-
-            {m.content && (
-              <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-line">{m.content}</p>
-            )}
-
-            {m.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {m.tags.map(t => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
-              </div>
-            )}
-
-            <p className="text-[10px] text-muted-foreground">
-              {formatDistanceToNow(new Date(m.createdAt), { addSuffix: true, locale: ptBR })}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {rotinas.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-3xl mb-2">⏰</p>
-          <p className="text-sm text-muted-foreground">Nenhuma rotina ainda.</p>
+      {rotinas.length > 6 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar" className="pl-9 h-11 rounded-2xl" />
         </div>
       )}
+
+      {groups.map(g => (
+        <section key={g.label} className="space-y-2.5">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{g.label}</h2>
+          {g.items.map(m => (
+            <div key={m.id} className="flex items-center gap-2 rounded-2xl border border-border bg-card p-4 pr-2">
+              <button className="flex-1 min-w-0 text-left" onClick={() => openEdit(m)} aria-label={`Editar ${m.title}`}>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-display text-lg font-bold" data-mono>{m.routineTime || '--:--'}</span>
+                  <span className="font-semibold truncate">{m.title}</span>
+                </div>
+                <div className="flex gap-1 mt-2">
+                  {[1, 2, 3, 4, 5, 6, 7].map(d => (
+                    <span key={d} className={`h-6 w-6 rounded-full text-[11px] font-bold flex items-center justify-center ${(m.weekdays || []).includes(d) ? 'bg-primary text-primary-foreground' : 'bg-surface-2 text-muted-foreground'}`}>{DAY[d - 1]}</span>
+                  ))}
+                </div>
+              </button>
+              <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground" aria-label={`Excluir ${m.title}`}
+                onClick={() => { if (confirm(`Excluir a rotina "${m.title}"?`)) { deleteMemory(m.id); toast.success('Rotina excluída'); } }}>
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </div>
+          ))}
+        </section>
+      ))}
+
+      {rotinas.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+          <p className="text-sm text-muted-foreground">Nenhuma rotina ainda. Crie a primeira, como "Pilates seg e qua 7h".</p>
+        </div>
+      )}
+
+      <button onClick={() => { resetForm(); setOpen(true); }} aria-label="Nova rotina"
+        className="fixed right-5 z-40 h-14 pl-5 pr-6 rounded-full bg-primary text-primary-foreground shadow-panel flex items-center gap-2 font-semibold"
+        style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
+        <Plus className="h-5 w-5" />Rotina
+      </button>
+
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+        <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto rounded-3xl">
+          <DialogHeader><DialogTitle className="font-display">{editingId ? 'Editar rotina' : 'Nova rotina'}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <Input autoFocus placeholder="Nome (ex: Pilates)" value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="rounded-2xl h-12" />
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">Dias</label>
+              <div className="flex justify-between">
+                {WEEKDAYS.map(d => (
+                  <button key={d.v} type="button" onClick={() => toggleWeekday(d.v)}
+                    className={`h-11 w-11 rounded-full text-sm font-semibold border ${form.weekdays.includes(d.v) ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground'}`}>
+                    {d.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">Horário</label>
+              <Input type="time" value={form.routineTime} onChange={e => setForm(f => ({ ...f, routineTime: e.target.value }))} className="rounded-2xl h-12" />
+            </div>
+            <Textarea placeholder="Observação (opcional)" value={form.content}
+              onChange={e => setForm(f => ({ ...f, content: e.target.value }))} className="rounded-2xl" rows={2} />
+            <Button onClick={handleSave} className="w-full rounded-2xl h-12 font-semibold">{editingId ? 'Salvar' : 'Criar rotina'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

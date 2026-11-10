@@ -4,7 +4,6 @@ import { ptBR } from 'date-fns/locale/pt-BR';
 import type { Session } from '@supabase/supabase-js';
 import ProfileMenu from './ProfileMenu';
 import BottomNav from './BottomNav';
-import CaptureFAB from './CaptureFAB';
 import { useTrelloAutoSync } from '@/hooks/useTrelloAutoSync';
 
 
@@ -62,7 +61,6 @@ export default function AppShell({ children, session }: AppShellProps) {
         {children}
       </main>
 
-      <CaptureFAB />
       <BottomNav />
     </div>
   );
