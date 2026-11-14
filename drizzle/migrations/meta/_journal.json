@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794683288815,
+      "tag": "0000_minha_semana",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794683542993,
+      "tag": "0001_protect_week_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794683691592,
+      "tag": "0002_week_upsert_keys",
+      "breakpoints": true
+    }
+  ]
+}

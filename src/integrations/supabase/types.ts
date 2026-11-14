@@ -82,6 +82,39 @@ export type Database = {
           },
         ]
       }
+      dias: {
+        Row: {
+          data: string
+          fe: boolean
+          id: string
+          jantar: boolean
+          leitura: boolean
+          programa: boolean
+          treino: boolean
+          user_id: string
+        }
+        Insert: {
+          data: string
+          fe?: boolean
+          id?: string
+          jantar?: boolean
+          leitura?: boolean
+          programa?: boolean
+          treino?: boolean
+          user_id: string
+        }
+        Update: {
+          data?: string
+          fe?: boolean
+          id?: string
+          jantar?: boolean
+          leitura?: boolean
+          programa?: boolean
+          treino?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           created_at: string
@@ -1070,6 +1103,42 @@ export type Database = {
           updated_at?: string
           user_id?: string
           weekdays?: Json
+        }
+        Relationships: []
+      }
+      semanas: {
+        Row: {
+          created_at: string
+          editado_em: string
+          id: string
+          leitura: Json
+          semana_inicio: string
+          slots: Json
+          sync: Json
+          treinos: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          editado_em?: string
+          id?: string
+          leitura?: Json
+          semana_inicio: string
+          slots?: Json
+          sync?: Json
+          treinos?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          editado_em?: string
+          id?: string
+          leitura?: Json
+          semana_inicio?: string
+          slots?: Json
+          sync?: Json
+          treinos?: Json
+          user_id?: string
         }
         Relationships: []
       }

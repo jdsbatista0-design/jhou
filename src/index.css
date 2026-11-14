@@ -177,3 +177,26 @@
 .animate-slip-in {
   animation: slip-in 0.22s ease-out both;
 }
+
+/* Minha semana: cores de identificação das frentes, sem alterar o tema existente. */
+:root {
+  --week-play: #D85A30;
+  --week-izi: #7F77DD;
+  --week-paineis: #378ADD;
+  --week-stone: #4E9A2E;
+  --week-incorp: #1D9E75;
+  --week-usina: #BA8A17;
+  --week-projetos: #888780;
+  --week-casa: #D4537E;
+}
+.front-play { --front-color: var(--week-play); }
+.front-izi { --front-color: var(--week-izi); }
+.front-paineis { --front-color: var(--week-paineis); }
+.front-stone { --front-color: var(--week-stone); }
+.front-incorp { --front-color: var(--week-incorp); }
+.front-usina { --front-color: var(--week-usina); }
+.front-projetos { --front-color: var(--week-projetos); }
+.front-casa { --front-color: var(--week-casa); }
+.week-color { background-color: var(--front-color); }
+.week-front-text { color: color-mix(in srgb, var(--front-color) 80%, hsl(var(--foreground))); }
+.week-brush[aria-pressed="true"] { border-color: var(--front-color); }

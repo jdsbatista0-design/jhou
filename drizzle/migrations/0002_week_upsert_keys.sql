@@ -1,0 +1,1 @@
+GRANT UPDATE (user_id, semana_inicio) ON public.semanas TO authenticated;

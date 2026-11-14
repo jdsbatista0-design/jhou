@@ -17,6 +17,7 @@ const TodayPage = lazy(() => import("@/pages/TodayPage"));
 const MoneyPage = lazy(() => import("@/pages/MoneyPage"));
 const MemoryPage = lazy(() => import("@/pages/MemoryPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const MyWeekPage = lazy(() => import("@/pages/MyWeekPage"));
 
 const queryClient = new QueryClient();
 
@@ -103,6 +104,7 @@ const App = () => {
                   <Route path="/hoje" element={withFinance(<TodayPage />)} />
                   <Route path="/dinheiro" element={withFinance(<MoneyPage />)} />
                   <Route path="/rotinas" element={<MemoryPage />} />
+                  <Route path="/minha-semana" element={<MyWeekPage userId={session.user.id} />} />
                   <Route path="/items/:id" element={<ItemDetail />} />
                   <Route path="/ajustes" element={<SettingsPage />} />
                   {/* Endereços antigos */}
