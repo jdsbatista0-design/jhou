@@ -10,7 +10,7 @@ export const FRONTS = [
   { id: 'projetos', name: 'Projetos', colorId: '8' },
   { id: 'casa', name: 'Casa', colorId: '4' },
 ] as const;
-export const TRAININGS = { natacao: 'Natação', corrida: 'Corrida', surf: 'Surf', wake: 'Wake' };
+export const TRAININGS = { academia: 'Academia', natacao: 'Natação', corrida: 'Corrida', surf: 'Surf', wake: 'Wake' };
 export const DAY_NAMES = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 export const HOLIDAYS: Record<string, string> = {
  '2026-11-20': 'Consciência Negra', '2026-12-25': 'Natal', '2027-01-01': 'Ano-novo',
@@ -26,7 +26,7 @@ export const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
 export const mondaySchema = dateSchema.refine(v => new Date(`${v}T12:00:00Z`).getUTCDay() === 1);
 export const planSchema = z.object({
  slots: z.record(z.string().regex(/^[0-4][mt]$/), z.array(z.enum(['play','izi','paineis','stone','incorp','usina','projetos','casa'])).max(8).refine(a => new Set(a).size === a.length)),
- treinos: z.record(z.string().regex(/^[0-6]$/), z.object({ tipo: z.enum(['natacao','corrida','surf','wake']), hora: time })),
+ treinos: z.record(z.string().regex(/^[0-6]$/), z.object({ tipo: z.enum(['academia','natacao','corrida','surf','wake']), hora: time })),
  leitura: z.object({ on: z.boolean(), hora: time }),
 });
 export type Plan = z.infer<typeof planSchema>;
@@ -59,11 +59,6 @@ export function paintSlot(slots: Plan['slots'], slot: string, front: FrontId | '
  const current = slots[slot] || [];
  return { ...slots, [slot]: front === 'clear' ? [] : current.includes(front) ? current.filter(f => f !== front) : [...current, front] };
 }
-export type Routine = { id: string; title: string; weekdays: number[]; time: string; startDate: string; endDate?: string; active: boolean };
-export function workoutsForDay(routines: Routine[], iso: string) {
- const weekday = new Date(`${iso}T12:00:00Z`).getUTCDay() || 7;
- return routines.filter(r => r.active && r.startDate <= iso && (!r.endDate || r.endDate >= iso) && r.weekdays.includes(weekday) && /nata[çc][aã]o|corrida|surf|wake|pilates|treino|academia|muscula[çc][aã]o/i.test(r.title));
-}
 export function declining(counts: number[]) { return counts[2] < counts[1] && counts[1] < counts[0]; }
 export function habitMonths(records: DayRecord[], today: string) {
  const anchor = new Date(`${today.slice(0,7)}-01T12:00:00Z`);
@@ -77,7 +72,8 @@ export type CalendarEvent = {
  start: { dateTime: string; timeZone: string }; end: { dateTime: string; timeZone: string };
  reminders: { useDefault: boolean; overrides: { method: string; minutes: number }[] };
 };
-export function buildWeekEvents(monday: string, plan: Plan, routines: Routine[] = []): CalendarEvent[] {
+// Treinos live only here (single source); Rotinas never holds workouts.
+export function buildWeekEvents(monday: string, plan: Plan): CalendarEvent[] {
  const events: CalendarEvent[] = [];
  const tag = `[minha-semana ${monday}]`;
  function add(day: number, hour: string, duration: number, summary: string, colorId: string, description: string, reminder?: number) {
@@ -101,7 +97,7 @@ export function buildWeekEvents(monday: string, plan: Plan, routines: Routine[] 
  }
  for (let day=0;day<7;day++) {
   const training = plan.treinos[String(day)];
-  if (training && !workoutsForDay(routines,shiftDate(monday,day)).length) add(day,training.hora,training.tipo==='surf'||training.tipo==='wake'?90:60,TRAININGS[training.tipo],'2','Planejado no Minha semana (RAIZ).',15);
+  if (training) add(day,training.hora,training.tipo==='surf'||training.tipo==='wake'?90:60,TRAININGS[training.tipo],'2','Planejado no Minha semana (RAIZ).',15);
   if (plan.leitura.on) add(day,plan.leitura.hora,30,'Leitura','1','Planejado no Minha semana (RAIZ).',0);
  }
  return events;

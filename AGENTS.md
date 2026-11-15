@@ -1,7 +1,7 @@
 # Architecture rules
 
 - Keep Minha semana isolated in its own route, hook, tables and edge function; share pure planning rules from `_shared/weekPlan.ts` to keep Google previews and exported events consistent without changing existing agenda logic.
-- Weekly Google exports only delete IDs owned by that week's sync record and persist progress after each operation; existing recurring workouts are read-only references and never copied into weekly training data.
+- Weekly Google exports only delete IDs owned by that week's sync record and persist progress after each operation. Workouts live only in Minha semana treinos (new weeks inherit the last planned treinos/leitura); Rotinas never holds workouts, so nothing syncs from two places.
 - Read Google calendars through a read-only agenda endpoint; never materialize outside events or weekly exports as editable Items, preventing feedback writes and loss of duration. Normalize timed events in America/Sao_Paulo and keep all-day ends exclusive.
 
 - Use `src/lib/financeVisibility.ts` for general finance list and bill visibility so card purchases cannot leak into individual payment actions or totals; card statements keep their full transaction data.

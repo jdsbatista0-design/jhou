@@ -28,8 +28,15 @@ export function useWeek(userId:string, monday:string) {
    const {data,error}=await supabase.from('semanas').select('*').eq('user_id',userId).eq('semana_inicio',monday).maybeSingle();
    if(!active)return;
    if(error){setStatus('Não foi possível carregar');return;}
-   const value=data?{...planSchema.parse(data),id:data.id,semana_inicio:monday,editado_em:data.editado_em,sync:data.sync as Week['sync']}:emptyWeek(monday);
-   current.current=value;version.current=0;saved.current=0;setWeek(value);setStatus('Salvo');setReady(true);
+   let value=data?{...planSchema.parse(data),id:data.id,semana_inicio:monday,editado_em:data.editado_em,sync:data.sync as Week['sync']}:emptyWeek(monday);
+   let inherited=false;
+   if(!data){
+    // Treinos e leitura são fixos: semana nova herda da última semana planejada.
+    const {data:prev}=await supabase.from('semanas').select('treinos,leitura').eq('user_id',userId).lt('semana_inicio',monday).order('semana_inicio',{ascending:false}).limit(1).maybeSingle();
+    if(!active)return;
+    if(prev){const p=planSchema.pick({treinos:true,leitura:true}).safeParse(prev);if(p.success&&(Object.keys(p.data.treinos).length||p.data.leitura.on)){value={...value,...p.data};inherited=true;}}
+   }
+   current.current=value;version.current=inherited?1:0;saved.current=0;setWeek(value);setStatus('Salvo');setReady(true);
   };load().catch(()=>{if(active)setStatus('Não foi possível carregar');});
   return()=>{active=false;};
  },[monday,userId]);

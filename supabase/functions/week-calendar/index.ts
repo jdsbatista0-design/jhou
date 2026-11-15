@@ -32,9 +32,7 @@ Deno.serve(async req => {
   if(readError||!week) return reply({error:'Semana não encontrada'},404);
   const plan=planSchema.safeParse(week); const monday=mondaySchema.safeParse(week.semana_inicio);
   if(!plan.success||!monday.success) return reply({error:'Revise os horários e as frentes da semana'},400);
-  const {data:routines,error:routineError}=await client.from('recurrences').select('id,title,weekdays,time,start_date,end_date,active').eq('user_id',user.id);
-  if(routineError) throw routineError;
-  const events=buildWeekEvents(monday.data,plan.data,(routines||[]).map(r=>({id:r.id,title:r.title,weekdays:r.weekdays as number[],time:r.time,startDate:r.start_date,endDate:r.end_date||undefined,active:r.active})));
+  const events=buildWeekEvents(monday.data,plan.data);
    const repair=parsed.data.action==='repair';
    if(repair && week.sync?.eventIds?.length!==events.length)return reply({error:'O planejamento mudou; atualize a agenda pela confirmação normal.'},409);
   admin=createClient(url,service);
@@ -59,7 +57,7 @@ Deno.serve(async req => {
   sync.calendarId=calendarId;
   await persist();
   for(let i=0;i<events.length;i++) {
-    const event={...events[i],extendedProperties:{private:{centralWeekId:week.id,centralItemId:null}}};
+    const event={...events[i],extendedProperties:{private:{centralWeekId:week.id}}};
     if(repair){await gateway(`${endpoint}/${encodeURIComponent(sync.eventIds[i])}`,'PATCH',event);await persist();continue;}
    // Stable Google-compatible IDs make retries recoverable, even if the connection drops after creation.
    const id=week.id.replaceAll('-','')+lock.replaceAll('-','')+i.toString(16).padStart(2,'0');
