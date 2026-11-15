@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Trash2, CalendarDays, Wallet, Repeat } from 'lucide-react';
+import { Check, Trash2, CalendarDays, Wallet, Repeat, RefreshCw, ExternalLink } from 'lucide-react';
 import { addDays, format, isSameDay, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
@@ -15,6 +15,8 @@ import AppointmentSheet from '@/components/AppointmentSheet';
 import AgendaCalendar from '@/components/agenda/AgendaCalendar';
 import { RecurringDeleteDialog, DeleteScope } from '@/components/RecurringDeleteDialog';
 import { toast } from 'sonner';
+import { useGoogleAgenda } from '@/hooks/useGoogleAgenda';
+import { entryOnDay } from '../../supabase/functions/_shared/googleAgenda';
 
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -23,13 +25,27 @@ type Row =
   | { kind: 'bill'; time: string; id: string; title: string; amount: number };
 
 export default function TodayPage() {
-  const { agendaEntries, updateItem, deleteEvent, deleteRecurringItem, setOccurrenceDone, cancelOccurrence, endRecurrenceFrom, deleteRecurrence } = useCentral();
+  const { agendaEntries: localEntries, updateItem, deleteEvent, deleteRecurringItem, setOccurrenceDone, cancelOccurrence, endRecurrenceFrom, deleteRecurrence } = useCentral();
   const { cards, transactions, getCardStatement } = useFinance();
   const navigate = useNavigate();
   const [day, setDay] = useState(startOfDay(new Date()));
   const [showMonth, setShowMonth] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AgendaEntry | null>(null);
+  const google=useGoogleAgenda(format(day,'yyyy-MM'));
+  const agendaEntries=useMemo(()=>{
+    const remote=google.data?.entries || [];
+    const itemIds=new Set(google.data?.localItemIds || []);
+    for(const e of remote)if(e.googleItemId)itemIds.add(e.googleItemId);
+    const local=localEntries.filter(e=>e.source!=='item' || (!itemIds.has(e.sourceId) && !/\[minha-semana /.test(e.item?.description || '')));
+    const keys=new Set(local.map(e=>`${e.title.toLocaleLowerCase()}:${e.datetime}`));
+    const uids=new Set<string>();
+    return [...local,...remote.filter(e=>{
+      const key=e.iCalUID?`${e.iCalUID}:${e.datetime}`:e.id;
+      if(uids.has(key) || keys.has(`${e.title.toLocaleLowerCase()}:${e.datetime}`))return false;
+      uids.add(key);return true;
+    })];
+  },[localEntries,google.data]);
 
   const strip = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(startOfDay(new Date()), i - 1)), []);
   const dateOf = (e: AgendaEntry) => parseLocalDateTime(e.datetime) || new Date(e.datetime);
@@ -46,14 +62,14 @@ export default function TodayPage() {
 
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = agendaEntries
-      .filter(e => isSameDay(dateOf(e), day))
-      .map(e => ({ kind: 'entry' as const, time: format(dateOf(e), 'HH:mm'), entry: e }));
+      .filter(e => entryOnDay(e,ymd(day)))
+      .map(e => ({ kind: 'entry' as const, time: e.allDay || !e.datetime.includes('T') ? '' : e.datetime.slice(11,16), entry: e }));
     for (const b of billsByDay.get(ymd(day)) || []) list.push({ kind: 'bill', time: '', ...b });
     return list.sort((a, b) => a.time.localeCompare(b.time));
   }, [agendaEntries, billsByDay, day]);
 
   const isDone = (e: AgendaEntry) => e.source === 'recurrence' ? !!e.done : e.source === 'item' && e.item?.fase === 'Concluído';
-  const countFor = (d: Date) => agendaEntries.filter(e => isSameDay(dateOf(e), d)).length + (billsByDay.get(ymd(d))?.length || 0);
+  const countFor = (d: Date) => agendaEntries.filter(e => entryOnDay(e,ymd(d))).length + (billsByDay.get(ymd(d))?.length || 0);
 
   const toggle = async (e: AgendaEntry) => {
     if (e.source === 'recurrence' && e.recurrence && e.occurrenceDate) {
@@ -86,6 +102,11 @@ export default function TodayPage() {
             dueCount ? `${dueCount} ${dueCount === 1 ? 'conta vence' : 'contas vencem'}` : '',
           ].filter(Boolean).join(' · ')}
         </p>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{google.isPending?'Buscando agendas…':google.isError?'Não foi possível buscar as agendas':google.data?.warnings.length?'Algumas agendas não responderam':'Agendas Google'}</p>
+        <Button variant="ghost" size="icon" aria-label="Atualizar agendas" disabled={google.isFetching} onClick={()=>google.refetch()}><RefreshCw className={cn('h-4 w-4',google.isFetching && 'animate-spin')} /></Button>
       </div>
 
       {/* Faixa de dias */}
@@ -131,21 +152,22 @@ export default function TodayPage() {
           const e = r.entry; const done = isDone(e);
           return (
             <div key={e.id} className={cn('flex items-center gap-3 rounded-2xl border border-border bg-card p-3 pl-2', done && 'opacity-60')}>
-              <button onClick={() => toggle(e)} aria-label={done ? 'Desmarcar' : 'Concluir'}
+              {e.source==='google' ? <span className="h-11 w-11 flex items-center justify-center shrink-0 text-primary"><CalendarDays className="h-5 w-5" /></span> : <Button variant="ghost" size="icon" onClick={() => toggle(e)} aria-label={done ? 'Desmarcar' : 'Concluir'}
                 className="h-11 w-11 flex items-center justify-center shrink-0">
                 <span className={cn('h-6 w-6 rounded-full border-2 flex items-center justify-center', done ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40')}>
                   {done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
                 </span>
-              </button>
-              <button className="flex-1 min-w-0 text-left" onClick={() => e.source === 'item' && navigate(`/items/${e.sourceId}`)}>
-                <p className={cn('font-semibold truncate', done && 'line-through')}>{e.title}</p>
+              </Button>}
+              <div className="flex-1 min-w-0 text-left" onClick={() => e.source === 'item' && navigate(`/items/${e.sourceId}`)}>
+                <p className={cn('font-semibold break-words', done && 'line-through')}>{e.title}</p>
                 <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                  <span data-mono>{r.time}</span>{e.source === 'recurrence' && <><Repeat className="h-3.5 w-3.5" />rotina</>}
+                  <span data-mono>{r.time || 'Dia inteiro'}{r.time && e.endDatetime?.includes('T') ? `–${e.endDatetime.slice(11,16)}` : ''}</span>{e.source === 'recurrence' && <><Repeat className="h-3.5 w-3.5" />rotina</>}
                 </p>
-              </button>
-              <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground shrink-0" aria-label={`Excluir ${e.title}`} onClick={() => remove(e)}>
+                {e.calendarName && <p className="text-xs text-muted-foreground">{e.calendarName}</p>}
+              </div>
+              {e.source==='google' ? e.htmlLink && <Button variant="ghost" size="icon" asChild className="h-11 w-11 shrink-0"><a href={e.htmlLink} target="_blank" rel="noopener noreferrer" aria-label={`Abrir ${e.title} no Google`}><ExternalLink className="h-5 w-5" /></a></Button> : <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground shrink-0" aria-label={`Excluir ${e.title}`} onClick={() => remove(e)}>
                 <Trash2 className="h-5 w-5" />
-              </Button>
+              </Button>}
             </div>
           );
         })())}

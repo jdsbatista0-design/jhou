@@ -98,7 +98,13 @@ export interface AgendaEntry {
   title: string;
   datetime: string;
   type: string;
-  source: 'item' | 'event' | 'recurrence';
+  source: 'item' | 'event' | 'recurrence' | 'google';
+  endDatetime?: string;
+  allDay?: boolean;
+  calendarName?: string;
+  htmlLink?: string;
+  googleItemId?: string;
+  iCalUID?: string;
   sourceId: string;
   item?: Item;
   /** Presente quando a entrada é uma ocorrência virtual de recorrência. */

@@ -7,14 +7,10 @@
 // Auth: requer JWT do usuário logado (verify_jwt = true via config padrão).
 // Conexão Google Calendar via Lovable Connector Gateway (sem OAuth manual).
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { z } from 'npm:zod@3';
+import { isWeekEvent, googleAgendaEntry, saoPauloDateTime } from '../_shared/googleAgenda.ts';
 
 const GATEWAY = "https://connector-gateway.lovable.dev/google_calendar/calendar/v3";
 const CALENDAR_NAME = "Central";
@@ -147,7 +143,8 @@ async function ensureCalendar(supa: any, userId: string, forceRefresh = false): 
       { user_id: userId, calendar_id: calendarId },
       { onConflict: "user_id" },
     );
-  return calendarId!;
+  if (!calendarId) throw new Error('Agenda não encontrada');
+  return calendarId;
 }
 
 async function pushItem(
@@ -158,6 +155,9 @@ async function pushItem(
 ) {
   const calendarId = await ensureCalendar(supa, userId);
 
+  const { data: ownedItem } = await supa.from('items').select('description').eq('id', itemId).eq('user_id', userId).maybeSingle();
+  if (isWeekEvent({ id:itemId, description:ownedItem?.description })) return { ok:true, skipped:'Planejamento semanal é gerenciado somente por Minha semana' };
+
   // mapping atual
   const { data: mapping } = await supa
     .from("gcal_sync")
@@ -165,6 +165,12 @@ async function pushItem(
     .eq("user_id", userId)
     .eq("item_id", itemId)
     .maybeSingle();
+
+  if(mapping?.google_event_id){
+    const remote=await gfetch(`/calendars/${encodeURIComponent(mapping.google_calendar_id || calendarId)}/events/${encodeURIComponent(mapping.google_event_id)}`);
+    if(remote.ok && isWeekEvent(await remote.json()))return {ok:true,skipped:'Evento semanal protegido'};
+    if(!remote.ok && remote.status!==404 && remote.status!==410)throw new Error(`Google [${remote.status}]: ${await remote.text()}`);
+  }
 
   if (action === "delete") {
     if (mapping?.google_event_id) {
@@ -390,6 +396,8 @@ async function applyRemoteEvent(
   calendarId: string,
   ev: any,
 ) {
+  // Google events are read directly, never copied into Items and pushed back with a default duration.
+  if (isWeekEvent(ev) || !ev.extendedProperties?.private?.centralItemId) return;
   // Identificar se é um evento gerado pelo Central
   const centralItemId: string | undefined =
     ev.extendedProperties?.private?.centralItemId;
@@ -442,11 +450,8 @@ async function applyRemoteEvent(
   if (startDateTime) {
     // Pega a porção local (vem com timezone)
     const d = new Date(startDateTime);
-    deadline = d.toISOString().slice(0, 10);
-    deadlineTime =
-      String(d.getHours()).padStart(2, "0") +
-      ":" +
-      String(d.getMinutes()).padStart(2, "0");
+    const local = saoPauloDateTime(d.toISOString());
+    [deadline, deadlineTime] = local.split('T');
   } else if (startDate) {
     deadline = startDate;
     deadlineTime = null;
@@ -488,45 +493,41 @@ async function applyRemoteEvent(
     return;
   }
 
-  // Criar novo item a partir do evento (criado direto no Google)
-  // Buscar settings do user para área default
-  const { data: settingsRow } = await supa
-    .from("app_settings")
-    .select("value")
-    .eq("user_id", userId)
-    .eq("key", "central_settings")
-    .maybeSingle();
-  const defaultArea =
-    (settingsRow?.value as any)?.areas?.[0] || "Pessoal";
+  // Do not materialize unmatched remote events.
+  return;
+}
 
-  const { data: newItem, error: insErr } = await supa
-    .from("items")
-    .insert({
-      title: ev.summary || "(sem título)",
-      description: ev.description || null,
-      tipo: "Ação",
-      fase: "Inbox",
-      area: defaultArea,
-      deadline,
-      deadline_time: deadlineTime,
-      user_id: userId,
-    })
-    .select("id")
-    .single();
-
-  if (insErr || !newItem) return;
-
-  await supa.from("gcal_sync").upsert(
-    {
-      user_id: userId,
-      item_id: newItem.id,
-      google_event_id: ev.id,
-      google_calendar_id: calendarId,
-      deleted: false,
-      last_remote_updated_at: ev.updated,
-    },
-    { onConflict: "user_id,google_event_id" },
-  );
+async function readAgenda(supa: any, userId: string, month: string) {
+  const start = new Date(`${month}-01T00:00:00-03:00`);
+  const end = new Date(start); end.setUTCMonth(end.getUTCMonth()+1);
+  const calendars:any[]=[];
+  let token:string|undefined;
+  do {
+    const params=new URLSearchParams({maxResults:'250'}); if(token)params.set('pageToken',token);
+    const response=await gfetch(`/users/me/calendarList?${params}`);
+    if(!response.ok)throw new Error(`Google [${response.status}]: ${await response.text()}`);
+    const data=await response.json(); calendars.push(...(data.items||[]));token=data.nextPageToken;
+  } while(token);
+  const warnings:string[]=[];
+  const groups=await Promise.all(calendars.filter(c=>!c.deleted && ['owner','writer','reader'].includes(c.accessRole)).map(async calendar=>{
+    const entries:any[]=[];let page:string|undefined;
+    do {
+      const params=new URLSearchParams({timeMin:start.toISOString(),timeMax:end.toISOString(),timeZone:CALENDAR_TIMEZONE,singleEvents:'true',maxResults:'250'});
+      if(page)params.set('pageToken',page);
+      const response=await gfetch(`/calendars/${encodeURIComponent(calendar.id)}/events?${params}`);
+      if(!response.ok){const details=await response.text();console.error(`Google [${response.status}]: ${details}`);warnings.push(`${calendar.summary}: Google [${response.status}]: ${details}`);break;}
+      const data=await response.json();
+      for(const ev of data.items||[]){const entry=googleAgendaEntry(ev,calendar);if(entry)entries.push(entry);}
+      page=data.nextPageToken;
+    }while(page);
+    return entries;
+  }));
+  const {data:mappings,error}=await supa.from('gcal_sync').select('item_id,google_event_id').eq('user_id',userId);
+  if(error)throw error;
+  const entries=groups.flat();const ids=new Set(entries.map(e=>e.sourceId));
+  const {data:weekItems,error:weekError}=await supa.from('items').select('id').eq('user_id',userId).like('description','%[minha-semana %');
+  if(weekError)throw weekError;
+  return {entries,warnings,localItemIds:[...(mappings||[]).filter((m:any)=>ids.has(m.google_event_id)).map((m:any)=>m.item_id),...(weekItems||[]).map((i:any)=>i.id)]};
 }
 
 // ---------- HTTP entry ----------
@@ -563,6 +564,12 @@ Deno.serve(async (req) => {
 
     let result: any;
     switch (action) {
+      case 'agenda': {
+        const month=z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).safeParse(body.month);
+        if(!month.success)return new Response(JSON.stringify({error:'Mês inválido'}),{status:400,headers:{...corsHeaders,'Content-Type':'application/json'}});
+        result=await readAgenda(supa,user.id,month.data);
+        break;
+      }
       case "init": {
         const calendarId = await ensureCalendar(supa, user.id);
         result = { ok: true, calendarId };
@@ -584,12 +591,13 @@ Deno.serve(async (req) => {
         // Push dos items com deadline e fase != Concluído que ainda não estão sincronizados ou estão desatualizados
         const { data: items } = await supa
           .from("items")
-          .select("id, updated_at, deadline, fase")
+          .select("id, updated_at, deadline, fase, description")
           .eq("user_id", user.id)
           .not("deadline", "is", null)
           .neq("fase", "Concluído");
         let pushed = 0;
         for (const it of items || []) {
+          if(isWeekEvent({id:it.id,description:it.description}))continue;
           const { data: m } = await supa
             .from("gcal_sync")
             .select("last_local_updated_at, deleted")
@@ -602,6 +610,7 @@ Deno.serve(async (req) => {
             !m.last_local_updated_at ||
             new Date(it.updated_at).getTime() >
               new Date(m.last_local_updated_at).getTime();
+          if(m && !m.last_local_updated_at)continue;
           if (needsPush) {
             try {
               await pushItem(supa, user.id, it.id, "upsert");

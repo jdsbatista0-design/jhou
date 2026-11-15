@@ -15,6 +15,7 @@ import { ptBR } from 'date-fns/locale/pt-BR';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { parseLocalDateTime } from '@/lib/dates';
+import { entryOnDay } from '../../../supabase/functions/_shared/googleAgenda';
 
 interface Props {
   entries: AgendaEntry[];
@@ -41,15 +42,9 @@ export default function AgendaCalendar({ entries, selectedDate, onSelectDate }: 
 
   const byDay = useMemo(() => {
     const map = new Map<string, AgendaEntry[]>();
-    for (const e of entries) {
-      const dt = parseLocalDateTime(e.datetime) || new Date(e.datetime);
-      const key = format(dt, 'yyyy-MM-dd');
-      const arr = map.get(key) || [];
-      arr.push(e);
-      map.set(key, arr);
-    }
+    for (const day of days) {const key=format(day,'yyyy-MM-dd');map.set(key,entries.filter(e=>entryOnDay(e,key)));}
     return map;
-  }, [entries]);
+  }, [entries,days]);
 
   return (
     <div className="bg-card border border-border rounded-xl p-3 space-y-3">

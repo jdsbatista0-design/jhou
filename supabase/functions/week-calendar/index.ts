@@ -3,7 +3,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { z } from 'zod';
 import { mondaySchema, planSchema, buildWeekEvents } from '../_shared/weekPlan.ts';
 const base = 'https://connector-gateway.lovable.dev/google_calendar/calendar/v3';
-const bodySchema = z.discriminatedUnion('action', [z.object({action:z.literal('status')}),z.object({action:z.literal('sync'),week:z.string().uuid(),expected:z.string().datetime({offset:true})})]);
+const bodySchema = z.discriminatedUnion('action', [z.object({action:z.literal('status')}),z.object({action:z.literal('sync'),week:z.string().uuid(),expected:z.string().datetime({offset:true})}),z.object({action:z.literal('repair'),week:z.string().uuid(),expected:z.string().datetime({offset:true})})]);
 const reply = (data: unknown, status=200) => new Response(JSON.stringify(data),{status,headers:{...corsHeaders,'Content-Type':'application/json'}});
 Deno.serve(async req => {
  if(req.method==='OPTIONS') return new Response('ok',{headers:corsHeaders});
@@ -35,6 +35,8 @@ Deno.serve(async req => {
   const {data:routines,error:routineError}=await client.from('recurrences').select('id,title,weekdays,time,start_date,end_date,active').eq('user_id',user.id);
   if(routineError) throw routineError;
   const events=buildWeekEvents(monday.data,plan.data,(routines||[]).map(r=>({id:r.id,title:r.title,weekdays:r.weekdays as number[],time:r.time,startDate:r.start_date,endDate:r.end_date||undefined,active:r.active})));
+   const repair=parsed.data.action==='repair';
+   if(repair && week.sync?.eventIds?.length!==events.length)return reply({error:'O planejamento mudou; atualize a agenda pela confirmação normal.'},409);
   admin=createClient(url,service);
   lock=crypto.randomUUID();
   const previous=week.sync||{};
@@ -53,14 +55,16 @@ Deno.serve(async req => {
   let sync={...previous,busy:lock,partial:true,eventIds:[...(previous.eventIds||[])],count:previous.eventIds?.length||0};
   const persist=async()=>{const {error}=await admin?.from('semanas').update({sync}).eq('id',week.id).eq('user_id',user.id);if(error) throw error;};
   // Persist every delete/create so a failed request never loses ownership of created events.
-  for(const id of [...sync.eventIds]) {await gateway(`${endpoint}/${encodeURIComponent(id)}`,'DELETE');sync.eventIds=sync.eventIds.filter((v:string)=>v!==id);sync.count=sync.eventIds.length;await persist();}
+   if(!repair)for(const id of [...sync.eventIds]) {await gateway(`${endpoint}/${encodeURIComponent(id)}`,'DELETE');sync.eventIds=sync.eventIds.filter((v:string)=>v!==id);sync.count=sync.eventIds.length;await persist();}
   sync.calendarId=calendarId;
   await persist();
   for(let i=0;i<events.length;i++) {
+    const event={...events[i],extendedProperties:{private:{centralWeekId:week.id,centralItemId:null}}};
+    if(repair){await gateway(`${endpoint}/${encodeURIComponent(sync.eventIds[i])}`,'PATCH',event);await persist();continue;}
    // Stable Google-compatible IDs make retries recoverable, even if the connection drops after creation.
    const id=week.id.replaceAll('-','')+lock.replaceAll('-','')+i.toString(16).padStart(2,'0');
    sync.eventIds.push(id);sync.count=sync.eventIds.length;await persist();
-   await gateway(`/calendars/${encodeURIComponent(calendarId)}/events`,'POST',{...events[i],id});
+    await gateway(`/calendars/${encodeURIComponent(calendarId)}/events`,'POST',{...event,id});
   }
   sync={...sync,at:new Date().toISOString(),busy:undefined,partial:false};await persist();lockedId=undefined;
   return reply({ok:true,sync});
