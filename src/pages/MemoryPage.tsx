@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, Trash2, Pencil } from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale/pt-BR';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Memory } from '@/types/central';
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+import { localTodayISO } from '@/lib/dates';
+import CaptureAction from '@/components/CaptureAction';
 
 const WEEKDAYS = [
   { v: 1, l: 'S' }, { v: 2, l: 'T' }, { v: 3, l: 'Q' }, { v: 4, l: 'Q' },
@@ -83,7 +81,7 @@ export default function MemoryPage() {
           type: 'Rotina',
           time: form.routineTime,
           weekdays: form.weekdays as any,
-          startDate: todayISO(),
+          startDate: localTodayISO(),
           reminderMinutes: 30,
           active: true,
         });
@@ -130,7 +128,6 @@ export default function MemoryPage() {
     <div className="space-y-5 pb-6">
       <div>
         <h1 className="font-display text-2xl font-bold">Rotinas</h1>
-        <p className="text-sm text-muted-foreground">Toque numa rotina para editar. Elas aparecem sozinhas no Hoje.</p>
       </div>
 
       {rotinas.length > 6 && (
@@ -171,11 +168,7 @@ export default function MemoryPage() {
         </div>
       )}
 
-      <button onClick={() => { resetForm(); setOpen(true); }} aria-label="Nova rotina"
-        className="fixed right-5 z-40 h-14 pl-5 pr-6 rounded-full bg-primary text-primary-foreground shadow-panel flex items-center gap-2 font-semibold"
-        style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
-        <Plus className="h-5 w-5" />Rotina
-      </button>
+      <CaptureAction label="Rotina" onClick={() => { resetForm(); setOpen(true); }} />
 
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
         <DialogContent className="max-w-sm max-h-[85vh] overflow-y-auto rounded-3xl">

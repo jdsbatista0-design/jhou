@@ -7,8 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatBRL, FinTransaction } from '@/types/finance';
 import { cn } from '@/lib/utils';
-import { isGeneralBillTransaction } from '@/lib/financeVisibility';
-import { competenceForDueMonth, shiftMonthISO } from '@/lib/billsByDue';
+import { billsForDueMonth, competenceForDueMonth, shiftMonthISO, type Bill } from '@/lib/billsByDue';
+import { localTodayISO } from '@/lib/dates';
 import { maskBRLInput, parseBRLInput } from '@/lib/currency';
 import { toast } from 'sonner';
 
@@ -19,10 +19,6 @@ const QuickCategorize = lazy(() => import('@/components/finance/QuickCategorize'
 const CardsManager = lazy(() => import('@/components/finance/CardsManager').then(m => ({ default: m.CardsManager })));
 const CategoriesManager = lazy(() => import('@/components/finance/CategoriesManager').then(m => ({ default: m.CategoriesManager })));
 
-const todayISO = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
 const monthName = (iso: string, opts: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' }) => {
   const [y, m] = iso.split('-').map(Number);
   const s = new Date(y, m - 1, 1).toLocaleDateString('pt-BR', opts).replace('.', '');
@@ -30,21 +26,15 @@ const monthName = (iso: string, opts: Intl.DateTimeFormatOptions = { month: 'lon
 };
 const dayLabel = (ymd: string) => new Date(ymd + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '');
 
-interface Bill {
-  key: string; kind: 'card' | 'fixed';
-  title: string; dueOn: string; amount: number; paid: boolean;
-  cardId?: string; competence?: string; tx?: FinTransaction;
-}
-
 export default function MoneyPage() {
   const fin = useFinance();
   const { cards, transactions, categories, getCardStatement, getUncategorized, updateTransaction, addCardPayment, scope, setScope } = fin;
   useEffect(() => { if (scope !== 'pf') setScope('pf'); }, [scope, setScope]);
 
-  const nowMonth = todayISO().slice(0, 7);
+  const nowMonth = localTodayISO().slice(0, 7);
   const [month, setMonth] = useState(nowMonth);
   const isNow = month === nowMonth;
-  const today = todayISO();
+  const today = localTodayISO();
   const active = useMemo(() => cards.filter(c => !c.archived && c.scope === 'pf'), [cards]);
 
   const [showPaid, setShowPaid] = useState(false);
@@ -58,33 +48,8 @@ export default function MoneyPage() {
   const [setupOpen, setSetupOpen] = useState(false);
 
   /** Faturas e contas fixas que vencem no mês (e atrasadas, no mês atual). */
-  const bills = useMemo<Bill[]>(() => {
-    const out: Bill[] = [];
-    const [y, m] = month.split('-').map(Number);
-    const start = `${month}-01`;
-    const end = `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
-    for (const c of active) {
-      const months = isNow ? [-3, -2, -1, 0] : [0];
-      for (const d of months) {
-        const comp = competenceForDueMonth(shiftMonthISO(month, d), c.closingDay, c.dueDay);
-        const st = getCardStatement(c.id, comp);
-        if (!st.due || st.total <= 0.009) continue;
-        const paid = st.remaining <= 0.009;
-        if (d < 0 && paid) continue; // meses anteriores só se ainda estiverem em aberto
-        out.push({ key: `card-${c.id}-${comp}`, kind: 'card', title: `Fatura ${c.name}`, dueOn: st.due,
-          amount: paid ? st.total : st.remaining, paid, cardId: c.id, competence: comp });
-      }
-    }
-    for (const t of transactions) {
-      if (t.scope !== 'pf' || t.kind === 'income' || t.kind === 'receivable' || t.kind === 'transfer' || t.kind === 'card_payment') continue;
-      if (!isGeneralBillTransaction(t)) continue;
-      const inMonth = t.occurredOn >= start && t.occurredOn <= end;
-      const overdue = isNow && t.status === 'pending' && t.occurredOn < start;
-      if (!inMonth && !overdue) continue;
-      out.push({ key: `tx-${t.id}`, kind: 'fixed', title: t.description, dueOn: t.occurredOn, amount: t.amount, paid: t.status === 'confirmed', tx: t });
-    }
-    return out.sort((a, b) => a.dueOn.localeCompare(b.dueOn));
-  }, [active, transactions, getCardStatement, month, isNow]);
+  const bills = useMemo(() => billsForDueMonth(active, transactions, getCardStatement, month, isNow),
+    [active, transactions, getCardStatement, month, isNow]);
 
   const open = bills.filter(b => !b.paid);
   const paid = bills.filter(b => b.paid);
@@ -123,7 +88,7 @@ export default function MoneyPage() {
   const startPay = (b: Bill) => {
     setPaying(b);
     setPayValue(maskBRLInput(String(Math.round(b.amount * 100))));
-    setPayDate(b.dueOn < today ? today : b.dueOn > today ? today : b.dueOn);
+    setPayDate(today);
   };
   const confirmPay = async () => {
     if (!paying) return;
@@ -202,10 +167,10 @@ export default function MoneyPage() {
       </section>
 
       {/* Próximos meses */}
-      <section className="rounded-3xl bg-card border border-border p-5 space-y-3">
+      <section className="border-t border-border pt-5 space-y-3">
         <div>
           <h2 className="font-display text-lg font-semibold">Próximos meses</h2>
-          <p className="text-xs text-muted-foreground">Parcelas que já vão cair nas faturas</p>
+
         </div>
         {ahead.map(a => (
           <button key={a.iso} onClick={() => setMonth(a.iso)} className="w-full text-left">
@@ -216,7 +181,7 @@ export default function MoneyPage() {
       </section>
 
       {/* Onde gastei */}
-      <section className="rounded-3xl bg-card border border-border p-5 space-y-3">
+      <section className="border-t border-border pt-5 space-y-3">
         <div className="flex items-baseline justify-between">
           <h2 className="font-display text-lg font-semibold">Onde gastei</h2>
           <span className="text-sm font-semibold" data-mono>{formatBRL(spending.total)}</span>
@@ -277,7 +242,15 @@ export default function MoneyPage() {
           <SheetHeader className="text-left"><SheetTitle className="font-display text-lg">Cartões e categorias</SheetTitle></SheetHeader>
           <Suspense fallback={null}>
             <div className="mt-4 space-y-8">
-              <CardsManager scope="pf" companyId={null} onOpenCard={() => {}} />
+              <CardsManager scope="pf" companyId={null} onOpenCard={cardId => {
+                const card = active.find(c => c.id === cardId);
+                if (!card) return;
+                const competence = competenceForDueMonth(month, card.closingDay, card.dueDay);
+                const statement = getCardStatement(cardId, competence);
+                setSetupOpen(false);
+                setOpenInvoice({ key: `card-${cardId}-${competence}`, kind: 'card', title: `Fatura ${card.name}`,
+                  dueOn: statement.due || `${month}-01`, amount: statement.total, paid: statement.remaining <= 0.009, cardId, competence });
+              }} />
               <CategoriesManager scope="pf" />
             </div>
           </Suspense>

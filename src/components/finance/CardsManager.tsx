@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight, Pencil } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { FinScope, FinCard, formatBRL } from '@/types/finance';
 import { maskBRLInput, parseBRLInput, numberToBRLInput } from '@/lib/currency';
+import { competenceForDueMonth } from '@/lib/billsByDue';
+import { localTodayISO } from '@/lib/dates';
 
 interface Props {
   scope: FinScope;
@@ -59,7 +61,7 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
         toast.error('Selecione uma empresa específica'); return;
       }
       await addCard({
-        scope, companyId: scope === 'pj' ? companyId! : undefined,
+        scope, companyId: scope === 'pj' ? companyId || undefined : undefined,
         color: '#a855f7', ...patch,
       } as any);
       toast.success('Cartão cadastrado');
@@ -104,11 +106,9 @@ export function CardForm({ mode, scope, companyId, availableAccounts, onDone }: 
 export function CardsManager({ scope, companyId, onOpenCard }: Props) {
   const { cards, accounts, getCardStatement } = useFinance();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<FinCard | null>(null);
 
-  const monthISO = useMemo(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  }, []);
+  const monthISO = localTodayISO().slice(0, 7);
 
   const visible = useMemo(() => cards.filter(c => {
     if (c.archived || c.scope !== scope) return false;
@@ -122,7 +122,7 @@ export function CardsManager({ scope, companyId, onOpenCard }: Props) {
   const canAdd = scope === 'pf' || (scope === 'pj' && companyId && companyId !== 'all');
 
   const rows = useMemo(() => visible.map(c => {
-    const st = getCardStatement(c.id, monthISO);
+    const st = getCardStatement(c.id, competenceForDueMonth(monthISO, c.closingDay, c.dueDay));
     const used = c.limitAmount > 0 ? Math.min(100, (st.remaining / c.limitAmount) * 100) : 0;
     const days = st.due
       ? Math.round((new Date(st.due + 'T00:00:00').getTime() - new Date(new Date().toDateString()).getTime()) / 86400000)
@@ -132,6 +132,8 @@ export function CardsManager({ scope, companyId, onOpenCard }: Props) {
 
   return (
     <div className="space-y-2">
+      {editing && <CardForm mode={{ kind: 'edit', card: editing }} scope={scope} companyId={companyId}
+        availableAccounts={availableAccounts} onDone={() => setEditing(null)} />}
       {creating && (
         <CardForm
           mode={{ kind: 'create' }}
@@ -154,14 +156,15 @@ export function CardsManager({ scope, companyId, onOpenCard }: Props) {
           : days < 0 ? `Atrasada ${Math.abs(days)}d`
           : days === 0 ? 'Vence hoje'
           : `Vence em ${days}d`;
-        const statusTone = st.remaining <= 0 && st.total > 0 ? 'text-emerald-500'
+        const statusTone = st.remaining <= 0 && st.total > 0 ? 'text-primary'
           : days !== null && days < 0 ? 'text-destructive'
-          : days !== null && days <= 3 ? 'text-amber-500' : 'text-muted-foreground';
+          : days !== null && days <= 3 ? 'text-accent' : 'text-muted-foreground';
         return (
-          <button
-            key={c.id}
+          <div key={c.id} className="space-y-1">
+          <Button variant="ghost"
             onClick={() => onOpenCard(c.id)}
-            className="w-full text-left rounded-2xl border border-border bg-card p-3 space-y-2 active:opacity-70 transition-opacity"
+            aria-label={`Abrir cartão ${c.name}`}
+            className="block h-auto whitespace-normal w-full text-left rounded-2xl border border-border bg-card p-3 space-y-2 active:opacity-70 transition-opacity"
           >
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 text-[11px] font-bold"
@@ -181,7 +184,10 @@ export function CardsManager({ scope, companyId, onOpenCard }: Props) {
             <div className="h-1 rounded-full bg-muted overflow-hidden">
               <div className="h-full" style={{ width: `${used}%`, background: used > 80 ? 'hsl(var(--destructive))' : c.color }} />
             </div>
-          </button>
+          </Button>
+          <Button variant="ghost" className="h-11 text-muted-foreground" aria-label={`Editar cartão ${c.name}`}
+            onClick={() => { setCreating(false); setEditing(c); }}><Pencil />Editar cartão</Button>
+          </div>
         );
       })}
 

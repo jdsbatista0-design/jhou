@@ -1,5 +1,5 @@
-# Minha semana
-- [x] Planejamento semanal e salvamento por usuário.
-- [x] Registro diário e termômetro mensal.
-- [x] Envio seguro ao Google e verificação de sobreposições com Rotinas (Academia e Wake).
-- [x] 28 testes aprovados; celular e desktop conferidos; evento temporário no Google criado e removido.
+# Revisão de redundâncias
+- [x] Unificar vencimentos entre Hoje e Dinheiro sem duplicar pagamentos ou compras.
+- [x] Preservar o carregamento financeiro ao trocar de tela e compartilhar datas e ações repetidas.
+- [x] Remover atalhos obsoletos e recolher configurações avançadas sem apagar dados.
+- [x] Conferir as cinco telas, histórico, previsão e edição; 33 testes aprovados.

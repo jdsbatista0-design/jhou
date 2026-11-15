@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Brain, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff, LogOut, Pencil, Check } from 'lucide-react';
+import { Plus, X, ChevronDown, ArrowUp, ArrowDown, RefreshCw, Wifi, WifiOff, LogOut, Pencil, Check } from 'lucide-react';
 import { useCentral } from '@/contexts/CentralContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { TagGroup } from '@/types/central';
 import {
@@ -21,7 +20,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { GoogleCalendarCard } from '@/components/GoogleCalendarCard';
 import { TrelloCard } from '@/components/TrelloCard';
-// RecurrencesManager moved to AgendaPage (tab "Recorrências")
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 function reorder<T>(arr: T[], idx: number, dir: -1 | 1): T[] {
   const next = [...arr];
@@ -242,7 +241,6 @@ function TagChip({ tag, onRename, onDelete }: { tag: string; onRename: (v: strin
 
 export default function SettingsPage() {
   const { settings, updateSettings } = useCentral();
-  const navigate = useNavigate();
   const [newGroupName, setNewGroupName] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
@@ -326,13 +324,10 @@ export default function SettingsPage() {
       {/* Conta */}
       {profile && (
         <div className="border border-border rounded-xl p-3 flex items-center gap-3">
-          {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt="" className="h-10 w-10 rounded-full" />
-          ) : (
-            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold text-muted-foreground">
-              {(profile.full_name || profile.email || '?').slice(0, 1).toUpperCase()}
-            </div>
-          )}
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={profile.avatar_url} alt="" />
+            <AvatarFallback>{(profile.full_name || profile.email || '?').slice(0, 1).toUpperCase()}</AvatarFallback>
+          </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">
               {profile.full_name || 'Conta Google'}
@@ -353,7 +348,10 @@ export default function SettingsPage() {
 
       <GoogleCalendarCard />
 
-      <TrelloCard />
+      <details className="border-t border-border pt-3">
+        <summary className="cursor-pointer min-h-11 text-sm font-semibold">Trello</summary>
+        <div className="pt-3"><TrelloCard /></div>
+      </details>
 
 
       {/* Sync status */}
@@ -389,14 +387,11 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Recorrências agora ficam dentro da Agenda */}
-
-      <div className="space-y-2">
-        <Button variant="outline" className="w-full rounded-xl justify-start gap-2" onClick={() => navigate('/memory')}>
-          <Brain className="h-4 w-4" /> Memória / HD
-        </Button>
-      </div>
-
+      <details className="border-t border-border pt-4">
+        <summary className="cursor-pointer min-h-11 flex items-center gap-2 font-display font-semibold text-sm">
+          <ChevronDown className="h-4 w-4" />Personalização avançada
+        </summary>
+        <div className="space-y-6 pt-4">
       <EditableList
         label="Tipos"
         items={settings.tipos}
@@ -467,6 +462,8 @@ export default function SettingsPage() {
         onRemove={v => updateSettings({ agendaTypes: settings.agendaTypes.filter(t => t !== v) })}
         onReorder={next => updateSettings({ agendaTypes: next })}
       />
+        </div>
+      </details>
     </div>
   );
 }

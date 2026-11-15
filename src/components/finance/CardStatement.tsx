@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { localTodayISO } from '@/lib/dates';
+import { shiftMonthISO } from '@/lib/billsByDue';
 import { ChevronLeft, ChevronRight, Wallet, AlertCircle, Layers, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { formatBRL, type FinTransaction } from '@/types/finance';
@@ -43,17 +45,15 @@ export function CardStatement({ cardId, initialMonthISO }: Props) {
   if (!card) return null;
 
   const shiftMonth = (delta: number) => {
-    const [y, m] = monthISO.split('-').map(Number);
-    const d = new Date(y, m - 1 + delta, 1);
-    setMonthISO(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    setMonthISO(shiftMonthISO(monthISO, delta));
     setShowAllPurchases(false);
   };
 
   const statusBadge = {
     open: <Badge variant="secondary" className="text-[10px]">Em aberto</Badge>,
     closed: <Badge variant="destructive" className="text-[10px]">Fechada · a pagar</Badge>,
-    partial: <Badge className="text-[10px] bg-amber-500/20 text-amber-500 hover:bg-amber-500/30">Paga em parte</Badge>,
-    paid: <Badge className="text-[10px] bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30">Paga</Badge>,
+    partial: <Badge className="text-[10px] bg-accent/10 text-accent hover:bg-accent/20">Paga em parte</Badge>,
+    paid: <Badge className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20">Paga</Badge>,
   }[statement.status];
 
 
@@ -61,11 +61,11 @@ export function CardStatement({ cardId, initialMonthISO }: Props) {
     <div className="space-y-3">
       {/* Navegador de competência */}
       <div className="flex items-center justify-between rounded-xl bg-muted/40 px-1.5 py-1">
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => shiftMonth(-1)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" aria-label="Fatura anterior" onClick={() => shiftMonth(-1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="text-xs font-medium text-foreground capitalize">{fmtMonth(monthISO)}</div>
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => shiftMonth(1)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" aria-label="Próxima fatura" onClick={() => shiftMonth(1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -105,9 +105,6 @@ export function CardStatement({ cardId, initialMonthISO }: Props) {
           )}
         </div>
 
-        <p className="pt-1 border-t border-border/60 text-[10.5px] text-muted-foreground">
-          Fechou com outro valor? Importe o PDF da fatura e as compras entram exatamente como o banco cobrou.
-        </p>
       </div>
 
       {breakdown.length > 0 && (
@@ -123,7 +120,7 @@ export function CardStatement({ cardId, initialMonthISO }: Props) {
                     <span className="h-2 w-2 rounded-full shrink-0" style={{ background: row.color }} />
                     <span className="text-foreground truncate">{row.name}</span>
                     {row.deltaPct !== null && Math.abs(row.deltaPct) >= 5 && (
-                      <span className={`shrink-0 ${row.deltaPct > 0 ? 'text-destructive' : 'text-emerald-500'}`}>
+                      <span className={`shrink-0 ${row.deltaPct > 0 ? 'text-destructive' : 'text-primary'}`}>
                         {row.deltaPct > 0 ? '↑' : '↓'}{Math.abs(row.deltaPct).toFixed(0)}%
                       </span>
                     )}
@@ -151,10 +148,10 @@ export function CardStatement({ cardId, initialMonthISO }: Props) {
                   <div className="text-foreground font-medium truncate">{p.description}</div>
                   <div className="text-muted-foreground">
                     {p.paidCount}/{p.total} pagas · faltam {p.remaining}x de {formatBRL(p.installmentAmount)}
-                    {p.endsNextMonth && <span className="ml-1 text-amber-500">· acaba em breve</span>}
+                    {p.endsNextMonth && <span className="ml-1 text-accent">· acaba em breve</span>}
                   </div>
                 </div>
-                {p.endsNextMonth && <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                {p.endsNextMonth && <AlertCircle className="h-3.5 w-3.5 text-accent shrink-0" />}
               </div>
             ))}
           </div>
@@ -258,7 +255,7 @@ export function CardStatement({ cardId, initialMonthISO }: Props) {
           onClose={() => setExpenseOpen(false)}
           scope={card.scope}
           companyId={card.companyId || null}
-          prefill={{ kind: 'expense', cardId: card.id, occurredOn: new Date().toISOString().slice(0, 10) }}
+          prefill={{ kind: 'expense', cardId: card.id, occurredOn: localTodayISO() }}
         />
       )}
     </div>

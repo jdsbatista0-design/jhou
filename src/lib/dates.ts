@@ -1,3 +1,8 @@
+/** Calendar dates use the device's local day, not UTC's next/previous day. */
+export function localTodayISO(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export function getDatePart(value?: string): string {
   return value ? value.split('T')[0] : '';
 }

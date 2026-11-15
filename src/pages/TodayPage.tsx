@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Plus, Trash2, CalendarDays, Wallet, Repeat } from 'lucide-react';
+import { Check, Trash2, CalendarDays, Wallet, Repeat } from 'lucide-react';
 import { addDays, format, isSameDay, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { useCentral, AgendaEntry } from '@/contexts/CentralContext';
@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { parseLocalDateTime } from '@/lib/dates';
 import { formatBRL } from '@/types/finance';
-import { competenceForDueMonth, shiftMonthISO } from '@/lib/billsByDue';
+import { billsForDueMonth } from '@/lib/billsByDue';
+import CaptureAction from '@/components/CaptureAction';
 import AppointmentSheet from '@/components/AppointmentSheet';
 import AgendaCalendar from '@/components/agenda/AgendaCalendar';
 import { RecurringDeleteDialog, DeleteScope } from '@/components/RecurringDeleteDialog';
@@ -37,19 +38,11 @@ export default function TodayPage() {
   const billsByDay = useMemo(() => {
     const map = new Map<string, { id: string; title: string; amount: number }[]>();
     const push = (d: string, v: { id: string; title: string; amount: number }) => map.set(d, [...(map.get(d) || []), v]);
-    const base = format(new Date(), 'yyyy-MM');
-    for (const c of cards.filter(c => !c.archived)) {
-      for (let i = -1; i <= 2; i++) {
-        const st = getCardStatement(c.id, competenceForDueMonth(shiftMonthISO(base, i), c.closingDay, c.dueDay));
-        if (st.due && st.remaining > 0.009) push(st.due, { id: `card-${c.id}-${st.due}`, title: `Fatura ${c.name}`, amount: st.remaining });
-      }
-    }
-    for (const t of transactions) {
-      if (t.status !== 'pending' || t.cardId || t.kind === 'income' || t.kind === 'receivable') continue;
-      push(t.occurredOn, { id: `tx-${t.id}`, title: t.description, amount: t.amount });
+    for (const b of billsForDueMonth(cards, transactions, getCardStatement, format(day, 'yyyy-MM'))) {
+      if (!b.paid) push(b.dueOn, { id: b.key, title: b.title, amount: b.amount });
     }
     return map;
-  }, [cards, transactions, getCardStatement]);
+  }, [cards, transactions, getCardStatement, day]);
 
   const rows = useMemo<Row[]>(() => {
     const list: Row[] = agendaEntries
@@ -159,11 +152,7 @@ export default function TodayPage() {
       </div>
 
       {/* Botão único */}
-      <button onClick={() => setNewOpen(true)} aria-label="Novo compromisso"
-        className="fixed right-5 z-40 h-14 pl-5 pr-6 rounded-full bg-primary text-primary-foreground shadow-panel flex items-center gap-2 font-semibold"
-        style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}>
-        <Plus className="h-5 w-5" />Compromisso
-      </button>
+      <CaptureAction label="Compromisso" onClick={() => setNewOpen(true)} />
 
       <AppointmentSheet open={newOpen} onOpenChange={setNewOpen} defaultDate={ymd(day)} />
 

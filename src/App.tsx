@@ -1,7 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -84,11 +84,6 @@ const App = () => {
     );
   }
 
-  const withFinance = (node: React.ReactNode) => (
-    <FinanceProvider key={`finance-${session.user.id}`} userId={session.user.id}>
-      {node}
-    </FinanceProvider>
-  );
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -101,8 +96,10 @@ const App = () => {
               <Suspense fallback={<RouteFallback />}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/hoje" replace />} />
-                  <Route path="/hoje" element={withFinance(<TodayPage />)} />
-                  <Route path="/dinheiro" element={withFinance(<MoneyPage />)} />
+                  <Route element={<FinanceProvider key={`finance-${session.user.id}`} userId={session.user.id}><Outlet /></FinanceProvider>}>
+                    <Route path="/hoje" element={<TodayPage />} />
+                    <Route path="/dinheiro" element={<MoneyPage />} />
+                  </Route>
                   <Route path="/rotinas" element={<MemoryPage />} />
                   <Route path="/minha-semana" element={<MyWeekPage userId={session.user.id} />} />
                   <Route path="/items/:id" element={<ItemDetail />} />
