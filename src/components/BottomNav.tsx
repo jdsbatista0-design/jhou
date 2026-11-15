@@ -1,4 +1,4 @@
-import { CalendarDays, Wallet, Repeat, CalendarRange } from 'lucide-react';
+import { CalendarDays, Wallet, CalendarRange } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 const tabs = [
   { path: '/hoje', icon: CalendarDays, label: 'Hoje', prefetch: () => import('@/pages/TodayPage') },
   { path: '/dinheiro', icon: Wallet, label: 'Dinheiro', prefetch: () => import('@/pages/MoneyPage') },
-  { path: '/rotinas', icon: Repeat, label: 'Rotinas', prefetch: () => import('@/pages/MemoryPage') },
   { path: '/minha-semana', icon: CalendarRange, label: 'Minha semana', prefetch: () => import('@/pages/MyWeekPage') },
 ];
 

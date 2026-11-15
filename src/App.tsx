@@ -15,7 +15,6 @@ import Auth from "@/pages/Auth";
 const ItemDetail = lazy(() => import("@/pages/ItemDetail"));
 const TodayPage = lazy(() => import("@/pages/TodayPage"));
 const MoneyPage = lazy(() => import("@/pages/MoneyPage"));
-const MemoryPage = lazy(() => import("@/pages/MemoryPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const MyWeekPage = lazy(() => import("@/pages/MyWeekPage"));
 
@@ -32,7 +31,7 @@ const prefetchRoutes = () => {
   const kick = () => {
     import("@/pages/TodayPage");
     import("@/pages/MoneyPage");
-    import("@/pages/MemoryPage");
+    import("@/pages/MyWeekPage");
   };
   const idle = (window as any).requestIdleCallback;
   if (idle) idle(kick, { timeout: 500 }); else setTimeout(kick, 0);
@@ -100,14 +99,14 @@ const App = () => {
                     <Route path="/hoje" element={<TodayPage />} />
                     <Route path="/dinheiro" element={<MoneyPage />} />
                   </Route>
-                  <Route path="/rotinas" element={<MemoryPage />} />
+                  <Route path="/rotinas" element={<Navigate to="/minha-semana?aba=rotinas" replace />} />
                   <Route path="/minha-semana" element={<MyWeekPage userId={session.user.id} />} />
                   <Route path="/items/:id" element={<ItemDetail />} />
                   <Route path="/ajustes" element={<SettingsPage />} />
                   {/* Endereços antigos */}
                   {["/agenda", "/inbox", "/index"].map(p => <Route key={p} path={p} element={<Navigate to="/hoje" replace />} />)}
                   {["/contas", "/cartoes", "/financas"].map(p => <Route key={p} path={p} element={<Navigate to="/dinheiro" replace />} />)}
-                  {["/memoria", "/memory"].map(p => <Route key={p} path={p} element={<Navigate to="/rotinas" replace />} />)}
+                  {["/memoria", "/memory"].map(p => <Route key={p} path={p} element={<Navigate to="/minha-semana?aba=rotinas" replace />} />)}
                   {["/configuracoes", "/settings"].map(p => <Route key={p} path={p} element={<Navigate to="/ajustes" replace />} />)}
                   <Route path="*" element={<Navigate to="/hoje" replace />} />
                 </Routes>

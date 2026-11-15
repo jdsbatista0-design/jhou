@@ -24,7 +24,7 @@ const emptyForm = {
   routineTime: '08:00',
 };
 
-export default function MemoryPage() {
+export default function MemoryPage({ embedded = false }: { embedded?: boolean }) {
   const {
     memories, ensureMemoriesLoaded, addMemory, updateMemory, deleteMemory,
     addRecurrence, settings,
@@ -126,9 +126,9 @@ export default function MemoryPage() {
 
   return (
     <div className="space-y-5 pb-6">
-      <div>
+      {!embedded && <div>
         <h1 className="font-display text-2xl font-bold">Rotinas</h1>
-      </div>
+      </div>}
 
       {rotinas.length > 6 && (
         <div className="relative">
