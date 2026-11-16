@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, FileUp, Plus, ChevronDown, Settings2, Tags, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileUp, Plus, ChevronDown, Settings2, Tags, Check, Trash2 } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,8 @@ const dayLabel = (ymd: string) => new Date(ymd + 'T00:00:00').toLocaleDateString
 
 export default function MoneyPage() {
   const fin = useFinance();
-  const { cards, transactions, categories, getCardStatement, getUncategorized, updateTransaction, addCardPayment, scope, setScope } = fin;
+  const { cards, transactions, categories, getCardStatement, getUncategorized, updateTransaction, addCardPayment, scope, setScope,
+    recurrences, updateRecurrence, deleteRecurrence, deleteTransaction } = fin;
   useEffect(() => { if (scope !== 'pf') setScope('pf'); }, [scope, setScope]);
 
   const nowMonth = localTodayISO().slice(0, 7);
@@ -46,6 +47,10 @@ export default function MoneyPage() {
   const [newOpen, setNewOpen] = useState(false);
   const [classifyOpen, setClassifyOpen] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [editing, setEditing] = useState<Bill | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editValue, setEditValue] = useState('');
+  const [editDay, setEditDay] = useState('');
 
   /** Faturas e contas fixas que vencem no mês (e atrasadas, no mês atual). */
   const bills = useMemo(() => billsForDueMonth(active, transactions, getCardStatement, month, isNow),
@@ -105,15 +110,55 @@ export default function MoneyPage() {
     setPaying(null);
   };
 
+  const startEdit = (b: Bill) => {
+    setEditing(b);
+    setEditName(b.title);
+    setEditValue(maskBRLInput(String(Math.round(b.amount * 100))));
+    setEditDay(String(Number(b.dueOn.slice(8, 10))));
+  };
+
+  const saveEdit = async () => {
+    if (!editing?.tx) return;
+    const amount = parseBRLInput(editValue);
+    const day = Math.min(31, Math.max(1, parseInt(editDay, 10) || 1));
+    const name = editName.trim();
+    if (!name || amount <= 0) { toast.error('Confira nome e valor.'); return; }
+    const newDate = `${editing.tx.occurredOn.slice(0, 7)}-${String(day).padStart(2, '0')}`;
+    if (editing.tx.recurrenceId) {
+      await updateRecurrence(editing.tx.recurrenceId, { description: name, amount, dayOfMonth: day });
+    }
+    await updateTransaction(editing.tx.id, { description: name, amount, occurredOn: newDate });
+    toast.success('Conta atualizada');
+    setEditing(null);
+  };
+
+  const removeThisMonth = async () => {
+    if (!editing?.tx) return;
+    await deleteTransaction(editing.tx.id);
+    toast.success(`${editing.title} removida deste mês`);
+    setEditing(null);
+  };
+
+  const removeForever = async () => {
+    if (!editing?.tx) return;
+    if (editing.tx.recurrenceId) {
+      await deleteRecurrence(editing.tx.recurrenceId, true);
+    } else {
+      await deleteTransaction(editing.tx.id);
+    }
+    toast.success(`${editing.title} excluída`);
+    setEditing(null);
+  };
+
   const BillRow = ({ b }: { b: Bill }) => {
     const late = !b.paid && b.dueOn < today;
     return (
       <div className={cn('flex items-center gap-3 rounded-2xl border bg-card p-4', late ? 'border-accent/50' : 'border-border', b.paid && 'opacity-70')}>
-        <button className="flex-1 min-w-0 text-left" disabled={b.kind !== 'card'} onClick={() => b.kind === 'card' && setOpenInvoice(b)}
-          aria-label={b.kind === 'card' ? `Abrir ${b.title}` : b.title}>
+        <button className="flex-1 min-w-0 text-left" onClick={() => b.kind === 'card' ? setOpenInvoice(b) : startEdit(b)}
+          aria-label={b.kind === 'card' ? `Abrir ${b.title}` : `Editar ${b.title}`}>
           <p className="font-semibold text-[15px] truncate">{b.title}</p>
           <p className={cn('text-xs mt-0.5', late ? 'text-accent font-semibold' : 'text-muted-foreground')}>
-            {b.paid ? 'Paga' : late ? 'Atrasada' : 'Vence'} · {dayLabel(b.dueOn)}{b.kind === 'card' ? ' · ver compras' : ''}
+            {b.paid ? 'Paga' : late ? 'Atrasada' : 'Vence'} · {dayLabel(b.dueOn)}{b.kind === 'card' ? ' · ver compras' : ' · tocar para editar'}
           </p>
           <p className="font-display text-lg font-bold mt-1" data-mono>{formatBRL(b.amount)}</p>
         </button>
@@ -232,6 +277,41 @@ export default function MoneyPage() {
               <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="h-12 rounded-2xl" />
             </div>
             <Button onClick={confirmPay} className="w-full h-14 rounded-2xl text-base font-semibold">Confirmar pagamento</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Editar conta fixa */}
+      <Sheet open={!!editing} onOpenChange={v => { if (!v) setEditing(null); }}>
+        <SheetContent side="bottom" className="rounded-t-3xl pb-10">
+          <SheetHeader className="text-left"><SheetTitle className="font-display text-lg">Editar {editing?.title}</SheetTitle></SheetHeader>
+          <div className="mt-4 space-y-4">
+            <div>
+              <label className="text-xs text-muted-foreground">Nome</label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-12 rounded-2xl" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Valor</label>
+                <Input inputMode="numeric" value={editValue} onChange={e => setEditValue(maskBRLInput(e.target.value))} className="h-12 rounded-2xl" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Dia do vencimento</label>
+                <Input inputMode="numeric" value={editDay} onChange={e => setEditDay(e.target.value.replace(/\D/g, '').slice(0, 2))} className="h-12 rounded-2xl" />
+              </div>
+            </div>
+            {editing?.tx?.recurrenceId && (
+              <p className="text-xs text-muted-foreground">Conta fixa: a mudança vale para os próximos meses também.</p>
+            )}
+            <Button onClick={saveEdit} className="w-full h-14 rounded-2xl text-base font-semibold">Salvar</Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" onClick={removeThisMonth} className="h-12 rounded-2xl text-sm">
+                <Trash2 className="h-4 w-4 mr-1.5" />Só este mês
+              </Button>
+              <Button variant="outline" onClick={removeForever} className="h-12 rounded-2xl text-sm text-destructive border-destructive/40">
+                <Trash2 className="h-4 w-4 mr-1.5" />Excluir conta
+              </Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
