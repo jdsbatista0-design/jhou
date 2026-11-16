@@ -132,6 +132,13 @@ export default function MoneyPage() {
     setEditing(null);
   };
 
+  const unpay = async () => {
+    if (!editing?.tx) return;
+    await updateTransaction(editing.tx.id, { status: 'pending' });
+    toast.success(`${editing.title} voltou para a pagar`);
+    setEditing(null);
+  };
+
   const removeThisMonth = async () => {
     if (!editing?.tx) return;
     await deleteTransaction(editing.tx.id);
@@ -304,6 +311,11 @@ export default function MoneyPage() {
               <p className="text-xs text-muted-foreground">Conta fixa: a mudança vale para os próximos meses também.</p>
             )}
             <Button onClick={saveEdit} className="w-full h-14 rounded-2xl text-base font-semibold">Salvar</Button>
+            {editing?.paid && (
+              <Button variant="secondary" onClick={unpay} className="w-full h-12 rounded-2xl text-sm font-semibold">
+                Desfazer pagamento (volta para a pagar)
+              </Button>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Button variant="outline" onClick={removeThisMonth} className="h-12 rounded-2xl text-sm">
                 <Trash2 className="h-4 w-4 mr-1.5" />Só este mês
